@@ -4,7 +4,7 @@
 #include <Arrays\List.mqh>
 #include <Arrays\ArrayObj.mqh>
 
-
+#include "Log.mqh"
 ///
 /// ”казывает тип используемых координат.
 ///
@@ -134,3 +134,9 @@ class GNode : CObject
       ///
       SizeNode size;
 };
+
+bool GNode::Move(CoordinateNode *newCoordinates)
+{
+   LogWriter(__FUNCSIG__ + " " + __LINE__, L0);
+   return true;
+}
