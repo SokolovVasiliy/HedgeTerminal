@@ -10,11 +10,16 @@
 #property version   "1.001"
 
 #include "Log.mqh"
+#include "hpgui.mqh"
 
 ///
 /// Скорость обновления панели
 ///
 input int RefreshRate = 1;
+///
+/// Центральная панель
+///
+Panel myPanel;
 
 ///
 /// Инициализирует HedgePanel
@@ -22,6 +27,8 @@ input int RefreshRate = 1;
 void OnInit(void)
 {
    EventSetTimer(RefreshRate);
+   Print("Инициализация...");
+   myPanel.Init();
 }
 
 ///
@@ -29,7 +36,8 @@ void OnInit(void)
 ///
 void OnDeinit(const int reason)
 {
-   LogWriter("Deinit HedgePanel©. Reason id: " + reason, L2);
+   LogWriter("Deinit HedgePanel©. Reason id: " + (string)reason, L2);
+   myPanel.Deinit();
    EventKillTimer();
 }
 ///
