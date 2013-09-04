@@ -4,7 +4,7 @@
 //|                                           e-mail: vs-box@mail.ru |
 //|                              https://login.mql5.com/ru/users/c-4 |
 //+------------------------------------------------------------------+
-
+#include <Arrays\ArrayString.mqh>
 ///
 /// Определяет пустой путь вывода. Сообщение выведено не будет
 ///
@@ -25,48 +25,89 @@
 int CurrentOutput = MESSAGE_FILE | MESSAGE_TERMINAL;
 
 ///
-/// Определяет уровень сообщения/
+/// Определяет уровень сообщения.
 ///
 enum ENUM_MESSAGE_LEVEL
 {
    ///
-   /// Наиболее подробный уровень сообщений. В лог помимо прочего, выводятся сообщения входов в функции.
+   /// Выводятся информационные, предупреждающие сообщения и сообщения об ошибках.
    ///
-   L0,
+   INFO_AND_MORE,
    ///
-   /// В лог выводятся сообщения возникающие в случае возникновения локальных событий, например, перемещение графических узлов
-   /// или переразметка графического окна.
-   L1,
+   /// Выводятся предупреждающие сообщения и сообщения об ошибках.
    ///
-   /// В лог выводятся только важные сообщения влияющие на работу системы.
+   WARNING_AND_MORE,
    ///
-   L2,
+   /// Выводятся только сообщения об ошибках
    ///
-   /// В лог выводятся сообщения возникающие в случае возникновения критических ситуаций.
+   ERROR_ONLY,
    ///
-   L3
+   ///
+   ///
+   NOTHING_MESSAGE
 };
 
 ///
-/// Текущий уровень сообщений
+/// Тип выводимого сообщения.
 ///
-ENUM_MESSAGE_LEVEL MessageLevel = L0;
+enum ENUM_MESSAGE_TYPE
+{
+   ///
+   /// Информационное сообщение.
+   ///
+   MESSAGE_TYPE_INFO,
+   ///
+   /// Предупреждающее сообщение.
+   ///
+   MESSAGE_TYPE_WARNING,
+   ///
+   /// Сообщение об ошибке.
+   ///
+   MESSAGE_TYPE_ERROR
+};
 
 ///
 /// Записывает сообщение в лог (текстовой файл)
 ///
-void LogWriter(string message, ENUM_MESSAGE_LEVEL level)
+void LogWriter(string message, ENUM_MESSAGE_TYPE type)
 {
-   // Если сообщение меньше текущего уровня вывода, дабы не засорять логи и терминал, пропускаем его.
-   if(level < MessageLevel || CurrentOutput == MESSAGE_NOTHING)return;
+   if(type == MESSAGE_TYPE_ERROR && _LastError != 0)
+   {
+      message += " LastError: " + (string)_LastError;
+      ResetLastError();
+   }
    // Если включен вывод в файл - открываем файл и записываем в него сообщение.
    if((CurrentOutput & MESSAGE_FILE) == MESSAGE_FILE)
    {
       return;
    }
    // Если включен вывод в терминал - записываем сообщение в терминал.
+   // В дальнейшем вывод будет осуществлятся в собственную лог-таблицу.
    if((CurrentOutput & MESSAGE_TERMINAL) == MESSAGE_TERMINAL)
    {
       Print(message);
    }
 }
+
+
+
+CArrayString logs;
+
+CArrayString* TraceGetStack()
+{
+   return GetPointer(logs);
+}
+
+void TracePop()
+{
+   int total = logs.Total();
+   if(total > 0)
+      logs.Delete(total-1);
+}
+
+void TracePush(string fname)
+{
+   logs.Add(fname);
+}
+
+

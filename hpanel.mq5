@@ -16,19 +16,26 @@
 /// Скорость обновления панели
 ///
 input int RefreshRate = 1;
-///
-/// Центральная панель
-///
-Panel myPanel;
 
 ///
-/// Инициализирует HedgePanel
+/// Центральная форма панели.
+///
+GeneralForm PanelForm;
+
+///
+/// Инициализирующая функция.
 ///
 void OnInit(void)
 {
+   Print("Инициализация советника");
+   // Инициализируем систему логирования.
    EventSetTimer(RefreshRate);
-   Print("Инициализация...");
-   myPanel.Init();
+   long X;     // Текущая ширина окна индикатора
+   long Y;     // Текущая высота окна индикатора
+   X = ChartGetInteger(MAIN_WINDOW, CHART_WIDTH_IN_PIXELS, MAIN_SUBWINDOW);
+   Y = ChartGetInteger(MAIN_WINDOW, CHART_HEIGHT_IN_PIXELS, MAIN_SUBWINDOW);
+   PanelForm.Resize(X, Y);
+   //PanelForm.SetVisible(true);
 }
 
 ///
@@ -36,8 +43,6 @@ void OnInit(void)
 ///
 void OnDeinit(const int reason)
 {
-   LogWriter("Deinit HedgePanel©. Reason id: " + (string)reason, L2);
-   myPanel.Deinit();
    EventKillTimer();
 }
 ///
@@ -46,4 +51,23 @@ void OnDeinit(const int reason)
 void OnTimer(void)
 {
    
+}
+///
+/// Подстраиваем размер главной формы панели под размер текущего окна
+///
+void OnChartEvent(const int id,
+                  const long &lparam,
+                  const double &dparam,
+                  const string &sparam)
+{
+   long X;     // Текущая ширина окна индикатора
+   long Y;     // Текущая высота окна индикатора
+   switch(id)
+   {
+      case CHARTEVENT_CHART_CHANGE:
+         X = ChartGetInteger(MAIN_WINDOW, CHART_WIDTH_IN_PIXELS, MAIN_SUBWINDOW);
+         Y = ChartGetInteger(MAIN_WINDOW, CHART_HEIGHT_IN_PIXELS, MAIN_SUBWINDOW);
+         Print("Получены новые размеры окна: " + (string)X + ":" + (string)Y);
+         PanelForm.Resize(X, Y); 
+   }
 }
