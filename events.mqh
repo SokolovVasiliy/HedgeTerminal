@@ -1,21 +1,19 @@
 /*
   Идентификаторы событий и их параметры
 */
+
+//#define TERMINAL_IDNAME "dddd"
 enum ENUM_EVENT_DIRECTION
 {
    ///
-   /// Внешнее событие. Идет от верхнего узла до нижнего.
+   /// Внешнее событие. Идет от верхнего узла к нижнему.
    ///
-   EVENT_EXTERN,
+   EVENT_FROM_UP,
    ///
-   /// Внутреннее событие. Идет от нижнего узла к более верхнему высокому.
+   /// Внутреннее событие. Идет от нижнего узла к верхнему.
    ///
-   EVENT_INNER
+   EVENT_FROM_DOWN
 };
-///
-/// 
-///
-#define EVENT_INER 1
 ///
 /// Идентификатор события "Размер графического узла изменен".
 ///
@@ -47,7 +45,7 @@ class Event
       {
          return eventDirection;
       }
-      int GetEventId(){return eventId;}
+      int EventId(){return eventId;}
       ///
       /// Набор параметров любого из события, обязательно содержит имя
       /// графического узла, который это событие инициализировал.
@@ -78,9 +76,9 @@ class Event
 class EventVisible : Event
 {
    public:
-      bool GetVisible(){return isVisible;}
-      EventVisible(ENUM_EVENT_DIRECTION myeventDirection, int myEventId, string mynameId, bool visible) :
-      Event(myeventDirection, myEventId, mynameId)
+      bool Visible(){return isVisible;}
+      EventVisible(ENUM_EVENT_DIRECTION myeventDirection, string mynameId, bool visible) :
+      Event(myeventDirection, EVENT_NODE_VISIBLE, mynameId)
       {
          isVisible = visible;
       }
@@ -93,10 +91,10 @@ class EventVisible : Event
 class EventResize : Event
 {
    public:
-      long GetNewWidth(){return myWidth;}
-      long GetNewHigh(){return myHigh;}
-      EventResize(ENUM_EVENT_DIRECTION myeventDirection, int myEventId, string mynameId ,long newWidth, long newHigh) :
-      Event(myeventDirection, myEventId, mynameId)
+      long NewWidth(){return myWidth;}
+      long NewHigh(){return myHigh;}
+      EventResize(ENUM_EVENT_DIRECTION myeventDirection, string mynameId ,long newWidth, long newHigh) :
+      Event(myeventDirection, EVENT_NODE_RESIZE, mynameId)
       {
          myWidth = newWidth;
          myHigh = newHigh;
@@ -112,8 +110,8 @@ class EventNewTick : Event
 {
    public:
       double GetNewTick(){return myTick;}
-      EventNewTick(ENUM_EVENT_DIRECTION myeventDirection, int myEventId, string mynameId , double newTick) :
-      Event(myeventDirection, myEventId, mynameId)
+      EventNewTick(ENUM_EVENT_DIRECTION myeventDirection, string mynameId , double newTick) :
+      Event(myeventDirection, EVENT_NEW_TICK, mynameId)
       {
          myTick = newTick;
       }

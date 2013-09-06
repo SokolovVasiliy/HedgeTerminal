@@ -11,16 +11,15 @@
 
 #include "Log.mqh"
 #include "hpgui.mqh"
+#include "gnode.mqh"
 
 ///
 /// Скорость обновления панели
 ///
 input int RefreshRate = 1;
 
-///
-/// Центральная форма панели.
-///
-GeneralForm PanelForm;
+
+MainForm form;
 
 ///
 /// Инициализирующая функция.
@@ -34,8 +33,10 @@ void OnInit(void)
    long Y;     // Текущая высота окна индикатора
    X = ChartGetInteger(MAIN_WINDOW, CHART_WIDTH_IN_PIXELS, MAIN_SUBWINDOW);
    Y = ChartGetInteger(MAIN_WINDOW, CHART_HEIGHT_IN_PIXELS, MAIN_SUBWINDOW);
-   PanelForm.Resize(X, Y);
-   //PanelForm.SetVisible(true);
+   form.Event(new EventResize(EVENT_FROM_UP, "TERMINAL_WINDOW", X, Y));
+   form.Event(new EventVisible(EVENT_FROM_UP, "TERMINAL_WINDOW", true));
+   //for(char ch = 0; ch < 256; ch++)
+   //   Print(ch + " - " + CharToString(ch));
 }
 
 ///
@@ -50,7 +51,7 @@ void OnDeinit(const int reason)
 ///
 void OnTimer(void)
 {
-   
+   //Print(TERMINAL_NAME);
 }
 ///
 /// Подстраиваем размер главной формы панели под размер текущего окна
@@ -68,6 +69,7 @@ void OnChartEvent(const int id,
          X = ChartGetInteger(MAIN_WINDOW, CHART_WIDTH_IN_PIXELS, MAIN_SUBWINDOW);
          Y = ChartGetInteger(MAIN_WINDOW, CHART_HEIGHT_IN_PIXELS, MAIN_SUBWINDOW);
          Print("Получены новые размеры окна: " + (string)X + ":" + (string)Y);
-         PanelForm.Resize(X, Y); 
+         //PanelForm.Resize(X, Y);
+         form.Event(new EventResize(EVENT_FROM_UP, "TERMINAL_WINDOW", X, Y));
    }
 }

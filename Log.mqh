@@ -73,13 +73,13 @@ void LogWriter(string message, ENUM_MESSAGE_TYPE type)
 {
    if(type == MESSAGE_TYPE_ERROR && _LastError != 0)
    {
-      message += " LastError: " + (string)_LastError;
+      message += ". LastError: " + (string)_LastError;
       ResetLastError();
    }
    // Если включен вывод в файл - открываем файл и записываем в него сообщение.
    if((CurrentOutput & MESSAGE_FILE) == MESSAGE_FILE)
    {
-      return;
+      //return;
    }
    // Если включен вывод в терминал - записываем сообщение в терминал.
    // В дальнейшем вывод будет осуществлятся в собственную лог-таблицу.
