@@ -50,7 +50,15 @@ class Event
       /// Набор параметров любого из события, обязательно содержит имя
       /// графического узла, который это событие инициализировал.
       ///
-      string GetNameNodeId(){return nameNodeId;}
+      string NameNodeId(){return nameNodeId;}
+      ///
+      /// Создает точную копию события и возвращает ссылку для него.
+      ///
+      virtual Event* Clone()
+      {
+         return new Event(eventDirection, eventId, nameNodeId);
+      }
+      
    // Непосредствено создать класс может только его потомок, т.е. класс является абстрактным и
    // его конструктор защищен от внешнего вызова.
    protected:
@@ -82,6 +90,10 @@ class EventVisible : Event
       {
          isVisible = visible;
       }
+      virtual Event* Clone()
+      {
+         return new EventVisible(Direction(), NameNodeId(), isVisible);
+      }
    private:
       bool isVisible;
 };
@@ -99,6 +111,10 @@ class EventResize : Event
          myWidth = newWidth;
          myHigh = newHigh;
       }
+      virtual Event* Clone()
+      {
+         return new EventResize(Direction(), NameNodeId(), myWidth, myHigh);
+      }
    private:
       long myWidth;
       long myHigh;
@@ -114,6 +130,10 @@ class EventNewTick : Event
       Event(myeventDirection, EVENT_NEW_TICK, mynameId)
       {
          myTick = newTick;
+      }
+      virtual Event* Clone()
+      {
+         return new EventNewTick(Direction(), NameNodeId(), myTick);
       }
    private:
       double myTick;

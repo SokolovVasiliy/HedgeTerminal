@@ -11,7 +11,7 @@
 
 #include "Log.mqh"
 #include "hpgui.mqh"
-#include "gnode.mqh"
+#include "gelements.mqh"
 
 ///
 /// Скорость обновления панели
@@ -19,7 +19,8 @@
 input int RefreshRate = 1;
 
 
-MainForm form;
+MainForm HedgePanel;
+//Table TableOfOpenPos("op", GetPointer(form));
 
 ///
 /// Инициализирующая функция.
@@ -33,8 +34,8 @@ void OnInit(void)
    long Y;     // Текущая высота окна индикатора
    X = ChartGetInteger(MAIN_WINDOW, CHART_WIDTH_IN_PIXELS, MAIN_SUBWINDOW);
    Y = ChartGetInteger(MAIN_WINDOW, CHART_HEIGHT_IN_PIXELS, MAIN_SUBWINDOW);
-   form.Event(new EventResize(EVENT_FROM_UP, "TERMINAL_WINDOW", X, Y));
-   form.Event(new EventVisible(EVENT_FROM_UP, "TERMINAL_WINDOW", true));
+   HedgePanel.Event(new EventResize(EVENT_FROM_UP, "TERMINAL_WINDOW", X, Y));
+   HedgePanel.Event(new EventVisible(EVENT_FROM_UP, "TERMINAL_WINDOW", true));
    //for(char ch = 0; ch < 256; ch++)
    //   Print(ch + " - " + CharToString(ch));
 }
@@ -70,6 +71,6 @@ void OnChartEvent(const int id,
          Y = ChartGetInteger(MAIN_WINDOW, CHART_HEIGHT_IN_PIXELS, MAIN_SUBWINDOW);
          Print("Получены новые размеры окна: " + (string)X + ":" + (string)Y);
          //PanelForm.Resize(X, Y);
-         form.Event(new EventResize(EVENT_FROM_UP, "TERMINAL_WINDOW", X, Y));
+         HedgePanel.Event(new EventResize(EVENT_FROM_UP, "TERMINAL_WINDOW", X, Y));
    }
 }

@@ -12,6 +12,52 @@
 ///
 #define MAIN_SUBWINDOW 0
 
+///
+/// Тип элемента графического интерфейса.
+///
+enum ENUM_ELEMENT_TYPE
+{
+   ///
+   /// Элемент графического интерфейса "Форма".
+   ///
+   ELEMENT_TYPE_FORM,
+   ///
+   /// Элемент графического интерфейса "Таблица".
+   ///
+   ELEMENT_TYPE_TABLE,
+   ///
+   /// Элемент графического интерфейса "Заголовок формы".
+   ///
+   ELEMENT_TYPE_FORM_HEADER,
+   ///
+   /// Элемент графического интерфейса "Кнопка".
+   ///
+   ELEMENT_TYPE_BOTTON,
+   ///
+   /// Элемент графического интерфейса "Вкладка".
+   ///
+   ELEMENT_TYPE_TAB,
+   ///
+   /// Элемент графического интерфейса "Заголовок колонки таблицы".
+   ///
+   ELEMENT_TYPE_HEAD_COLUMN
+};
+
+///
+/// Контекст передваемых координат для функции Move().
+///
+enum ENUM_COOR_CONTEXT
+{
+   ///
+   /// Текущие координаты задаются относительно левого верхнего угла окна терминала.
+   ///
+   COOR_GLOBAL,
+   ///
+   /// Текущие координаты задаются относительно левого верхнего угла родительского узла.
+   ///
+   COOR_LOCAL
+};
+
 class ProtoNode : CObject
 {
    public:
@@ -47,25 +93,71 @@ class ProtoNode : CObject
       /// до левого верхнего угла окна терминала.
       /// \return Расстояние в пунктах по оси Х.
       ///
-      long AbsXDistance(){return xAbsDist;}
+      long XDistance(){return xDist;}
       ///
       /// Возвращает расстояние по вертикали от левого верхнего угла графического узла
       /// до левого верхнего угла окна терминала.
       /// \return Расстояние в пунктах по оси Y.
       ///
-      long AbsYDistance(){return yAbsDist;}
+      long YDistance(){return yDist;}
       ///
       /// Возвращает расстояние по горизонтали от левого верхнего угла графического узла
       /// до левого верхнего угла родительского графического узла.
       /// \return Расстояние в пунктах по оси X.
       ///
-      long ParXDistance(){return xParDist;}
+      long XParDistance()
+      {
+         if(parentNode != NULL)
+            return parentNode.XDistance();
+         else return 0;
+      }
       ///
       /// Возвращает расстояние по вертикали от левого верхнего угла графического узла
       /// до левого верхнего угла родительского графического узла.
       /// \return Расстояние в пунктах по оси Y.
       ///
-      long ParYDistance(){return yParDist;}
+      long YParDistance()
+      {
+         if(parentNode != NULL)
+            return parentNode.YDistance();
+         else return 0;
+      }
+      ///
+      /// Возвращает ширину родительского графического узла. Если родительский
+      /// графический узел не задан - возвращает 0.
+      ///
+      long ParWidth()
+      {
+         if(parentNode != NULL)
+            return parentNode.Width();
+         else return 0;
+      }
+      ///
+      /// Возвращает высоту родительского графического узла. Если родительский
+      /// графический узел не задан - возвращает 0.
+      ///
+      long ParHigh()
+      {
+         if(parentNode != NULL)
+            return parentNode.High();
+         else return 0;
+      }
+      ///
+      /// Возвращает имя графического узла.
+      /// \retrurn name - Имя графического узла.
+      ///
+      string Name(){return name;}
+      ///
+      /// Конструктор объекта.
+      /// \param mytype - Тип графического объекта, лежащего в основе графического узла.
+      /// \param myclassName - Класс, к которому принадлежит графический узел.
+      /// \param myname - Название графического узла.
+      /// \param parNode - Родительский узел, внутри которого располагается текущий узел.
+      ///
+      ProtoNode(ENUM_OBJECT mytype, ENUM_ELEMENT_TYPE myElementType, string myname, ProtoNode* parNode)
+      {
+         Init(mytype, myElementType, myname, parNode);
+      }
    protected:
       ///
       /// Устанавливает новый размер текущего графического узла.
@@ -108,6 +200,26 @@ class ProtoNode : CObject
          return res;
       }
       ///
+      /// Переразмечает графический узел.
+      /// \param UpBorder - Расстояние между верхней границей графического узла и верхней границей родительского графического узла.
+      /// \param LeftBorder - Расстояние между левой границей графического узла и левой границей родительского графического узла.
+      /// \param RightBorder - Расстояние между правой границей графического узла и правой границей родительского графического узла.
+      /// \param DnBorder - Расстояние между нижней границей графического узла и нижней границей родительского графического узла.
+      ///
+      bool Resize(long UpBorder, long LeftBorder, long DnBorder, long RightBorder)
+      {
+         Move(LeftBorder, UpBorder);
+         //Зная границы графического объекта, можно рассчитать его размер аналитически.
+         long newWidth, newHigh;
+         long X = parentNode == NULL ? ChartGetInteger(MAIN_WINDOW, CHART_WIDTH_IN_PIXELS, MAIN_SUBWINDOW):
+                                       parentNode.Width();
+         long Y = parentNode == NULL ? ChartGetInteger(MAIN_WINDOW, CHART_HEIGHT_IN_PIXELS, MAIN_SUBWINDOW):
+                                       parentNode.High();
+         newWidth = X - XDistance() - RightBorder;
+         newHigh = Y - YDistance() - DnBorder;
+         return Resize(newWidth, newHigh);
+      }
+      ///
       /// Устанавливает видимость графического узла.
       /// \param status - Истина, если требуется отобразить графический узел в окне терминала,
       /// ложь - в противном случае.
@@ -120,7 +232,9 @@ class ProtoNode : CObject
          {
             //Генерируем новое имя всякий раз когда требуется отобразить элемент, гарантируя его уникальность.
             GenNameId();
-            visible = ObjectCreate(MAIN_WINDOW, nameId, ObjectType, MAIN_SUBWINDOW, xAbsDist, yAbsDist);
+            visible = ObjectCreate(MAIN_WINDOW, nameId, typeObject, MAIN_SUBWINDOW, XDistance(), YDistance());
+            //Перемещаем элемент в соответствии с его установленными координатами
+            Move(xDist, yDist);
             if(!visible)
                LogWriter("Failed visualize element " + nameId, MESSAGE_TYPE_ERROR);
             else
@@ -135,7 +249,69 @@ class ProtoNode : CObject
          else return false;
       }
       ///
-      /// Посылает событие в направлении, указанном в его типе.
+      /// Передвигает графический узел на новое место, задаваемое координатами по осям X и Y.
+      /// После перемещения на новые графические координаты, графический узел не должен выходить
+      /// за пределы родительского графического узла.
+      /// \param xCoordinate - Количество пикселей от левого верхнего угла графического узла, до
+      /// верхнего левого угла окна терминала по горизонтальной оси.
+      /// \param yCoordinate - Количество пикселей от левого верхнего угла графического узла, до
+      /// верхнего левого угла окна терминала по горизонтальной оси.
+      /// \param contex - Контекст переданных координат. 
+      /// \return Истина, если передвижение прошло успешно, ложь в противном случае.
+      ///
+      bool Move(long xCoordinate, long yCoordinate, ENUM_COOR_CONTEXT context = COOR_LOCAL)
+      {
+         //Переводим относительные координаты в абсолютные.
+         if(context == COOR_LOCAL && parentNode != NULL)
+         {
+            xCoordinate = xCoordinate + XParDistance();
+            yCoordinate = yCoordinate + YParDistance();
+         }
+         // Проверяем, не выйдут ли за пределы родительского узла новые
+         // графические координаты.
+         if(parentNode != NULL)
+         {
+            long xParDist = XParDistance();
+            long yParDist = YParDistance();
+            if(xCoordinate < xParDist)
+               xCoordinate = xParDist;
+            if(yCoordinate < yParDist)
+               yCoordinate = xParDist;
+            if(xCoordinate + width > xParDist + parentNode.Width())
+               xCoordinate = xParDist + (parentNode.Width() - width);
+            if(yCoordinate + high > yParDist + parentNode.High())
+               yCoordinate = yParDist + (parentNode.High() - high);
+         }
+         // Фактически перемещаем узел только в том случае, если он отображается.
+         bool res = true;
+         if(Visible())
+         {
+            if(!ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_XDISTANCE, xCoordinate))
+            {
+               LogWriter("Failed move element " + nameId, MESSAGE_TYPE_ERROR);
+               res = false;
+            }
+            if(!ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_YDISTANCE, yCoordinate))
+            {
+               LogWriter("Failed move element " + nameId, MESSAGE_TYPE_ERROR); 
+               res = false;
+            }
+         }
+         //В случае неудачного перемещения объектов, запоминаем их фактоическое местоположение.
+         if(!res)
+         {
+            xDist = ObjectGetInteger(MAIN_WINDOW, NameID(), OBJPROP_XDISTANCE);
+            yDist = ObjectGetInteger(MAIN_WINDOW, NameID(), OBJPROP_XDISTANCE);
+         }
+         else
+         {
+            xDist = xCoordinate;
+            yDist = yCoordinate;
+         }
+         return res;
+      }
+      ///
+      /// Посылает копии переданного события в направлении, указанном в его типе. 
       /// \param event - Событие, которое требуется отослать.
       ///
       void EventSend(Event* event)
@@ -147,8 +323,11 @@ class ProtoNode : CObject
             for(int i = 0; i < childNodes.Total(); i++)
             {
                node = childNodes.At(i);
-               node.Event(event);
+               //Клонируем событие для каждого подузла
+               node.Event(event.Clone());
             }
+            // ? Оригинальное событие утилизируем.
+            //delete event;
          }
          //Событие идет снизу-вверх.
          if(event.Direction() == EVENT_FROM_DOWN)
@@ -169,12 +348,16 @@ class ProtoNode : CObject
       ///
       /// Тип объекта, лежащего в основе узла.
       ///
-      ENUM_OBJECT ObjectType;
+      ENUM_OBJECT typeObject;
       ///
       /// Имя графического узла, дающее представление о его назначении. Например:
       /// "GeneralForm" или "TableOfOpenPosition".
       ///
       string name;
+      ///
+      /// Тип элемента графического интерфейса, к которому принадлежит графический узел. 
+      ///
+      ENUM_ELEMENT_TYPE elementType;
    private:
       ///
       /// Уникальное имя-идентификатор графического узла.
@@ -198,23 +381,12 @@ class ProtoNode : CObject
       /// Расстояние по горизонтали от левого верхнего угла графического узла
       /// до левого верхнего угла окна терминала.
       ///
-      long xAbsDist;
+      long xDist;
       ///
       /// Расстояние по вертикали от левого верхнего угла графического узла
       /// до левого верхнего угла окна терминала.
       ///
-      long yAbsDist;
-      ///
-      /// Расстояние по горизонтали от левого верхнего угла графического узла
-      /// до левого верхнего угла родительского графического узла.
-      ///
-      long xParDist;
-      ///
-      /// Расстояние по вертикали от левого верхнего угла графического узла
-      /// до левого верхнего угла родительского графического узла.
-      ///
-      long yParDist;
-      
+      long yDist;
       ///
       /// Генерирует уникальное имя объекта
       ///
@@ -233,68 +405,21 @@ class ProtoNode : CObject
          }
          nameId += (string)index;
       }
-};
-///
-/// Основная форма панели.
-///
-class MainForm : public ProtoNode
-{
-   public:
       ///
-      /// Определяем реакцию на поступающие события.
+      /// Инициализатор объекта.
+      /// \param mytype - Тип графического объекта, лежащего в основе графического узла.
+      /// \param myclassName - Класс, к которому принадлежит графический узел.
+      /// \param myname - Название графического узла.
+      /// \param parNode - Родительский узел, внутри которого располагается текущий узел.
       ///
-      virtual void Event(Event *newEvent)
+      void Init(ENUM_OBJECT mytype, ENUM_ELEMENT_TYPE myElementType, string myname, ProtoNode* parNode)
       {
-         // Обрабатываем события приходящие сверху.
-         if(newEvent.Direction() == EVENT_FROM_UP)
-         {
-            switch(newEvent.EventId())
-            {
-               case EVENT_NODE_RESIZE:
-                  ResizeExtern(newEvent);
-                  break;
-               case EVENT_NODE_VISIBLE:
-                  VisibleExtern(newEvent);
-                  break;
-               //События которые не можем обработать отправляем дальше вниз.
-               default:
-                  EventSend(newEvent);
-            }
-         }
-      }
-      MainForm()
-      {
-         //В основе главной формы панели лежит "Прямоугольная метка";
-         ObjectType = OBJ_RECTANGLE_LABEL;
-         name = "HedgePanel";
-      }
-   private:
-      ///
-      /// Обработчик события 'видимость внешнего узла изменена'.
-      /// \param event - Событие типа 'видимость внешнего узла изменена'.
-      ///
-      void ResizeExtern(EventResize* event)
-      {
-         //Ширина формы не может быть меньше 100 пикселей.
-         long cwidth = event.NewWidth() < 100 ? 100 : event.NewWidth();
-         //Высота формы не может быть меньше 50 пикселей.
-         long chigh = event.NewHigh() < 50 ? 50 : event.NewWidth();
-         Resize(event.NewWidth(), event.NewHigh());
-         // Теперь, когда текущий узел переразмечен, старое событие утилизируем,
-         // а вместо него создаем новое событие "Размер этого графического узла изменен",
-         // и посылаем его всем дочерним элементам.
-         delete event;
-         EventSend(new EventResize(EVENT_FROM_UP, NameID(), Width(), High()));
-      }
-      ///
-      /// Обработчик события статус 'видимости внешнего узла изменен'.
-      /// \param event - Событие типа 'видимость внешнего узла изменена'.
-      ///
-      void VisibleExtern(EventVisible* event)
-      {
-         Visible(event.Visible());
-         delete event;
-         EventSend(new EventVisible(EVENT_FROM_UP, NameID(), Visible()));
+         if(parNode != NULL)
+            name = parNode.Name() + "-->" + myname;
+         elementType = myElementType;
+         parentNode = parNode;
+         typeObject = mytype;
       }
 };
+
 
