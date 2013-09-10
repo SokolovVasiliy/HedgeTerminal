@@ -171,11 +171,21 @@ class ProtoNode : CObject
          // границ родительского узла.
          if(parentNode != NULL)
          {
-            // Больше лимитов.
-            if(newWidth > parentNode.Width())
-               newWidth = parentNode.Width();
-            if(newHigh > parentNode.High())
-               newHigh = parentNode.High();
+            // 1. Узел не может располагаться выше верхней границы родительского узла.
+            //XDistance()
+            //XAbs
+            // 2. Узел не может располагаться ниже нижней границы родительского узла.
+            // 3. Узел не может быть левей левой границы родительского узла.
+            // 4. Узел не может быть правей правой границы родительского узла.
+            if(XParDistance() + newWidth > parentNode.Width())
+               newWidth = parentNode.Width() - XParDistance();
+            if(YParDistance() + newHigh > parentNode.High())
+            {
+               long h = parentNode.High();
+               long y = YParDistance();
+               newHigh = h - y;
+               //newHigh = parentNode.High() - YParDistance();
+            }
          }
          // Размер не может быть отрицательным.
          if(newWidth < 0)newWidth = 0;
@@ -305,8 +315,8 @@ class ProtoNode : CObject
          }
          else
          {
-            xDist = xCoordinate;
-            yDist = yCoordinate;
+            xDist = xCoordinate - XParDistance();
+            yDist = yCoordinate - YParDistance();
          }
          return res;
       }
@@ -324,7 +334,9 @@ class ProtoNode : CObject
             {
                node = childNodes.At(i);
                //Клонируем событие для каждого подузла
-               node.Event(event.Clone());
+               Event* ev = event.Clone();
+               node.Event(ev);
+               delete ev;
             }
             // ? Оригинальное событие утилизируем.
             //delete event;
@@ -336,7 +348,20 @@ class ProtoNode : CObject
                parentNode.Event(event);
          }
       }
-      
+      ///
+      /// Вызывается при деинициализации объекта
+      ///
+      virtual void Deinit(EventDeinit* event)
+      {
+         for(int i = 0; i < childNodes.Total(); i++)
+         {
+            ProtoNode* node = childNodes.At(i);
+            node.Event(event);
+            delete node;
+         }
+         childNodes.Shutdown();
+         Visible(false);
+      }
       ///
       /// Указатель на родительский графический узел.
       ///

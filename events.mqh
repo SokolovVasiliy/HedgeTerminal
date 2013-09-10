@@ -30,6 +30,14 @@ enum ENUM_EVENT_DIRECTION
 /// Идентификатор события "новый тик".
 ///
 #define EVENT_NEW_TICK 3
+///
+/// Идентификатор события "Инициализация эксперта".
+///
+#define EVENT_INIT 4
+///
+/// Идентификатор события "Деинициализация эксперта".
+///
+#define EVENT_DEINIT 5
 
 ///
 /// <b>Абстрактный базовый класс события.</b> Любое генерируемое событие должно иметь свой уникальный идентификатор,
@@ -79,7 +87,7 @@ class Event
       string nameNodeId;
 };
 ///
-/// Параметры события EVENT_NODE_VISIBLE
+/// Событие EVENT_NODE_VISIBLE
 ///
 class EventVisible : Event
 {
@@ -98,7 +106,7 @@ class EventVisible : Event
       bool isVisible;
 };
 ///
-/// Параметры события EVENT_NODE_RESIZE
+/// Событие EVENT_NODE_RESIZE
 ///
 class EventResize : Event
 {
@@ -120,7 +128,7 @@ class EventResize : Event
       long myHigh;
 };
 ///
-/// Параметры события EVENT_NEW_TICK
+/// События EVENT_NEW_TICK
 ///
 class EventNewTick : Event
 {
@@ -137,4 +145,28 @@ class EventNewTick : Event
       }
    private:
       double myTick;
+};
+
+class EventInit : Event
+{
+   public:
+      virtual Event* Clone()
+      {
+         return new EventInit();
+      }
+      EventInit():
+      Event(EVENT_FROM_UP, EVENT_INIT, "TERMINAL_WINDOW"){;}
+};
+///
+/// Событие "Деинициализация программы".
+///
+class EventDeinit : Event
+{
+   public:
+      virtual Event* Clone()
+      {
+         return new EventDeinit();
+      }
+      EventDeinit():
+      Event(EVENT_FROM_UP, EVENT_DEINIT, "TERMINAL_WINDOW"){;}
 };

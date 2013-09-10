@@ -19,7 +19,7 @@
 input int RefreshRate = 1;
 
 
-MainForm HedgePanel;
+MainForm* HedgePanel;
 //Table TableOfOpenPos("op", GetPointer(form));
 
 ///
@@ -30,23 +30,24 @@ void OnInit(void)
    Print("Инициализация советника");
    // Инициализируем систему логирования.
    EventSetTimer(RefreshRate);
+   HedgePanel = new MainForm();
    long X;     // Текущая ширина окна индикатора
    long Y;     // Текущая высота окна индикатора
    X = ChartGetInteger(MAIN_WINDOW, CHART_WIDTH_IN_PIXELS, MAIN_SUBWINDOW);
    Y = ChartGetInteger(MAIN_WINDOW, CHART_HEIGHT_IN_PIXELS, MAIN_SUBWINDOW);
-   HedgePanel.Event(new EventResize(EVENT_FROM_UP, "TERMINAL_WINDOW", X, Y));
-   HedgePanel.Event(new EventVisible(EVENT_FROM_UP, "TERMINAL_WINDOW", true));
-   //for(char ch = 0; ch < 256; ch++)
-   //   Print(ch + " - " + CharToString(ch));
+   EventInit* ei = new EventInit();
+   HedgePanel.Event(ei);
+   delete ei;
 }
-
-///
-/// Деинициализирует HedgePanel
-///
 void OnDeinit(const int reason)
 {
+   EventDeinit* ed = new EventDeinit();
+   HedgePanel.Event(ed);
+   delete ed;
+   delete HedgePanel;
    EventKillTimer();
 }
+
 ///
 /// Вызывает логику эксперта с определенной периодичностью.
 ///
@@ -62,15 +63,14 @@ void OnChartEvent(const int id,
                   const double &dparam,
                   const string &sparam)
 {
-   long X;     // Текущая ширина окна индикатора
-   long Y;     // Текущая высота окна индикатора
-   switch(id)
+   //Размеры базового окна изменились.
+   if(id == CHARTEVENT_CHART_CHANGE)
    {
-      case CHARTEVENT_CHART_CHANGE:
-         X = ChartGetInteger(MAIN_WINDOW, CHART_WIDTH_IN_PIXELS, MAIN_SUBWINDOW);
-         Y = ChartGetInteger(MAIN_WINDOW, CHART_HEIGHT_IN_PIXELS, MAIN_SUBWINDOW);
-         Print("Получены новые размеры окна: " + (string)X + ":" + (string)Y);
-         //PanelForm.Resize(X, Y);
-         HedgePanel.Event(new EventResize(EVENT_FROM_UP, "TERMINAL_WINDOW", X, Y));
+      long X = ChartGetInteger(MAIN_WINDOW, CHART_WIDTH_IN_PIXELS, MAIN_SUBWINDOW);
+      long Y = ChartGetInteger(MAIN_WINDOW, CHART_HEIGHT_IN_PIXELS, MAIN_SUBWINDOW);
+      Print("Получены новые размеры окна: " + (string)X + ":" + (string)Y);
+      EventResize* er = new EventResize(EVENT_FROM_UP, "TERMINAL_WINDOW", X, Y);
+      HedgePanel.Event(er);
+      delete er;
    }
 }
