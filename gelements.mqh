@@ -29,6 +29,9 @@ class MainForm : public ProtoNode
                case EVENT_DEINIT:
                   Deinit(newEvent);
                   break;
+               case EVENT_CHBORDER:
+                  ChBorder(newEvent);
+                  break;
                //События которые не можем обработать отправляем дальше вниз.
                default:
                   EventSend(newEvent);
@@ -53,6 +56,17 @@ class MainForm : public ProtoNode
          long chigh = CheckHigh(event.NewHigh());
          Resize(cwidth, chigh);
          EventResize* er = new EventResize(EVENT_FROM_UP, NameID(), Width(), High());
+         EventSend(er);
+         delete er;
+      }
+      void ChBorder(EventChangeBorder* event)
+      {
+         //Ширина формы не может быть меньше 100 пикселей.
+         long cwidth = CheckWidth(event.Width());
+         //Высота формы не может быть меньше 50 пикселей.
+         long chigh = CheckHigh(event.High());
+         Resize(0, 0, 0, 0);
+         EventChangeBorder* er = new EventChangeBorder(EVENT_FROM_UP, NameID(), XAbsDistance(), YAbsDistance(), Width(), High());
          EventSend(er);
          delete er;
       }
@@ -133,6 +147,9 @@ class TableOfOpenPos : ProtoNode
                case EVENT_DEINIT:
                   Deinit(newEvent);
                   break;
+               case EVENT_CHBORDER:
+                  ChBorder(newEvent);
+                  break;
                //События которые не можем обработать отправляем дальше вниз.
                default:
                   EventSend(newEvent);
@@ -150,10 +167,26 @@ class TableOfOpenPos : ProtoNode
       ///
       void ResizeExtern(EventResize* event)
       {
-         Resize(40, 0, 40, 0);
+         Resize(40, 20, 40, 5);
+         //По возможности отображаем текущий элемент.
+         if(ParVisible() && !Visible())
+         {
+            Visible(true);
+            if(Visible(true))
+               if(!ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_BGCOLOR, backgroundColor))
+                  LogWriter("Failed change color of " + NameID(), MESSAGE_TYPE_ERROR);
+         }
          EventResize* er = new EventResize(EVENT_FROM_UP, NameID(), Width(), High());
          EventSend(er);
          delete er;
+      }
+      void ChBorder(EventChangeBorder* event)
+      {
+         Resize(40, 20, 40, 5);
+         EventChangeBorder* cb = new EventChangeBorder(EVENT_FROM_UP, NameID(),
+                                    XAbsDistance(), YAbsDistance(), Width(), High());
+         EventSend(cb);
+         delete cb;
       }
       ///
       /// Обработчик события статус 'видимости внешнего узла изменен'.
@@ -226,8 +259,24 @@ class HeadColumn : ProtoNode
       ///
       void ResizeExtern(EventResize* event)
       {
+         Move(5, 20);
          Resize(100, 20);
-         EventSend(new EventResize(EVENT_FROM_UP, NameID(), Width(), High()));
+         //По возможности отображаем текущий элемент.
+         if(ParVisible())
+            Visible(true);
+         EventResize* er = new EventResize(EVENT_FROM_UP, NameID(), Width(), High());
+         EventSend(er);
+         delete er;
+      }
+      
+      void ChBorder(EventChangeBorder* event)
+      {
+         Move(5, 20);
+         Resize(100, 20);
+         EventChangeBorder* cb = new EventChangeBorder(EVENT_FROM_UP, NameID(),
+                                    XAbsDistance(), YAbsDistance(), Width(), High());
+         EventSend(cb);
+         delete cb;
       }
       ///
       /// Обработчик события статус 'видимости внешнего узла изменен'.
@@ -244,8 +293,8 @@ class HeadColumn : ProtoNode
       ///
       void Init(EventInit* event)
       {
-         Resize(100, 20);
          Move(5,5);
+         Resize(100, 20);
          Visible(true);
          EventSend(event);
       }

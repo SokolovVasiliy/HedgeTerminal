@@ -38,6 +38,10 @@ enum ENUM_EVENT_DIRECTION
 /// Идентификатор события "Деинициализация эксперта".
 ///
 #define EVENT_DEINIT 5
+///
+/// Идентификатор события "Положение и размер родительского узла изменен"
+///
+#define EVENT_CHBORDER 6
 
 ///
 /// <b>Абстрактный базовый класс события.</b> Любое генерируемое событие должно иметь свой уникальный идентификатор,
@@ -169,4 +173,42 @@ class EventDeinit : Event
       }
       EventDeinit():
       Event(EVENT_FROM_UP, EVENT_DEINIT, "TERMINAL_WINDOW"){;}
+};
+
+class EventChangeBorder : Event
+{
+   public:
+      virtual Event* Clone()
+      {
+         return new EventChangeBorder(Direction(), NameNodeId(), xDist, yDist, width, high);
+      }
+      long XDist(){return xDist;}
+      long YDist(){return yDist;}
+      long Width(){return width;}
+      long High(){return high;}
+      EventChangeBorder(ENUM_EVENT_DIRECTION myDir, string nodeId, long newXDist, long newYDist, long newWidth, long newHigh):
+      Event(myDir, EVENT_CHBORDER, nodeId)
+      {
+         width = newWidth;
+         high = newHigh;
+         xDist = newXDist;
+         yDist = newYDist;
+      }
+   private:
+      ///
+      /// Ширина узла в пунктах.
+      ///
+      long width;
+      ///
+      /// Высота узла в пунктах.
+      ///
+      long high;
+      ///
+      /// Абсолютная вертикальная координата.
+      ///
+      long xDist;
+      ///
+      /// Абсолютная горизонтальная координата.
+      ///
+      long yDist;
 };

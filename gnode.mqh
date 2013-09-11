@@ -84,43 +84,83 @@ class ProtoNode : CObject
       ///
       bool Visible(){return visible;}
       ///
+      /// Возвращает статус видимости родительского элемента.
+      /// Если родительского элемента нет - возвращает истину.
+      /// \return Истина, если родительский элемент виден, ложь в противном случае.
+      ///
+      bool ParVisible()
+      {
+         if(parentNode != NULL)
+            return parentNode.Visible();
+         //Окно терминала по определению всегда видимо.
+         else return true;
+      }
+      ///
       /// Возвращает уникальный строковой идентификатор графического узла.
       /// \return Уникальный строковой идентификатор графического узла.
       ///
       string NameID(){return nameId;}
       ///
-      /// Возвращает расстояние по горизонтали от левого верхнего угла графического узла
-      /// до левого верхнего угла окна терминала.
-      /// \return Расстояние в пунктах по оси Х.
-      ///
-      long XDistance(){return xDist;}
-      ///
-      /// Возвращает расстояние по вертикали от левого верхнего угла графического узла
-      /// до левого верхнего угла окна терминала.
-      /// \return Расстояние в пунктах по оси Y.
-      ///
-      long YDistance(){return yDist;}
-      ///
-      /// Возвращает расстояние по горизонтали от левого верхнего угла графического узла
-      /// до левого верхнего угла родительского графического узла.
+      /// Возвращает расстояние по горизонтали между левой стороной текущего узла и
+      /// левой стороной родительского узла. Если родительского узла нет,
+      /// возвращает абсолютное растояние до левой стороны окна терминала.
       /// \return Расстояние в пунктах по оси X.
       ///
-      long XParDistance()
+      long XLocalDistance()
       {
-         if(parentNode != NULL)
-            return parentNode.XDistance();
-         else return 0;
+         return xDist - XAbsParDistance();
       }
       ///
-      /// Возвращает расстояние по вертикали от левого верхнего угла графического узла
-      /// до левого верхнего угла родительского графического узла.
+      /// Возвращает расстояние по вертикали между верхней стороной текущего узла и
+      /// верхней стороной родительского узла. Если родительского узла нет,
+      /// возвращает абсолютное растояние до верхней стороны окна терминала.
       /// \return Расстояние в пунктах по оси Y.
       ///
-      long YParDistance()
+      long YLocalDistance()
+      {
+         return yDist - YAbsParDistance();
+      }
+      ///
+      /// Возвращает абсолютное расстояние по горизонтали между левой стороной текущего узла и
+      /// левой стороной окна терминала.
+      /// \return Расстояние в пунктах по оси X.
+      ///
+      long XAbsDistance()
+      {
+         return xDist;
+      }
+      ///
+      /// Возвращает абсолютное расстояние по вертикали между верхней стороной текущего узла и
+      /// верхней стороной окна терминала.
+      /// \return Расстояние в пунктах по оси Y.
+      ///
+      long YAbsDistance()
+      {
+         return yDist;
+      }
+      ///
+      /// Возвращает абсолютное расстояние по горизонтали в пунктах от левой стороны
+      /// родительского графического узла до левой стороны окна терминала.
+      /// Если родительского узла нет - возвращает 0.
+      /// \return Расстояние в пунктах по оси X.
+      ///
+      long XAbsParDistance()
       {
          if(parentNode != NULL)
-            return parentNode.YDistance();
-         else return 0;
+            return parentNode.XAbsDistance();
+         return 0;
+      }
+      ///
+      /// Возвращает абсолютное расстояние по вертикали в пунктах от верхней стороны
+      /// родительского графического узла до верхней стороны окна терминала.
+      /// Если родительского узла нет - возвращает 0.
+      /// \return Расстояние в пунктах по оси X.
+      ///
+      long YAbsParDistance()
+      {
+         if(parentNode != NULL)
+            return parentNode.YAbsDistance();
+         return 0;
       }
       ///
       /// Возвращает ширину родительского графического узла. Если родительский
@@ -130,7 +170,8 @@ class ProtoNode : CObject
       {
          if(parentNode != NULL)
             return parentNode.Width();
-         else return 0;
+         //Подразумевается что окно терминала имеет ширину 32667 пикселей.
+         else return SHORT_MAX;
       }
       ///
       /// Возвращает высоту родительского графического узла. Если родительский
@@ -140,7 +181,8 @@ class ProtoNode : CObject
       {
          if(parentNode != NULL)
             return parentNode.High();
-         else return 0;
+         //Подразумевается что окно терминала имеет высоту 32667 пикселей.
+         else return SHORT_MAX;
       }
       ///
       /// Возвращает имя графического узла.
@@ -169,29 +211,25 @@ class ProtoNode : CObject
          // 1) Проверяем, являются ли новые желаемые размеры допустимыми,
          // Не будет ли выходить текущий графический узел за пределы
          // границ родительского узла.
-         if(parentNode != NULL)
+         //Высота не может превышать нижней границы родительского окна.
+         if(YAbsParDistance() + ParHigh() < YAbsDistance() + newHigh)
          {
-            // 1. Узел не может располагаться выше верхней границы родительского узла.
-            //XDistance()
-            //XAbs
-            // 2. Узел не может располагаться ниже нижней границы родительского узла.
-            // 3. Узел не может быть левей левой границы родительского узла.
-            // 4. Узел не может быть правей правой границы родительского узла.
-            if(XParDistance() + newWidth > parentNode.Width())
-               newWidth = parentNode.Width() - XParDistance();
-            if(YParDistance() + newHigh > parentNode.High())
-            {
-               long h = parentNode.High();
-               long y = YParDistance();
-               newHigh = h - y;
-               //newHigh = parentNode.High() - YParDistance();
-            }
+            //Иначе корректируем высоту на предельно допустимую
+            newHigh = (YAbsParDistance() + ParHigh()) - YAbsDistance();
          }
-         // Размер не может быть отрицательным.
-         if(newWidth < 0)newWidth = 0;
-         if(newHigh < 0)newHigh = 0;
+         //Ширина не может превышать правой границы родительского окна.
+         if(XAbsParDistance() + ParWidth() < XAbsDistance() + newWidth)
+         {
+            //Иначе корректируем высоту на предельно допустимую
+            newWidth = (XAbsParDistance() + ParWidth()) - XAbsDistance();
+         }
+         width = newWidth;
+         high = newHigh;
+         // Если размер все равно отрицателен, либо равен нулю - то элемент не видим.
+         if((newHigh <= 0 || newWidth <= 0) && Visible())
+            Visible(false);
          // 2) Переразмечаем графический узел, если он отображается в окне терминала.
-         bool res = width != newWidth || high != newHigh;
+         bool res = true;
          if(visible)
          {
             res = ObjectSetInteger(MAIN_WINDOW, nameId, OBJPROP_XSIZE, newWidth);
@@ -201,11 +239,6 @@ class ProtoNode : CObject
                res = ObjectSetInteger(MAIN_WINDOW, nameId, OBJPROP_YSIZE, newHigh);
             if(!res)
                LogWriter("Failed resize element " + nameId + " by verticaly.", MESSAGE_TYPE_ERROR);
-         }
-         if(res)
-         {
-            width = newWidth;
-            high = newHigh;
          }
          return res;
       }
@@ -220,13 +253,8 @@ class ProtoNode : CObject
       {
          Move(LeftBorder, UpBorder);
          //Зная границы графического объекта, можно рассчитать его размер аналитически.
-         long newWidth, newHigh;
-         long X = parentNode == NULL ? ChartGetInteger(MAIN_WINDOW, CHART_WIDTH_IN_PIXELS, MAIN_SUBWINDOW):
-                                       parentNode.Width();
-         long Y = parentNode == NULL ? ChartGetInteger(MAIN_WINDOW, CHART_HEIGHT_IN_PIXELS, MAIN_SUBWINDOW):
-                                       parentNode.High();
-         newWidth = X - XDistance() - RightBorder;
-         newHigh = Y - YDistance() - DnBorder;
+         long newWidth = ParWidth() - LeftBorder - RightBorder;
+         long newHigh = ParHigh() - UpBorder - DnBorder;
          return Resize(newWidth, newHigh);
       }
       ///
@@ -240,11 +268,40 @@ class ProtoNode : CObject
          // Включаем визуализацию.
          if(!Visible() && status)
          {
+            // Размеры должны быть значимыми.
+            if(width <= 0 || high <= 0)
+               return false;
+            // 1. Узел не может располагаться выше верхней границы родительского узла.
+            if (yDist < YAbsParDistance())
+            {
+                LogWriter("Y-coordinate of node must be leter Y-coordinate parent node", MESSAGE_TYPE_WARNING);
+                return false;
+            }
+            // 2. Узел не может располагаться ниже нижней границы родительского узла.
+            if (yDist + High() > YAbsParDistance() + ParHigh())
+            {
+                long ypar = YAbsParDistance();
+                long hpar = ParHigh();
+                LogWriter("Node position must be biger down line parent node", MESSAGE_TYPE_WARNING);
+                return false;
+            }
+            // 3. Узел не может быть левей левой границы родительского узла.
+            if (XAbsDistance() < XAbsParDistance())
+            {
+                LogWriter("X-coordinate of node must be leter X-coordinate parent node", MESSAGE_TYPE_WARNING);
+                return false;
+            }
+            // 4. Узел не может быть правей правой границы родительского узла.
+            if (XAbsDistance() + Width() > XAbsParDistance() + ParWidth())
+            {
+                LogWriter("Node position must be biger left line parent node", MESSAGE_TYPE_WARNING);
+                return false;
+            }
             //Генерируем новое имя всякий раз когда требуется отобразить элемент, гарантируя его уникальность.
             GenNameId();
-            visible = ObjectCreate(MAIN_WINDOW, nameId, typeObject, MAIN_SUBWINDOW, XDistance(), YDistance());
+            visible = ObjectCreate(MAIN_WINDOW, nameId, typeObject, MAIN_SUBWINDOW, XAbsDistance(), YAbsDistance());
             //Перемещаем элемент в соответствии с его установленными координатами
-            Move(xDist, yDist);
+            Move(xDist, yDist, COOR_GLOBAL);
             if(!visible)
                LogWriter("Failed visualize element " + nameId, MESSAGE_TYPE_ERROR);
             else
@@ -272,26 +329,50 @@ class ProtoNode : CObject
       bool Move(long xCoordinate, long yCoordinate, ENUM_COOR_CONTEXT context = COOR_LOCAL)
       {
          //Переводим относительные координаты в абсолютные.
-         if(context == COOR_LOCAL && parentNode != NULL)
+         if(context == COOR_LOCAL)
          {
-            xCoordinate = xCoordinate + XParDistance();
-            yCoordinate = yCoordinate + YParDistance();
+            xCoordinate = xCoordinate + XAbsParDistance();
+            yCoordinate = yCoordinate + YAbsParDistance();
          }
-         // Проверяем, не выйдут ли за пределы родительского узла новые
-         // графические координаты.
-         if(parentNode != NULL)
+         // 1. Узел не может располагаться выше верхней границы родительского узла.
+         if (yCoordinate < YAbsParDistance())
          {
-            long xParDist = XParDistance();
-            long yParDist = YParDistance();
-            if(xCoordinate < xParDist)
-               xCoordinate = xParDist;
-            if(yCoordinate < yParDist)
-               yCoordinate = xParDist;
-            if(xCoordinate + width > xParDist + parentNode.Width())
-               xCoordinate = xParDist + (parentNode.Width() - width);
-            if(yCoordinate + high > yParDist + parentNode.High())
-               yCoordinate = yParDist + (parentNode.High() - high);
+             // Иначе корректируем его Y координату
+             yCoordinate = YAbsParDistance();
          }
+         // 2. Узел не может располагаться ниже нижней границы родительского узла.
+         if (yCoordinate + High() > YAbsParDistance() + ParHigh())
+         {
+             //Иначе корректируем высоту текущего узла
+             //Рассчитаем предельно допустимую высоту объекта при заданной Y координате
+             long newHigh = (YAbsParDistance() + ParHigh()) - yCoordinate;
+             //Если Y координата слишком большая, что бы объект мог хотя бы частично поместиться
+             //на родительской форме, то удаляем объект с графика.
+             if (newHigh <= 0)
+                 Visible(false);
+             Resize(Width(), newHigh);
+         }
+         // 3. Узел не может быть левей левой границы родительского узла.
+         if (xCoordinate < XAbsParDistance())
+         {
+             // Иначе корректируем его X координату
+             xCoordinate = XAbsParDistance();
+         }
+         // 4. Узел не может быть правей правой границы родительского узла.
+         if (xCoordinate + Width() > XAbsParDistance() + ParWidth())
+         {
+             //Иначе корректируем ширину текущего узла
+             //Рассчитаем предельно допустимую ширину объекта при заданной X координате
+             long newWidth = (XAbsParDistance() + ParWidth()) - xCoordinate;
+             //Если Y координата слишком большая, что бы объект мог хотя бы частично поместиться
+             //на родительской форме, то удаляем объект с графика.
+             if (newWidth <= 0)
+                 Visible(false);
+             Resize(newWidth, High());
+         }
+         
+         xDist = xCoordinate;
+         yDist = yCoordinate;
          // Фактически перемещаем узел только в том случае, если он отображается.
          bool res = true;
          if(Visible())
@@ -306,17 +387,6 @@ class ProtoNode : CObject
                LogWriter("Failed move element " + nameId, MESSAGE_TYPE_ERROR); 
                res = false;
             }
-         }
-         //В случае неудачного перемещения объектов, запоминаем их фактоическое местоположение.
-         if(!res)
-         {
-            xDist = ObjectGetInteger(MAIN_WINDOW, NameID(), OBJPROP_XDISTANCE);
-            yDist = ObjectGetInteger(MAIN_WINDOW, NameID(), OBJPROP_XDISTANCE);
-         }
-         else
-         {
-            xDist = xCoordinate - XParDistance();
-            yDist = yCoordinate - YParDistance();
          }
          return res;
       }
