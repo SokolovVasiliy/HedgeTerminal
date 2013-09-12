@@ -41,7 +41,11 @@ enum ENUM_EVENT_DIRECTION
 ///
 /// Идентификатор события "Положение и размер родительского узла изменен"
 ///
-#define EVENT_CHBORDER 6
+#define EVENT_CHSTATUS 6
+///
+/// Идентификатор события "Приказ".
+///
+#define EVENT_NODE_COMMAND 7
 
 ///
 /// <b>Абстрактный базовый класс события.</b> Любое генерируемое событие должно иметь свой уникальный идентификатор,
@@ -174,20 +178,23 @@ class EventDeinit : Event
       EventDeinit():
       Event(EVENT_FROM_UP, EVENT_DEINIT, "TERMINAL_WINDOW"){;}
 };
-
-class EventChangeBorder : Event
+///
+/// Событие "Статус (положение, размер, видимость) графического узла изменен".
+///
+class EventNodeStatus : Event
 {
    public:
       virtual Event* Clone()
       {
-         return new EventChangeBorder(Direction(), NameNodeId(), xDist, yDist, width, high);
+         return new EventNodeStatus(Direction(), NameNodeId(), visible, xDist, yDist, width, high);
       }
       long XDist(){return xDist;}
       long YDist(){return yDist;}
       long Width(){return width;}
       long High(){return high;}
-      EventChangeBorder(ENUM_EVENT_DIRECTION myDir, string nodeId, long newXDist, long newYDist, long newWidth, long newHigh):
-      Event(myDir, EVENT_CHBORDER, nodeId)
+      bool Visible(){return visible;}
+      EventNodeStatus(ENUM_EVENT_DIRECTION myDir, string nodeId, bool isVisible, long newXDist, long newYDist, long newWidth, long newHigh):
+      Event(myDir, EVENT_CHSTATUS, nodeId)
       {
          width = newWidth;
          high = newHigh;
@@ -195,6 +202,57 @@ class EventChangeBorder : Event
          yDist = newYDist;
       }
    private:
+      ///
+      /// Статус видимости объекта.
+      ///
+      bool visible;
+      ///
+      /// Ширина узла в пунктах.
+      ///
+      long width;
+      ///
+      /// Высота узла в пунктах.
+      ///
+      long high;
+      ///
+      /// Абсолютная вертикальная координата.
+      ///
+      long xDist;
+      ///
+      /// Абсолютная горизонтальная координата.
+      ///
+      long yDist;
+};
+
+///
+/// Событие содержит приказ на установку текущего узла в соответствующее положение
+///
+class EventNodeCommand : Event
+{
+   public:
+      virtual Event* Clone()
+      {
+         return new EventNodeCommand(Direction(), NameNodeId(), visible, xDist, yDist, width, high);
+      }
+      long XDist(){return xDist;}
+      long YDist(){return yDist;}
+      long Width(){return width;}
+      long High(){return high;}
+      bool Visible(){return visible;}
+      EventNodeCommand(ENUM_EVENT_DIRECTION myDir, string nodeId, bool isVisible, long newXDist, long newYDist, long newWidth, long newHigh):
+      Event(myDir, EVENT_NODE_COMMAND, nodeId)
+      {
+         visible = isVisible;
+         width = newWidth;
+         high = newHigh;
+         xDist = newXDist;
+         yDist = newYDist;
+      }
+   private:
+      ///
+      /// Статус видимости объекта.
+      ///
+      bool visible;
       ///
       /// Ширина узла в пунктах.
       ///

@@ -40,7 +40,11 @@ enum ENUM_ELEMENT_TYPE
    ///
    /// Элемент графического интерфейса "Заголовок колонки таблицы".
    ///
-   ELEMENT_TYPE_HEAD_COLUMN
+   ELEMENT_TYPE_HEAD_COLUMN,
+   ///
+   /// Элемент графического интерфейса "Контейнер"
+   ///
+   ELEMENT_TYPE_CONTAINER
 };
 
 ///
@@ -185,6 +189,10 @@ class ProtoNode : CObject
          else return SHORT_MAX;
       }
       ///
+      /// Возварщает короктое имя узла.
+      ///
+      string ShortName(){return shortName;}
+      ///
       /// Возвращает имя графического узла.
       /// \retrurn name - Имя графического узла.
       ///
@@ -196,10 +204,12 @@ class ProtoNode : CObject
       /// \param myname - Название графического узла.
       /// \param parNode - Родительский узел, внутри которого располагается текущий узел.
       ///
+
       ProtoNode(ENUM_OBJECT mytype, ENUM_ELEMENT_TYPE myElementType, string myname, ProtoNode* parNode)
       {
          Init(mytype, myElementType, myname, parNode);
       }
+      
    protected:
       ///
       /// Устанавливает новый размер текущего графического узла.
@@ -223,24 +233,27 @@ class ProtoNode : CObject
             //Иначе корректируем высоту на предельно допустимую
             newWidth = (XAbsParDistance() + ParWidth()) - XAbsDistance();
          }
-         width = newWidth;
-         high = newHigh;
          // Если размер все равно отрицателен, либо равен нулю - то элемент не видим.
          if((newHigh <= 0 || newWidth <= 0) && Visible())
             Visible(false);
+
          // 2) Переразмечаем графический узел, если он отображается в окне терминала.
-         bool res = true;
          if(visible)
          {
-            res = ObjectSetInteger(MAIN_WINDOW, nameId, OBJPROP_XSIZE, newWidth);
-            if(!res)
+            if(!ObjectSetInteger(MAIN_WINDOW, nameId, OBJPROP_XSIZE, newWidth))
+            {
                LogWriter("Failed resize element " + nameId + " by horizontally.", MESSAGE_TYPE_ERROR);
-            else
-               res = ObjectSetInteger(MAIN_WINDOW, nameId, OBJPROP_YSIZE, newHigh);
-            if(!res)
+               newWidth = ObjectGetInteger(MAIN_WINDOW, nameId, OBJPROP_XSIZE);
+            }
+            if(!ObjectSetInteger(MAIN_WINDOW, nameId, OBJPROP_YSIZE, newHigh))
+            {
                LogWriter("Failed resize element " + nameId + " by verticaly.", MESSAGE_TYPE_ERROR);
+               newHigh = ObjectGetInteger(MAIN_WINDOW, nameId, OBJPROP_YSIZE);
+            }
          }
-         return res;
+         width = newWidth;
+         high = newHigh;
+         return true;
       }
       ///
       /// Переразмечает графический узел.
@@ -312,8 +325,7 @@ class ProtoNode : CObject
          {
             visible = !ObjectDelete(MAIN_WINDOW, nameId);
          }
-         if(status == visible)return true;
-         else return false;
+         return visible;
       }
       ///
       /// Передвигает графический узел на новое место, задаваемое координатами по осям X и Y.
@@ -444,16 +456,21 @@ class ProtoNode : CObject
       /// Тип объекта, лежащего в основе узла.
       ///
       ENUM_OBJECT typeObject;
-      ///
-      /// Имя графического узла, дающее представление о его назначении. Например:
-      /// "GeneralForm" или "TableOfOpenPosition".
-      ///
-      string name;
+      
       ///
       /// Тип элемента графического интерфейса, к которому принадлежит графический узел. 
       ///
       ENUM_ELEMENT_TYPE elementType;
    private:
+      ///
+      /// Полное имя графического узла, состоящее из последовательности имен предыдущих узлов и текущего имени узла.
+      ///
+      string name;
+      ///
+      /// Имя графического узла, дающее представление о его назначении. Например:
+      /// "GeneralForm" или "TableOfOpenPosition".
+      ///
+      string shortName;
       ///
       /// Уникальное имя-идентификатор графического узла.
       ///
@@ -511,6 +528,7 @@ class ProtoNode : CObject
       {
          if(parNode != NULL)
             name = parNode.Name() + "-->" + myname;
+         shortName = myname;
          elementType = myElementType;
          parentNode = parNode;
          typeObject = mytype;
