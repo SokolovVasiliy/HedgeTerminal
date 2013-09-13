@@ -225,8 +225,11 @@ class TableOfOpenPos : ProtoNode
                LogWriter("Failed change color of " + NameID(), MESSAGE_TYPE_ERROR);
          //HeadColumn* HeadMagic = new HeadColumn("HeadMagic", GetPointer(this));
          //childNodes.Add(HeadMagic);
+         //Включаем заголовок таблицы.
          NodeContainer* nc = new NodeContainer("Container", GetPointer(this));
          childNodes.Add(nc);
+         FieldsTables* ft = new FieldsTables("FieldTables", GetPointer(this));
+         childNodes.Add(ft);
          EventSend(event);
       }
 };
@@ -339,6 +342,16 @@ class HeadColumn : public ProtoNode
 };
 
 ///
+/// Перечисление задающее порядок следования колонок
+///
+enum ENUM_COLUMNS_OPEN_POS
+{
+   COLUMN_MAGIC,
+   COLUMN_ORDER_ID,
+   COLUMN_SYMBOL
+};
+
+///
 /// Класс-контейнер, объединяющий несколько узлов в одну общность.
 ///
 class NodeContainer : public ProtoNode
@@ -346,24 +359,57 @@ class NodeContainer : public ProtoNode
    public:
       NodeContainer(string myName, ProtoNode* parNode):ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_CONTAINER, myName, parNode)
       {
-         PosMagic = new HeadColumn("Magic", GetPointer(this));
-         PosOrderId = new HeadColumn("Order ID", GetPointer(this));
-         PosSymbol = new HeadColumn("Symbol", GetPointer(this));
-         PosDir = new HeadColumn("Dir", GetPointer(this));
-         PosEntryPrice = new HeadColumn("Entry Price", GetPointer(this));
-         PosTakeProfit = new HeadColumn("Take Profit", GetPointer(this));
-         PosStopLoss = new HeadColumn("Stop Loss", GetPointer(this));
-         PosSwap = new HeadColumn("Swap", GetPointer(this));
-         PosEntryTime = new HeadColumn("Entry Date", GetPointer(this));
-         PosQuantity = new HeadColumn("Vol.", GetPointer(this));
-         PosComment = new HeadColumn("Entry Comment", GetPointer(this));
+         strMagic = "Magic";
+         PosMagic = new HeadColumn(strMagic, GetPointer(this));
+         
+         strOrderId = "Order ID";
+         PosOrderId = new HeadColumn(strOrderId, GetPointer(this));
+         
+         strSymbol = "Symbol";
+         PosSymbol = new HeadColumn(strSymbol, GetPointer(this));
+         
+         strDir = "Dir";
+         PosDir = new HeadColumn(strDir, GetPointer(this));
+         
+         strEntryPrice = "Entry Price";
+         PosEntryPrice = new HeadColumn(strEntryPrice, GetPointer(this));
+         
+         strTakeProfit = "TakeProfit";
+         PosTakeProfit = new HeadColumn(strTakeProfit, GetPointer(this));
+         
+         strStopLoss = "Stop Loss";
+         PosStopLoss = new HeadColumn(strStopLoss, GetPointer(this));
+         
+         strSwap = "Swap";
+         PosSwap = new HeadColumn(strSwap, GetPointer(this));
+         
+         strEntryTime = "Entry Date";
+         PosEntryTime = new HeadColumn(strEntryTime, GetPointer(this));
+         
+         strQuant = "Vol.";
+         PosQuantity = new HeadColumn(strQuant, GetPointer(this));
+         
+         strProfit = "Profit";
+         PosProfit = new HeadColumn(strProfit, GetPointer(this));
+         
+         strComment = "Comment";
+         PosComment = new HeadColumn(strComment, GetPointer(this));
+         
+         strCurrPrice = "Price";
+         PosCurrPrice = new HeadColumn(strCurrPrice, GetPointer(this));
+         
          childNodes.Add(PosMagic);
-         childNodes.Add(PosOrderId);
          childNodes.Add(PosSymbol);
-         childNodes.Add(PosDir);
-         childNodes.Add(PosEntryPrice);
+         childNodes.Add(PosOrderId);
          childNodes.Add(PosEntryTime);
+         childNodes.Add(PosDir);
          childNodes.Add(PosQuantity);
+         childNodes.Add(PosEntryPrice);
+         childNodes.Add(PosStopLoss);
+         childNodes.Add(PosTakeProfit);
+         childNodes.Add(PosSwap);
+         childNodes.Add(PosCurrPrice);
+         childNodes.Add(PosProfit);
          childNodes.Add(PosComment);
       }
       virtual void Event(Event *newEvent)
@@ -376,6 +422,9 @@ class NodeContainer : public ProtoNode
                case EVENT_CHSTATUS:
                   ChStatusExtern(newEvent);
                   break;
+               case EVENT_DEINIT:
+                  Deinit(newEvent);
+                  break;
                default:
                   EventSend(newEvent);
                   //delete newEvent;
@@ -386,7 +435,7 @@ class NodeContainer : public ProtoNode
       /// Обработчик события 'размер родительского узла изменен'.
       /// \param event - Событие типа 'видимость внешнего узла изменена'.
       ///
-      void ChStatusExtern(EventNodeStatus* event)
+      virtual void ChStatusExtern(EventNodeStatus* event)
       {
          Move(1, 1);
          Resize(event.Width()-2, 20);
@@ -400,110 +449,302 @@ class NodeContainer : public ProtoNode
             ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_COLOR, clrWhite);
             ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_WIDTH, 1);
          }
-         HeadColumn* currNode = PosMagic;
-         EventNodeCommand* enc = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 0, 0, 100, 20);
-         currNode.Event(enc);
-         delete enc;
-         
-         enc = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), currNode.XLocalDistance()+currNode.Width(), 0, 100, 20);
-         currNode = PosOrderId;
-         currNode.Event(enc);
-         delete enc;
-         
-         //Дочерним элментам посылаем особую комманду-дерективу
-         //Рассчитываем положение и размер колонки PosMagic
-         /*EventNodeCommand* enc = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 0, 0, 100, 20);
-         PosMagic.Event(enc);
-         delete enc;
-         
-         //Рассчитываем положение и размер колонки OrderID
-         enc = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 100, 0, 100, 20);
-         PosOrderId.Event(enc);
-         delete enc;*/
-         
-         //Рассчитываем положение и размер колонки Symbol
-         enc = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 200, 0, 70, 20);
-         PosSymbol.Event(enc);
-         delete enc;
-         
-         //Рассчитываем положение колонки Direction
-         enc = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 270, 0, 50, 20);
-         PosDir.Event(enc);
-         delete enc;
-         
-         //Рассчитываем положение колонки EntryPrice
-         enc = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 320, 0, 70, 20);
-         PosEntryPrice.Event(enc);
-         delete enc;
-         
-         //Рассчитываем положение колонки EntryPrice
-         enc = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 390, 0, 70, 20);
-         PosTakeProfit.Event(enc);
-         delete enc;
-         
-         //Рассчитываем положение колонки EntryPrice
-         enc = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 460, 0, 70, 20);
-         PosStopLoss.Event(enc);
-         delete enc;
-         
-         //Рассчитываем положение колонки EntryPrice
-         enc = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 530, 0, 70, 20);
-         PosSwap.Event(enc);
-         delete enc;
-         
-         //Рассчитываем положение колонки Date
-         enc = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 600, 0, 150, 20);
-         PosEntryTime.Event(enc);
-         delete enc;
-         
-         //Рассчитываем положение колонки Comment
-         enc = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 750, 0, 250, 20);
-         PosComment.Event(enc);
-         delete enc;
+         SetNodePosition();
+      }
+      
+   protected:
+      void SetNodePosition()
+      {
+         long useWidth = 0;
+         long kBase = 1250;
+         //Коэффициент масштабируемости.
+         double kScale = (double)ParWidth()/(double)kBase;
+         for(int i=0; i < childNodes.Total();i++)
+         {
+            HeadColumn* currColumn = childNodes.At(i);
+            long cwidth = 20;
+            //По имени элемента определяем его размер
+            string cname = currColumn.ShortName();
+            if(cname == strMagic || cname == strOrderId)
+               cwidth = 100;
+            if(cname == strSymbol || cname == strEntryPrice ||
+               cname == strTakeProfit || cname == strStopLoss ||
+               cname == strSwap || cname == strProfit || cname == strCurrPrice)
+               cwidth = 70;
+            if(cname == strDir || cname == strQuant)
+               cwidth = 50;
+            if(cname == strSymbol)
+               cwidth = 100;
+            if(cname == strEntryTime)
+               cwidth = 150;
+            if(cname == strComment)
+               cwidth = 150;
+            
+            cwidth = (long)MathRound(cwidth * kScale);
+            useWidth += cwidth;
+            //Последний элемент занимает все оставшееся свободное место, за вычетом 20 пикселей,
+            //оставленных на скролл.
+            if(i == childNodes.Total()-1)
+               cwidth += parentNode.Width()-useWidth - 20;
+               
+            //Теперь, когда ширина объекта известна, размещаем его в узле
+            EventNodeCommand* enc;
+            if(i == 0)
+               enc = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 0, 0, cwidth, parentNode.High());
+            else
+            {
+               HeadColumn* prevColumn = childNodes.At(i-1);
+               enc = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), prevColumn.XLocalDistance() + prevColumn.Width(), 0, cwidth, parentNode.High());
+            }
+            currColumn.Event(enc);
+            delete enc;
+         }
       }
    private:
-      ///
       /// Magic позици.
-      ///
       HeadColumn* PosMagic;
-      ///
+      /// Название колонки магического номера.
+      string strMagic;
+      
       /// Идентификатор ордера
-      ///
       HeadColumn* PosOrderId;
       ///
+      string strOrderId;
+      
       /// Направление позиции.
-      ///
       HeadColumn* PosDir;
       ///
+      string strDir;
+      
       /// Название инструмента, по которому открыта позиция.
-      ///
       HeadColumn* PosSymbol;
       ///
+      string strSymbol;
+      
       /// Объем позиции.
-      ///
       HeadColumn* PosQuantity;
       ///
+      string strQuant;
+      
       /// Время входа.
-      ///
       HeadColumn* PosEntryTime;
       ///
+      string strEntryTime;
+      
       /// Цена входа.
-      ///
       HeadColumn* PosEntryPrice;
+      ///
+      string strEntryPrice;
+      
       ///
       /// Тейк профит.
       ///
       HeadColumn* PosTakeProfit;
       ///
+      string strTakeProfit;
+      
+      /// Текущая цена позиции.
+      HeadColumn* PosCurrPrice;
+      ///
+      string strCurrPrice;
+      
+      ///
       /// Стоп лосс.
       ///
       HeadColumn* PosStopLoss;
       ///
+      string strStopLoss;
+      
+      ///
       /// Своп
       ///
       HeadColumn* PosSwap;
+      string strSwap;
+      
+      ///
+      /// Текущий профит/лосс позиции.
+      ///
+      HeadColumn* PosProfit;
+      string strProfit;
+      
       ///
       /// Комментарий к открытой позиции.
       ///
       HeadColumn* PosComment;
+      string strComment;
 };
+
+class FieldsTables : public NodeContainer
+{
+   public:
+      FieldsTables(string myName, ProtoNode* parNode):NodeContainer(myName, parNode){;}
+      virtual void ChStatusExtern(EventNodeStatus* event)
+      {
+         Move(1, 21);
+         Resize(event.Width()-2, (long)(ParHigh()-21)/2);
+         if(ParVisible())
+         {
+            Visible(true);
+         }
+         if(Visible())
+         {
+            ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_BORDER_TYPE, BORDER_FLAT);
+            ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_COLOR, clrWhite);
+            ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_WIDTH, 1);
+         }
+         //SetNodePosition();
+      }
+};
+///
+/// Класс, объединяющий несколько графический узлов в линию.
+///
+class NodeLine: ProtoNode
+{
+   public:
+      NodeLine(string myName, ProtoNode* parNode):ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_CONTAINER, myName, parNode)
+      {
+         strComment = "Comment";
+         strCurrPrice = "Price";
+         strMagic = "Magic";
+         strOrderId = "Order ID";
+         strDir = "Dir";
+         strEntryPrice = "Entry Price";
+         strEntryTime = "Entry Date";
+         strProfit = "Profit";
+         strSymbol = "Symbol";
+         strQuant = "Vol.";
+         strStopLoss = "StopLoss";
+         strTakeProfit = "TakeProfit";
+         strSwap = "Swap";
+      }
+   protected:
+      ///
+      /// Устанавливает местоположение дочерних элементов внутри линии
+      ///
+      void SetPosition(string nameNode)
+      {
+         long useWidth = 0;
+         long kBase = 1250;
+         //Коэффициент масштабируемости.
+         double kScale = (double)ParWidth()/(double)kBase;
+         for(int i=0; i < childNodes.Total();i++)
+         {
+            HeadColumn* currColumn = childNodes.At(i);
+            long cwidth = 20;
+            //По имени элемента определяем его размер
+            string cname = currColumn.ShortName();
+            if(cname == strMagic || cname == strOrderId)
+               cwidth = 100;
+            if(cname == strSymbol || cname == strEntryPrice ||
+               cname == strTakeProfit || cname == strStopLoss ||
+               cname == strSwap || cname == strProfit || cname == strCurrPrice)
+               cwidth = 70;
+            if(cname == strDir || cname == strQuant)
+               cwidth = 50;
+            if(cname == strSymbol)
+               cwidth = 100;
+            if(cname == strEntryTime)
+               cwidth = 150;
+            if(cname == strComment)
+               cwidth = 150;
+            
+            cwidth = (long)MathRound(cwidth * kScale);
+            useWidth += cwidth;
+            //Последний элемент занимает все оставшееся свободное место, за вычетом 20 пикселей,
+            //оставленных на скролл.
+            if(i == childNodes.Total()-1)
+               cwidth += parentNode.Width()-useWidth;
+               
+            //Теперь, когда ширина объекта известна, размещаем его в узле
+            EventNodeCommand* enc;
+            if(i == 0)
+               enc = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 0, 0, cwidth, parentNode.High());
+            else
+            {
+               HeadColumn* prevColumn = childNodes.At(i-1);
+               enc = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), prevColumn.XLocalDistance() + prevColumn.Width(), 0, cwidth, parentNode.High());
+            }
+            currColumn.Event(enc);
+            delete enc;
+         }
+      }
+      ///
+      /// Добавляет узел в коллекцию.
+      ///
+      void AddNode(ProtoNode* node)
+      {
+         childNodes.Add(node);
+      }
+   private:
+      /*
+       * Далее идут строковые константы означающие название колонок таблицы.
+       * Каждой колонке свойственен свой характерный размер, который может
+       * быть рассчитан, зная ее название.
+      */
+      ///
+      /// Magic позици.
+      ///
+      string strMagic;
+      
+      ///
+      /// Идентификатор ордера.
+      ///
+      string strOrderId;
+      
+      ///
+      /// Направление позиции.
+      ///
+      string strDir;
+      
+      ///
+      /// Название инструмента, по которому открыта позиция.
+      ///
+      string strSymbol;
+      
+      ///
+      /// Объем позиции.
+      ///
+      string strQuant;
+      
+      ///
+      /// Время входа.
+      ///
+      string strEntryTime;
+      
+      ///
+      /// Цена входа.
+      ///
+      string strEntryPrice;
+      
+      ///
+      /// Тейк профит.
+      ///
+      string strTakeProfit;
+      
+      ///
+      /// Текущая цена позиции.
+      ///
+      string strCurrPrice;
+      
+      ///
+      /// Стоп лосс.
+      ///
+      string strStopLoss;
+      
+      ///
+      /// Своп
+      ///
+      string strSwap;
+      
+      ///
+      /// Текущий профит/лосс позиции.
+      ///
+      string strProfit;
+      
+      ///
+      /// Комментарий к открытой позиции.
+      ///
+      string strComment;
+};
+
+
