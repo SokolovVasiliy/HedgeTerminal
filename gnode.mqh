@@ -137,6 +137,30 @@ class ProtoNode : CObject
       ///
       long High(){return high;}
       ///
+      /// Возвращает оптимальную ширину графического элемента.
+      ///
+      long OptimalWidth()
+      {
+         return optimalWidth;
+      }
+      ///
+      /// 
+      ///
+      long OptimalHigh()
+      {
+         return optimalHigh;
+      }
+       
+      void OptimalWidth(long optWidth)
+      {
+         optimalWidth = optWidth;
+      }
+      void OptimalHigh(long optHigh)
+      {
+         optimalHigh = optHigh;
+      }
+      
+      ///
       /// Возвращает статус видимости графического узла.
       /// \return Истина, если графический узел отображается в окне терминала,
       /// ложь - в противном случае.
@@ -263,6 +287,14 @@ class ProtoNode : CObject
       ProtoNode(ENUM_OBJECT mytype, ENUM_ELEMENT_TYPE myElementType, string myname, ProtoNode* parNode)
       {
          Init(mytype, myElementType, myname, parNode);
+      }
+      
+      ProtoNode(ENUM_OBJECT mytype, ENUM_ELEMENT_TYPE myElementType, string myname, ProtoNode* parNode, long optWidth, long optHigh)
+      {
+         Init(mytype, myElementType, myname, parNode);
+         optimalWidth = optWidth;
+         optimalHigh = optHigh;
+         Resize(optHigh, optHigh);
       }
       
    protected:
@@ -541,9 +573,17 @@ class ProtoNode : CObject
       ///
       long width;
       ///
+      /// Содержит оптимальную ширину объекта в пунктах.
+      ///
+      long optimalWidth;
+      ///
       /// Содержит высоту графического узла в пунктах.
       ///
       long high;
+      ///
+      /// Содержит оптимальную высоту объекта в пунктах.
+      ///
+      long optimalHigh;
       ///
       /// Расстояние по горизонтали от левого верхнего угла графического узла
       /// до левого верхнего угла окна терминала.
@@ -587,6 +627,8 @@ class ProtoNode : CObject
          elementType = myElementType;
          parentNode = parNode;
          typeObject = mytype;
+         optimalHigh = 20;
+         optimalWidth = 80;
       }
 };
 
