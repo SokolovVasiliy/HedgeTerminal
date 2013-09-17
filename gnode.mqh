@@ -42,9 +42,29 @@ enum ENUM_ELEMENT_TYPE
    ///
    ELEMENT_TYPE_HEAD_COLUMN,
    ///
-   /// Элемент графического интерфейса "Контейнер"
+   /// Элемент графического интерфейса "Горизонтальный контейнер".
    ///
-   ELEMENT_TYPE_CONTAINER
+   ELEMENT_TYPE_GCONTAINER,
+   ///
+   /// Элемент графического интерфейса "Вертикальный контейнер".
+   ///
+   ELEMENT_TYPE_VCONTAINER,
+   ///
+   /// Элемент графического интерфейса "Универсальный контейнер".
+   ///
+   ELEMENT_TYPE_UCONTAINER,
+   ///
+   /// Элемент графического интерфейса "Позунок".
+   ///
+   ELEMENT_TYPE_SCROLL,
+   ///
+   /// Элемент графического интерфейса "Текстовая метка".
+   ///
+   ELEMENT_TYPE_LABEL,
+   ///
+   /// Элемент графического интерфейса "Ячейка таблицы".
+   ///
+   ELEMENT_TYPE_CELL
 };
 
 ///
@@ -120,7 +140,7 @@ class State
 class ProtoNode : CObject
 {
    public:
-            
+      ENUM_ELEMENT_TYPE TypeElement(){return elementType;}   
       ///
       /// Принимаем событие и обрабатываем его в соответсвтии с правилами
       /// определенными в классе-потомке. 

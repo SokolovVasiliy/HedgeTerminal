@@ -118,121 +118,10 @@ class MainForm : public ProtoNode
          EventSend(event);
       }
 };
-
 ///
-/// Таблица открытых позиций.
+/// Класс "Кнопка".
 ///
-class TableOfOpenPos : ProtoNode
-{
-   public:
-      ///
-      /// Определяем реакцию на поступающие события.
-      ///
-      virtual void Event(Event *newEvent)
-      {
-         // Обрабатываем события приходящие сверху.
-         if(newEvent.Direction() == EVENT_FROM_UP)
-         {
-            switch(newEvent.EventId())
-            {
-               case EVENT_NODE_RESIZE:
-                  ResizeExtern(newEvent);
-                  break;
-               case EVENT_NODE_VISIBLE:
-                  VisibleExtern(newEvent);
-                  break;
-               case EVENT_INIT:
-                  Init(newEvent);
-                  break;
-               case EVENT_DEINIT:
-                  Deinit(newEvent);
-                  break;
-               case EVENT_CHSTATUS:
-                  ChStatus(newEvent);
-                  break;
-               //События которые не можем обработать отправляем дальше вниз.
-               default:
-                  EventSend(newEvent);
-            }
-         }
-      }
-      TableOfOpenPos(string myName, ProtoNode* parNode):ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_TABLE, myName, parNode)
-      {
-         ;
-      }
-   private:
-      ///
-      /// Обработчик события 'размер родительского узла изменен'.
-      /// \param event - Событие типа 'видимость внешнего узла изменена'.
-      ///
-      void ResizeExtern(EventResize* event)
-      {
-         Resize(40, 20, 40, 5);
-         //По возможности отображаем текущий элемент.
-         if(ParVisible() && !Visible())
-         {
-            Visible(true);
-            if(Visible(true))
-               if(!ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_BGCOLOR, backgroundColor))
-                  LogWriter("Failed change color of " + NameID(), MESSAGE_TYPE_ERROR);
-         }
-         EventResize* er = new EventResize(EVENT_FROM_UP, NameID(), Width(), High());
-         EventSend(er);
-         delete er;
-      }
-      void ChStatus(EventNodeStatus* event)
-      {
-         Resize(40, 20, 40, 5);
-         //По возможности отображаем текущий элемент.
-         if(ParVisible() && !Visible())
-         {
-            Visible(true);
-            if(Visible(true))
-               if(!ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_BGCOLOR, backgroundColor))
-                  LogWriter("Failed change color of " + NameID(), MESSAGE_TYPE_ERROR);
-         }
-         EventNodeStatus* cb = new EventNodeStatus(EVENT_FROM_UP, NameID(), Visible(),
-                                    XAbsDistance(), YAbsDistance(), Width(), High());
-         EventSend(cb);
-         delete cb;
-      }
-      ///
-      /// Обработчик события статус 'видимости внешнего узла изменен'.
-      /// \param event - Событие типа 'видимость внешнего узла изменена'.
-      ///
-      void VisibleExtern(EventVisible* event)
-      {
-         bool vis = event.Visible();
-         if(Visible(vis) && vis)
-         {
-            if(!ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_BGCOLOR, backgroundColor))
-               LogWriter("Failed change color of " + NameID(), MESSAGE_TYPE_ERROR); 
-         }
-         EventSend(new EventVisible(EVENT_FROM_UP, NameID(), Visible()));
-      }
-      ///
-      /// Цвет подложки таблицы открытых позиций. 
-      ///
-      color backgroundColor;
-      void Init(EventInit* event)
-      {
-         backgroundColor = clrDimGray;
-         Resize(40, 0, 40, 0);
-         if(Visible(true))
-            if(!ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_BGCOLOR, backgroundColor))
-               LogWriter("Failed change color of " + NameID(), MESSAGE_TYPE_ERROR);
-         //HeadColumn* HeadMagic = new HeadColumn("HeadMagic", GetPointer(this));
-         //childNodes.Add(HeadMagic);
-         //Включаем заголовок таблицы.
-         NodeContainer* nc = new NodeContainer("Container", GetPointer(this));
-         childNodes.Add(nc);
-         FieldsTables* ft = new FieldsTables("FieldTables", GetPointer(this));
-         childNodes.Add(ft);
-         EventSend(event);
-      }
-};
-
-class HeadColumn : public ProtoNode
+class Button : public ProtoNode
 {
    public:
       virtual void Event(Event *newEvent)
@@ -242,20 +131,14 @@ class HeadColumn : public ProtoNode
          {
             switch(newEvent.EventId())
             {
-               case EVENT_NODE_RESIZE:
-                  ResizeExtern(newEvent);
-                  break;
                case EVENT_NODE_VISIBLE:
                   VisibleExtern(newEvent);
                   break;
-               case EVENT_INIT:
-                  Init(newEvent);
-                  break;
+               //case EVENT_INIT:
+               //   Init(newEvent);
+               //   break;
                case EVENT_DEINIT:
                   Deinit(newEvent);
-                  break;
-               case EVENT_CHSTATUS:
-                  ChStatus(newEvent);
                   break;
                case EVENT_NODE_COMMAND:
                   RunCommand(newEvent);
@@ -266,7 +149,7 @@ class HeadColumn : public ProtoNode
             }
          }
       }
-      HeadColumn(string myName, ProtoNode* parNode):ProtoNode(OBJ_BUTTON, ELEMENT_TYPE_HEAD_COLUMN, myName, parNode)
+      Button(string myName, ProtoNode* parNode):ProtoNode(OBJ_BUTTON, ELEMENT_TYPE_HEAD_COLUMN, myName, parNode)
       {
          ;
       }
@@ -276,47 +159,17 @@ class HeadColumn : public ProtoNode
       ///
       void RunCommand(EventNodeCommand* event)
       {
-         /*if(!event.Visible())
-         {
-            Visible(false);
-            return;
-         }*/
          Move(event.XDist(), event.YDist());
          Resize(event.Width(), event.High());
-         Visible(true);
+         Visible(event.Visible());
          if(Visible())
          {
             ObjectSetString(MAIN_WINDOW, NameID(), OBJPROP_TEXT, ShortName());
+            ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_BORDER_COLOR, clrNONE);
          }
       }
-      ///
-      /// Обработчик события 'размер родительского узла изменен'.
-      /// \param event - Событие типа 'видимость внешнего узла изменена'.
-      ///
-      void ResizeExtern(EventResize* event)
-      {
-         Move(5, 20);
-         Resize(100, 20);
-         //По возможности отображаем текущий элемент.
-         if(ParVisible())
-            Visible(true);
-         EventResize* er = new EventResize(EVENT_FROM_UP, NameID(), Width(), High());
-         EventSend(er);
-         delete er;
-      }
       
-      void ChStatus(EventNodeStatus* event)
-      {
-         Move(5, 20);
-         Resize(100, 20);
-         //По возможности отображаем текущий элемент.
-         if(ParVisible())
-            Visible(true);
-         EventNodeStatus* cb = new EventNodeStatus(EVENT_FROM_UP, NameID(), Visible(),
-                                    XAbsDistance(), YAbsDistance(), Width(), High());
-         EventSend(cb);
-         delete cb;
-      }
+      
       ///
       /// Обработчик события статус 'видимости внешнего узла изменен'.
       /// \param event - Событие типа 'видимость внешнего узла изменена'.
@@ -332,84 +185,20 @@ class HeadColumn : public ProtoNode
       ///
       void Init(EventInit* event)
       {
-         Move(0,0);
+         /*Move(0,0);
          Resize(80, 20);
          Visible(true);
-         EventSend(event);
+         EventSend(event);*/
       }
 };
 
 ///
-/// Перечисление задающее порядок следования колонок
+/// Текстовая метка
 ///
-enum ENUM_COLUMNS_OPEN_POS
-{
-   COLUMN_MAGIC,
-   COLUMN_ORDER_ID,
-   COLUMN_SYMBOL
-};
-
-///
-/// Класс-контейнер, объединяющий несколько узлов в одну общность.
-///
-class NodeContainer : public ProtoNode
+class Label : ProtoNode
 {
    public:
-      NodeContainer(string myName, ProtoNode* parNode):ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_CONTAINER, myName, parNode)
-      {
-         strMagic = "Magic";
-         PosMagic = new HeadColumn(strMagic, GetPointer(this));
-         
-         strOrderId = "Order ID";
-         PosOrderId = new HeadColumn(strOrderId, GetPointer(this));
-         
-         strSymbol = "Symbol";
-         PosSymbol = new HeadColumn(strSymbol, GetPointer(this));
-         
-         strDir = "Dir";
-         PosDir = new HeadColumn(strDir, GetPointer(this));
-         
-         strEntryPrice = "Entry Price";
-         PosEntryPrice = new HeadColumn(strEntryPrice, GetPointer(this));
-         
-         strTakeProfit = "TakeProfit";
-         PosTakeProfit = new HeadColumn(strTakeProfit, GetPointer(this));
-         
-         strStopLoss = "Stop Loss";
-         PosStopLoss = new HeadColumn(strStopLoss, GetPointer(this));
-         
-         strSwap = "Swap";
-         PosSwap = new HeadColumn(strSwap, GetPointer(this));
-         
-         strEntryTime = "Entry Date";
-         PosEntryTime = new HeadColumn(strEntryTime, GetPointer(this));
-         
-         strQuant = "Vol.";
-         PosQuantity = new HeadColumn(strQuant, GetPointer(this));
-         
-         strProfit = "Profit";
-         PosProfit = new HeadColumn(strProfit, GetPointer(this));
-         
-         strComment = "Comment";
-         PosComment = new HeadColumn(strComment, GetPointer(this));
-         
-         strCurrPrice = "Price";
-         PosCurrPrice = new HeadColumn(strCurrPrice, GetPointer(this));
-         
-         childNodes.Add(PosMagic);
-         childNodes.Add(PosSymbol);
-         childNodes.Add(PosOrderId);
-         childNodes.Add(PosEntryTime);
-         childNodes.Add(PosDir);
-         childNodes.Add(PosQuantity);
-         childNodes.Add(PosEntryPrice);
-         childNodes.Add(PosStopLoss);
-         childNodes.Add(PosTakeProfit);
-         childNodes.Add(PosSwap);
-         childNodes.Add(PosCurrPrice);
-         childNodes.Add(PosProfit);
-         childNodes.Add(PosComment);
-      }
+      Label(string myName, ProtoNode* node) : ProtoNode(OBJ_EDIT, ELEMENT_TYPE_LABEL, myName, node){;}
       virtual void Event(Event *newEvent)
       {
          // Обрабатываем события приходящие сверху.
@@ -417,335 +206,106 @@ class NodeContainer : public ProtoNode
          {
             switch(newEvent.EventId())
             {
-               case EVENT_CHSTATUS:
-                  ChStatusExtern(newEvent);
+               
+               case EVENT_NODE_VISIBLE:
+                  VisibleExtern(newEvent);
                   break;
                case EVENT_DEINIT:
                   Deinit(newEvent);
                   break;
+               case EVENT_NODE_COMMAND:
+                  RunCommand(newEvent);
+               //События которые не можем обработать отправляем дальше вниз.
+               default:
+                  EventSend(newEvent);
+            }
+         }
+      }
+   private:
+      ///
+      /// Выполняет комманду.
+      ///
+      void RunCommand(EventNodeCommand* event)
+      {
+         Move(event.XDist(), event.YDist());
+         Resize(event.Width(), event.High());
+         Visible(true);
+         if(Visible())
+         {
+            //ObjectSetString(MAIN_WINDOW, NameID(), OBJPROP_TEXT, ShortName());
+         }
+      }
+      ///
+      /// Обработчик события статус 'видимости внешнего узла изменен'.
+      /// \param event - Событие типа 'видимость внешнего узла изменена'.
+      ///
+      void VisibleExtern(EventVisible* event)
+      {
+         bool vis = event.Visible();
+         Visible(vis);
+         EventSend(new EventVisible(EVENT_FROM_UP, NameID(), Visible()));
+      }
+};
+   
+
+///
+/// Ячейка таблицы.
+///
+class Cell : public ProtoNode
+{
+   public:
+      virtual void Event(Event *newEvent)
+      {
+         // Обрабатываем события приходящие сверху.
+         if(newEvent.Direction() == EVENT_FROM_UP)
+         {
+            switch(newEvent.EventId())
+            {
+               
+               case EVENT_NODE_VISIBLE:
+                  VisibleExtern(newEvent);
+                  break;
+               case EVENT_DEINIT:
+                  Deinit(newEvent);
+                  break;
+               case EVENT_NODE_COMMAND:
+                  RunCommand(newEvent);
+               //События которые не можем обработать отправляем дальше вниз.
                default:
                   EventSend(newEvent);
                   //delete newEvent;
             }
          }
       }
+      Cell(string myName, ProtoNode* parNode):ProtoNode(OBJ_LABEL, ELEMENT_TYPE_HEAD_COLUMN, myName, parNode)
+      {
+         ;
+      }
+   private:
       ///
-      /// Обработчик события 'размер родительского узла изменен'.
+      /// Выполняет комманду.
+      ///
+      void RunCommand(EventNodeCommand* event)
+      {
+         Move(event.XDist(), event.YDist());
+         Resize(event.Width(), event.High());
+         Visible(true);
+         if(Visible())
+         {
+            //ObjectSetString(MAIN_WINDOW, NameID(), OBJPROP_TEXT, ShortName());
+         }
+      }
+      ///
+      /// Обработчик события статус 'видимости внешнего узла изменен'.
       /// \param event - Событие типа 'видимость внешнего узла изменена'.
       ///
-      virtual void ChStatusExtern(EventNodeStatus* event)
+      void VisibleExtern(EventVisible* event)
       {
-         Move(1, 1);
-         Resize(event.Width()-2, 20);
-         if(ParVisible())
-         {
-            Visible(true);
-         }
-         if(Visible())
-         {
-            ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_BORDER_TYPE, BORDER_FLAT);
-            ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_COLOR, clrWhite);
-            ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_WIDTH, 1);
-         }
-         SetNodePosition();
+         bool vis = event.Visible();
+         Visible(vis);
+         EventSend(new EventVisible(EVENT_FROM_UP, NameID(), Visible()));
       }
       
-   protected:
-      void SetNodePosition()
-      {
-         long useWidth = 0;
-         long kBase = 1250;
-         //Коэффициент масштабируемости.
-         double kScale = (double)ParWidth()/(double)kBase;
-         for(int i=0; i < childNodes.Total();i++)
-         {
-            HeadColumn* currColumn = childNodes.At(i);
-            long cwidth = 20;
-            //По имени элемента определяем его размер
-            string cname = currColumn.ShortName();
-            if(cname == strMagic || cname == strOrderId)
-               cwidth = 100;
-            if(cname == strSymbol || cname == strEntryPrice ||
-               cname == strTakeProfit || cname == strStopLoss ||
-               cname == strSwap || cname == strProfit || cname == strCurrPrice)
-               cwidth = 70;
-            if(cname == strDir || cname == strQuant)
-               cwidth = 50;
-            if(cname == strSymbol)
-               cwidth = 100;
-            if(cname == strEntryTime)
-               cwidth = 150;
-            if(cname == strComment)
-               cwidth = 150;
-            
-            cwidth = (long)MathRound(cwidth * kScale);
-            useWidth += cwidth;
-            //Последний элемент занимает все оставшееся свободное место, за вычетом 20 пикселей,
-            //оставленных на скролл.
-            if(i == childNodes.Total()-1)
-               cwidth += parentNode.Width()-useWidth - 20;
-               
-            //Теперь, когда ширина объекта известна, размещаем его в узле
-            EventNodeCommand* enc;
-            if(i == 0)
-               enc = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 0, 0, cwidth, parentNode.High());
-            else
-            {
-               HeadColumn* prevColumn = childNodes.At(i-1);
-               enc = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), prevColumn.XLocalDistance() + prevColumn.Width(), 0, cwidth, parentNode.High());
-            }
-            currColumn.Event(enc);
-            delete enc;
-         }
-      }
-   private:
-      /// Magic позици.
-      HeadColumn* PosMagic;
-      /// Название колонки магического номера.
-      string strMagic;
-      
-      /// Идентификатор ордера
-      HeadColumn* PosOrderId;
-      ///
-      string strOrderId;
-      
-      /// Направление позиции.
-      HeadColumn* PosDir;
-      ///
-      string strDir;
-      
-      /// Название инструмента, по которому открыта позиция.
-      HeadColumn* PosSymbol;
-      ///
-      string strSymbol;
-      
-      /// Объем позиции.
-      HeadColumn* PosQuantity;
-      ///
-      string strQuant;
-      
-      /// Время входа.
-      HeadColumn* PosEntryTime;
-      ///
-      string strEntryTime;
-      
-      /// Цена входа.
-      HeadColumn* PosEntryPrice;
-      ///
-      string strEntryPrice;
-      
-      ///
-      /// Тейк профит.
-      ///
-      HeadColumn* PosTakeProfit;
-      ///
-      string strTakeProfit;
-      
-      /// Текущая цена позиции.
-      HeadColumn* PosCurrPrice;
-      ///
-      string strCurrPrice;
-      
-      ///
-      /// Стоп лосс.
-      ///
-      HeadColumn* PosStopLoss;
-      ///
-      string strStopLoss;
-      
-      ///
-      /// Своп
-      ///
-      HeadColumn* PosSwap;
-      string strSwap;
-      
-      ///
-      /// Текущий профит/лосс позиции.
-      ///
-      HeadColumn* PosProfit;
-      string strProfit;
-      
-      ///
-      /// Комментарий к открытой позиции.
-      ///
-      HeadColumn* PosComment;
-      string strComment;
-};
-
-class FieldsTables : public NodeContainer
-{
-   public:
-      FieldsTables(string myName, ProtoNode* parNode):NodeContainer(myName, parNode){;}
-      virtual void ChStatusExtern(EventNodeStatus* event)
-      {
-         Move(1, 21);
-         Resize(event.Width()-2, (long)(ParHigh()-21)/2);
-         if(ParVisible())
-         {
-            Visible(true);
-         }
-         if(Visible())
-         {
-            ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_BORDER_TYPE, BORDER_FLAT);
-            ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_COLOR, clrWhite);
-            ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_WIDTH, 1);
-         }
-         //SetNodePosition();
-      }
-};
-
-
-
-///
-/// Класс, объединяющий несколько графический узлов в линию.
-///
-class NodeLine : ProtoNode
-{
-   public:
-      NodeLine(string myName, ProtoNode* parNode):ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_CONTAINER, myName, parNode)
-      {
-         strComment = "Comment";
-         strCurrPrice = "Price";
-         strMagic = "Magic";
-         strOrderId = "Order ID";
-         strDir = "Dir";
-         strEntryPrice = "Entry Price";
-         strEntryTime = "Entry Date";
-         strProfit = "Profit";
-         strSymbol = "Symbol";
-         strQuant = "Vol.";
-         strStopLoss = "StopLoss";
-         strTakeProfit = "TakeProfit";
-         strSwap = "Swap";
-      }
-   protected:
-      ///
-      /// Устанавливает местоположение дочерних элементов внутри линии
-      ///
-      void SetPosition(string nameNode)
-      {
-         long useWidth = 0;
-         long kBase = 1250;
-         //Коэффициент масштабируемости.
-         double kScale = (double)ParWidth()/(double)kBase;
-         for(int i=0; i < childNodes.Total();i++)
-         {
-            HeadColumn* currColumn = childNodes.At(i);
-            long cwidth = 20;
-            //По имени элемента определяем его размер
-            string cname = currColumn.ShortName();
-            if(cname == strMagic || cname == strOrderId)
-               cwidth = 100;
-            if(cname == strSymbol || cname == strEntryPrice ||
-               cname == strTakeProfit || cname == strStopLoss ||
-               cname == strSwap || cname == strProfit || cname == strCurrPrice)
-               cwidth = 70;
-            if(cname == strDir || cname == strQuant)
-               cwidth = 50;
-            if(cname == strSymbol)
-               cwidth = 100;
-            if(cname == strEntryTime)
-               cwidth = 150;
-            if(cname == strComment)
-               cwidth = 150;
-            
-            cwidth = (long)MathRound(cwidth * kScale);
-            useWidth += cwidth;
-            //Последний элемент занимает все оставшееся свободное место, за вычетом 20 пикселей,
-            //оставленных на скролл.
-            if(i == childNodes.Total()-1)
-               cwidth += parentNode.Width()-useWidth;
-               
-            //Теперь, когда ширина объекта известна, размещаем его в узле
-            EventNodeCommand* enc;
-            if(i == 0)
-               enc = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 0, 0, cwidth, parentNode.High());
-            else
-            {
-               HeadColumn* prevColumn = childNodes.At(i-1);
-               enc = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), prevColumn.XLocalDistance() + prevColumn.Width(), 0, cwidth, parentNode.High());
-            }
-            currColumn.Event(enc);
-            delete enc;
-         }
-      }
-      ///
-      /// Добавляет узел в коллекцию.
-      ///
-      void AddNode(ProtoNode* node)
-      {
-         childNodes.Add(node);
-      }
-   private:
-      /*
-       * Далее идут строковые константы означающие название колонок таблицы.
-       * Каждой колонке свойственен свой характерный размер, который может
-       * быть рассчитан, зная ее название.
-      */
-      ///
-      /// Magic позици.
-      ///
-      string strMagic;
-      
-      ///
-      /// Идентификатор ордера.
-      ///
-      string strOrderId;
-      
-      ///
-      /// Направление позиции.
-      ///
-      string strDir;
-      
-      ///
-      /// Название инструмента, по которому открыта позиция.
-      ///
-      string strSymbol;
-      
-      ///
-      /// Объем позиции.
-      ///
-      string strQuant;
-      
-      ///
-      /// Время входа.
-      ///
-      string strEntryTime;
-      
-      ///
-      /// Цена входа.
-      ///
-      string strEntryPrice;
-      
-      ///
-      /// Тейк профит.
-      ///
-      string strTakeProfit;
-      
-      ///
-      /// Текущая цена позиции.
-      ///
-      string strCurrPrice;
-      
-      ///
-      /// Стоп лосс.
-      ///
-      string strStopLoss;
-      
-      ///
-      /// Своп
-      ///
-      string strSwap;
-      
-      ///
-      /// Текущий профит/лосс позиции.
-      ///
-      string strProfit;
-      
-      ///
-      /// Комментарий к открытой позиции.
-      ///
-      string strComment;
 };
 
 ///
@@ -754,7 +314,7 @@ class NodeLine : ProtoNode
 class Line : ProtoNode
 {
    public:
-      Line(string myName, ProtoNode* parNode):ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_CONTAINER, myName, parNode){;}
+      Line(string myName, ProtoNode* parNode):ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_GCONTAINER, myName, parNode){;}
       ///
       /// Добавляет узел в строковый контейнер.
       ///
@@ -783,6 +343,39 @@ class Line : ProtoNode
                   EventSend(newEvent);
             }
          }
+      }
+      ///
+      /// Устанавливает высоту текущей линии.
+      ///
+      void HighLine(long curHigh)
+      {
+         Resize(Width(), curHigh);
+         //EventResize* er = new EventResize(EVENT_FROM_UP, NameID(), Width(), High());
+      }
+      ///
+      /// Устанавливает ширину текущей линии.
+      ///
+      void WidthLine(long curWidth)
+      {
+         Resize(curWidth, High());
+         //EventResize* er = new EventResize(EVENT_FROM_UP, NameID(), Width(), High());
+         //EventSend(er);
+         //delete er;
+      }
+      ///
+      /// Передвигает линию на новые координаты.
+      ///
+      void MoveLine(long xdist, long ydist, ENUM_COOR_CONTEXT context = COOR_LOCAL)
+      {
+         Move(xdist, ydist, context);
+         
+      }
+      ///
+      /// Устанавливает видимость линии.
+      ///
+      void VisibleLine(bool isVisible)
+      {
+         Visible(isVisible);
       }
    private:
       ///
@@ -820,47 +413,44 @@ class Line : ProtoNode
       virtual void MyInit(EventInit* event)
       {
          //Устанавливаем максимально возможные габариты
-         Resize(0, 0, 0, 0);
-         Visible(true);
-         EventSend(event);
+         //Resize(20, 20);
+         //Resize(0, 0, 0, 0);
+         //Visible(true);
+         //EventSend(event);
       }
 };
-
 ///
-/// Контейнер, объединяющий несколько строк
+/// Прокрутка списка.
 ///
-class LineConteiner : ProtoNode
+class Scroll : ProtoNode
 {
    public:
-      LineConteiner(string myName, ProtoNode* parNode):ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_CONTAINER, myName, parNode){;}
-      
-      ///
-      /// Добавляет строку графический узлов в контейнер.
-      ///
-      void Add(Line* lineNode)
+      Scroll(string myName, ProtoNode* parNode) : ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_SCROLL, myName, parNode)
       {
-         //Рассчитываем текущую дистанцию.
-         //long cDist = childNodes
-         childNodes.Add(lineNode);
-         /*EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 0, cDist, Width(), highLine);
-         lineNode.Event(command);
-         delete command;*/
+         //у скрола есть две кнопки и ползунок.
+         up = new Button("UpClick", GetPointer(this));
+         childNodes.Add(up);
+         
+         dn = new Button("DnClick", GetPointer(this));
+         childNodes.Add(dn);
+         
+         toddler = new Button("Todler", GetPointer(this));
+         childNodes.Add(toddler);
+         
       }
-      virtual void Event(Event *newEvent)
+      void Event(Event *newEvent)
       {
          // Обрабатываем события приходящие сверху.
          if(newEvent.Direction() == EVENT_FROM_UP)
          {
             switch(newEvent.EventId())
             {
-               // Положение блока линий определяется динамически, на уровне вышестоящего узла,
-               // поэтому единвстенное поддерживаемое событие на изменение блока - это комманда сверху.
-               case EVENT_NODE_COMMAND:
-                  CommandExtern(newEvent);
+               case EVENT_CHSTATUS:
+                  ChStatusExtern(newEvent);
                   break;
-               case EVENT_INIT:
-                  MyInit(newEvent);
-                  break;
+               //case EVENT_INIT:
+                  //MyInit(newEvent);
+                  //break;
                case EVENT_DEINIT:
                   Deinit(newEvent);
                   break;
@@ -870,46 +460,29 @@ class LineConteiner : ProtoNode
          }
       }
    private:
-      
-      void CommandExtern(EventNodeCommand* newEvent)
+      void ChStatusExtern(EventNodeStatus* event)
       {
-         long x = newEvent.XDist();
-         long y = newEvent.YDist();
-         bool vis = newEvent.Visible();
-         Move(newEvent.XDist(), newEvent.YDist());
+         long w = event.Width();
+         long h = event.High(); 
+         bool v = event.Visible();
+         Move(event.Width() - 20, 0);
+         Resize(20, event.High());
+         Visible(event.Visible());
+         //Позиционируем верхнюю кнопку.
+         EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 2, 2, 16, 16);
+         up.Event(command);
+         delete command;
          
-         //Высота контейнера строго равна суммарной высоте всех входящих в него линий.
-         long chigh = 0;
-         long mhigh = 0;
-         int total = childNodes.Total();
-         //Считаем максимально возможную высоту контейнера
-         for(int i = 0; i < total;i++)
-         {
-            ProtoNode* line = childNodes.At(i);
-            mhigh += line.High();
-         }
-         //Пытаемся установить предельную высоту контейнера
-         Resize(newEvent.Width(), mhigh);
-         Visible(newEvent.Visible());
-         for(int i = 0; i < total;i++)
-         {
-            ProtoNode* line = childNodes.At(i);
-            EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 0, chigh, Width(), line.High());
-            line.Event(command);
-            delete command;
-            if(line.Visible())
-               chigh += line.High();
-         }
-         Resize(newEvent.Width(), chigh);
+         //Позиционируем нижнюю кнопку.
+         command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 2, High()-16, 16, 16);
+         dn.Event(command);
+         delete command;
       }
       
-      virtual void MyInit(EventInit* event)
-      {
-         //Устанавливаем максимально возможные габариты
-         Resize(0, 0, 0, 0);
-         Visible(true);
-         EventSend(event);
-      }
+      //у скрола есть две кнопки и ползунок.
+      Button* up;
+      Button* dn;
+      Button* toddler;
 };
 
 ///
@@ -920,18 +493,15 @@ class LineConteiner : ProtoNode
 class Table : public ProtoNode
 {
    public:
-      Table(string myName, ProtoNode* parNode):ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_CONTAINER, myName, parNode)
+      Table(string myName, ProtoNode* parNode):ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_UCONTAINER, myName, parNode)
       {
          backgroundColor = clrDimGray;
       }
-      void Add(Line* lineNode)
+      void Add(ProtoNode* lineNode)
       {
          childNodes.Add(lineNode);
       }
-      void Add(LineConteiner* contNode)
-      {
-         childNodes.Add(contNode);
-      }
+      
       virtual void Event(Event *newEvent)
       {
          // Обрабатываем события приходящие сверху.
@@ -962,24 +532,42 @@ class Table : public ProtoNode
       {
          Resize(40, 20, 40, 5);
          //По возможности отображаем текущий элемент.
-         if(Visible() || Visible(true))
+         if(Visible(true))
          {
-            Visible(true);
-            if(Visible(true))
-               if(!ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_BGCOLOR, backgroundColor))
-                  LogWriter("Failed change color of " + NameID(), MESSAGE_TYPE_ERROR);
+            if(!ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_BGCOLOR, backgroundColor))
+               LogWriter("Failed change color of " + NameID(), MESSAGE_TYPE_ERROR);
+            ObjectCreate(0, "edittext", OBJ_EDIT, 0, 30, 30);
+            ObjectSetInteger(0, "edittext", OBJPROP_XDISTANCE, 40);
+            ObjectSetInteger(0, "edittext", OBJPROP_YDISTANCE, 80);
+            ObjectSetInteger(0, "edittext", OBJPROP_BGCOLOR, clrNONE);
+            ObjectSetInteger(0, "edittext", OBJPROP_BORDER_COLOR, clrNONE);
+            //ObjectSetInteger(0, "edittext", OBJPROP_WIDTH, 3);
+            ObjectSetString(0, "edittext", OBJPROP_TEXT, "edit text");
          }
          //Теперь, в зависимости от элемента, определяем его положение
          long ydist = 0;
          //ProtoNode* prevNode
          for(int i = 0; i < childNodes.Total(); i++)
          {
+            
             ProtoNode* node = childNodes.At(i);
-            EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 0, ydist, Width()-20, 20);
-            node.Event(command);
-            delete command;
-            ydist += node.High();
+            if(node.TypeElement() == ELEMENT_TYPE_GCONTAINER)
+            {
+             EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 0, ydist, Width()-20, 20);
+             node.Event(command);
+             delete command;
+             ydist += node.High();
+            }
+            //
+            if(node.TypeElement() == ELEMENT_TYPE_SCROLL)
+            {
+               bool v = Visible();
+               EventNodeStatus* ch = new EventNodeStatus(EVENT_FROM_UP, NameID(), Visible(), XAbsDistance(), YAbsDistance(), Width(), High());
+               node.Event(ch);
+               delete ch;
+            }
          }
+         
       }
       virtual void MyInit(EventInit* event)
       {
@@ -997,24 +585,75 @@ class TableOpenPos : public Table
    public:
       TableOpenPos(ProtoNode* parNode):Table("TableOfOpenPos.", parNode)
       {
-         // 1. Создадим контейнер, включающий заголовок и фильтр.
-         //LineConteiner* contHeader = new LineConteiner("ConteinerHeader", GetPointer(this));
-         // 1.1 Линия содержит заголовок таблицы.
+         // Первая линия содержит заголовок таблицы.
          Line* lineHeader = new Line("LineHeader", GetPointer(this));
          
-         // 1.1.1 Заполняем заголовок элементами.
-         HeadColumn* hmagic = new HeadColumn("Magic", GetPointer(lineHeader));
+         // Магический номер
+         Button* hmagic = new Button("Magic", GetPointer(lineHeader));
          hmagic.OptimalWidth(50);
          lineHeader.Add(hmagic);
+         
+         // Символ
+         Button* hSymbol = new Button("Symbol", GetPointer(lineHeader));
+         hmagic.OptimalWidth(70);
+         lineHeader.Add(hSymbol);
+         
+         // Order ID
+         Button* hOrderId = new Button("Order ID", GetPointer(lineHeader));
+         hOrderId.OptimalWidth(70);
+         lineHeader.Add(hOrderId);
+         
+         // Время входа в позицию.
+         Button* hEntryDate = new Button("Entry Date", GetPointer(lineHeader));
+         hEntryDate.OptimalWidth(150);
+         lineHeader.Add(hEntryDate);
+         
+         
+         // Направление позиции.
+         Button* hTypePos = new Button("Type", GetPointer(lineHeader));
+         hTypePos.OptimalWidth(50);
+         lineHeader.Add(hTypePos);
+         
+         // Объем
+         Button* hVolume = new Button("Vol.", GetPointer(lineHeader));
+         hVolume.OptimalWidth(50);
+         lineHeader.Add(hVolume);
+         
+         // Цена входа.
+         Button* hEntryPrice = new Button("Price", GetPointer(lineHeader));
+         hEntryPrice.OptimalWidth(70);
+         lineHeader.Add(hEntryPrice);
+         
+         // Стоп-лосс
+         Button* hStopLoss = new Button("S/L", GetPointer(lineHeader));
+         hStopLoss.OptimalWidth(70);
+         lineHeader.Add(hStopLoss);
+         
+         // Тейк-профит
+         Button* hTakeProfit = new Button("T/P", GetPointer(lineHeader));
+         hTakeProfit.OptimalWidth(70);
+         lineHeader.Add(hTakeProfit);
+         
+         // Текущая цена
+         Button* hCurrentPrice = new Button("Price", GetPointer(lineHeader));
+         hCurrentPrice.OptimalWidth(70);
+         lineHeader.Add(hCurrentPrice);
+         
+         // Профит
+         Button* hProfit = new Button("Profit", GetPointer(lineHeader));
+         hProfit.OptimalWidth(70);
+         lineHeader.Add(hProfit);
+         
+         // Комментарий
+         Button* hComment = new Button("Comment", GetPointer(lineHeader));
+         hComment.OptimalWidth(150);
+         lineHeader.Add(hComment);
+         
+         //Скрол
+         Scroll* myscroll = new Scroll("Scroll", GetPointer(this));
+         Add(myscroll);
+         
          Add(lineHeader);
-         //contHeader.Add(lineHeader);
-         //Add(contHeader);
-         // 1.2 Создаем новую линию, включающую строку поиска.
-         
-         //
-         
-         //string colNames[] = {"Magic", "Order ID", "Time Enter", "Type", "Vol.", "Price Enter"};
-         
       }
    private:
       virtual void MyInit(EventInit* event)

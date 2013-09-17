@@ -196,6 +196,7 @@ class EventNodeStatus : Event
       EventNodeStatus(ENUM_EVENT_DIRECTION myDir, string nodeId, bool isVisible, long newXDist, long newYDist, long newWidth, long newHigh):
       Event(myDir, EVENT_CHSTATUS, nodeId)
       {
+         visible = isVisible;
          width = newWidth;
          high = newHigh;
          xDist = newXDist;

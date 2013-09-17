@@ -13,6 +13,26 @@
 int OnInit()
   {
 //---
+   
+   ObjectCreate(0, "cell", OBJ_RECTANGLE_LABEL, 0, 0, 0);
+   ObjectSetInteger(0, "cell", OBJPROP_XDISTANCE, 15);
+   ObjectSetInteger(0, "cell", OBJPROP_YDISTANCE, 60);
+   ObjectSetInteger(0, "cell", OBJPROP_BGCOLOR, clrWhite);
+   ObjectSetInteger(0, "cell", OBJPROP_BORDER_TYPE, BORDER_FLAT);
+   ObjectSetInteger(0, "cell", OBJPROP_BORDER_COLOR, clrBlack);
+   ObjectSetInteger(0, "cell", OBJPROP_BACK, false);
+   //ObjectSetInteger(0, "cell", OBJPROP_SELECTED, false);
+   
+   ObjectCreate(0, "edittext", OBJ_EDIT, 0, 30, 30);
+   ObjectSetInteger(0, "edittext", OBJPROP_XDISTANCE, 40);
+   ObjectSetInteger(0, "edittext", OBJPROP_YDISTANCE, 50);
+   ObjectSetInteger(0, "edittext", OBJPROP_BGCOLOR, clrNONE);
+   ObjectSetInteger(0, "edittext", OBJPROP_BORDER_COLOR, clrNONE);
+   //ObjectSetInteger(0, "edittext", OBJPROP_WIDTH, 3);
+   ObjectSetString(0, "edittext", OBJPROP_TEXT, "edit text");
+   ObjectSetInteger(0, "edittext", OBJPROP_BACK, false);
+   
+   
    EventSetTimer(1);
 //---
    return(INIT_SUCCEEDED);
@@ -23,7 +43,7 @@ int OnInit()
 void OnDeinit(const int reason)
   {
 //---
-   
+   ObjectDelete(0, "label");
   }
 //+------------------------------------------------------------------+
 //| Expert tick function                                             |
@@ -32,7 +52,7 @@ void OnTick()
 {
    const OnlyOne *oo = OnlyOne::Instance();
    oo.Push1();
-   Print(oo.GetSum());
+   //Print(oo.GetSum());
    //tester::i = MathRand();
    //Print(tester::i);
 }
@@ -64,6 +84,6 @@ const OnlyOne *myDD;
 void OnTimer(void)
 {
    const OnlyOne *myoo = OnlyOne::Instance();
-   Print("OnTimer(): " + (string)myoo.GetSum());
+   //Print("OnTimer(): " + (string)myoo.GetSum());
 }
 
