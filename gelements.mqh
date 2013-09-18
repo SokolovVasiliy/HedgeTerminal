@@ -142,6 +142,7 @@ class Button : public ProtoNode
                   break;
                case EVENT_NODE_COMMAND:
                   RunCommand(newEvent);
+                  break;
                //События которые не можем обработать отправляем дальше вниз.
                default:
                   EventSend(newEvent);
@@ -151,21 +152,57 @@ class Button : public ProtoNode
       }
       Button(string myName, ProtoNode* parNode):ProtoNode(OBJ_BUTTON, ELEMENT_TYPE_HEAD_COLUMN, myName, parNode)
       {
-         ;
+         borderColor = clrBlack;
+         label = myName;
+         font = "Arial";
+         fontsize = 10;
       }
+      void BorderColor(color clr)
+      {
+         borderColor = clr;
+      }
+      color BorderColor()
+      {
+         return borderColor;
+      }
+      ///
+      /// Возвращает надпись кнопки.
+      ///
+      string Label(){return label;}
+      ///
+      /// Устанавливает надпись кнопки.
+      ///
+      void Label(string text){label = text;}
+      ///
+      /// Возвращает имя используемого шрифта.
+      ///
+      string Font(){return font;}
+      ///
+      /// Устанавливает имя используемого шрифта.
+      ///
+      void Font(string myFont){font = myFont;}
+      ///
+      /// Возвращает размер используемого шрифта.
+      ///
+      int FontSize(){return fontsize;}
+      ///
+      /// Устанавливает размер используемого шрифта.
+      ///
+      void FontSize(int size){fontsize = size;}
    private:
       ///
       /// Выполняет комманду.
       ///
       void RunCommand(EventNodeCommand* event)
       {
-         Move(event.XDist(), event.YDist());
-         Resize(event.Width(), event.High());
-         Visible(event.Visible());
+         ExecuteCommand(event);
          if(Visible())
          {
-            ObjectSetString(MAIN_WINDOW, NameID(), OBJPROP_TEXT, ShortName());
+            ObjectSetString(MAIN_WINDOW, NameID(), OBJPROP_TEXT, label);
             ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_BORDER_COLOR, clrNONE);
+            ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_BORDER_COLOR, borderColor);
+            ObjectSetString(MAIN_WINDOW, NameID(), OBJPROP_FONT, font);
+            ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_FONTSIZE, fontsize);
          }
       }
       
@@ -178,18 +215,26 @@ class Button : public ProtoNode
       {
          bool vis = event.Visible();
          Visible(vis);
-         EventSend(new EventVisible(EVENT_FROM_UP, NameID(), Visible()));
+         EventVisible* ev = new EventVisible(EVENT_FROM_UP, NameID(), Visible());
+         EventSend(ev);
+         delete ev;
       }
       ///
+      /// Цвет рамки кнопки
       ///
+      color borderColor;
       ///
-      void Init(EventInit* event)
-      {
-         /*Move(0,0);
-         Resize(80, 20);
-         Visible(true);
-         EventSend(event);*/
-      }
+      ///  Надпись кнопки.
+      ///
+      string label;
+      ///
+      /// Имя шрифта.
+      ///
+      string font;
+      ///
+      /// Размер шрифта.
+      ///
+      int fontsize;
 };
 
 ///
@@ -227,13 +272,7 @@ class Label : ProtoNode
       ///
       void RunCommand(EventNodeCommand* event)
       {
-         Move(event.XDist(), event.YDist());
-         Resize(event.Width(), event.High());
-         Visible(true);
-         if(Visible())
-         {
-            //ObjectSetString(MAIN_WINDOW, NameID(), OBJPROP_TEXT, ShortName());
-         }
+         ExecuteCommand(event);
       }
       ///
       /// Обработчик события статус 'видимости внешнего узла изменен'.
@@ -307,14 +346,52 @@ class Cell : public ProtoNode
       }
       
 };
-
+///
+/// Идентификатор указывающий на алгоритм выравнивания элементов в горизонтальном или вертикальном контейнере.
+///
+enum ENUM_LINE_ALIGN_TYPE
+{
+   ///
+   /// Масштабирование на основе рекомендованной ширины/высоты элемента.
+   ///
+   LINE_ALIGN_SCALE,
+   ///
+   /// Масштабирование обычной ячейки.
+   ///
+   LINE_ALIGN_CELL,
+   ///
+   /// Мастшабирование ячейки таблицы содержащую кнопки.
+   ///
+   LINE_ALIGN_CELLBUTTON,
+   ///
+   /// Равномерное распределение общей ширины/высоты контейнера между всеми элементами.
+   ///
+   LINE_ALIGN_EVENNESS
+};
 ///
 /// Строковый контейнер.
 ///
 class Line : ProtoNode
 {
    public:
-      Line(string myName, ProtoNode* parNode):ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_GCONTAINER, myName, parNode){;}
+      Line(string myName, ProtoNode* parNode):ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_GCONTAINER, myName, parNode)
+      {
+         typeAlign = LINE_ALIGN_SCALE;
+      }
+      ///
+      /// Устанавливает алгоритм выравнивания для элементов внутри линии.
+      ///
+      void AlignType(ENUM_LINE_ALIGN_TYPE align)
+      {
+         typeAlign = align;
+      }
+      ///
+      /// Возвращает идентификатор алгоритма выравнивания элементов внутри линии.
+      ///
+      ENUM_LINE_ALIGN_TYPE AlignType()
+      {
+         return typeAlign;
+      }
       ///
       /// Добавляет узел в строковый контейнер.
       ///
@@ -332,9 +409,6 @@ class Line : ProtoNode
             {
                case EVENT_NODE_COMMAND:
                   CommandExtern(newEvent);
-                  break;
-               case EVENT_INIT:
-                  MyInit(newEvent);
                   break;
                case EVENT_DEINIT:
                   Deinit(newEvent);
@@ -381,15 +455,26 @@ class Line : ProtoNode
       ///
       /// Положение и размер контейнера изменились.
       ///
-      void CommandExtern(EventNodeStatus* newEvent)
+      void CommandExtern(EventNodeCommand* newEvent)
       {
-         Move(newEvent.XDist(), newEvent.YDist());
-         Resize(newEvent.Width(), newEvent.High());
-         Visible(newEvent.Visible());
-         // На этом уровне, события меняем на прямое управление элементами.
-         //Все элементы перемещаются на новое место
-         int total = childNodes.Total();
+         ExecuteCommand(newEvent);
+         switch(typeAlign)
+         {
+            case LINE_ALIGN_CELL:
+            case LINE_ALIGN_CELLBUTTON:
+               AlgoCellButton();
+            default:
+               AlgoScale();
+               break;
+         }
+      }
+      ///
+      /// Алгоритм масштабирования на основе рекомендованной ширины/высоты элемента.
+      ///
+      void AlgoScale()
+      {
          //Положение подузла по горизонтали, относительно текущего узла.
+         int total = childNodes.Total();
          long xdist = 0;
          ProtoNode* prevColumn = NULL;
          ProtoNode* node = NULL;
@@ -410,14 +495,41 @@ class Line : ProtoNode
             prevColumn = node;
          }
       }
-      virtual void MyInit(EventInit* event)
+      ///
+      /// Алгоритм позиционирования элементов "ячейка с кнопками"
+      ///
+      void AlgoCellButton()
       {
-         //Устанавливаем максимально возможные габариты
-         //Resize(20, 20);
-         //Resize(0, 0, 0, 0);
-         //Visible(true);
-         //EventSend(event);
+         //В этом режиме подразумевается, что содержимое состоит из узлов, часть из которых - квадратные кнопки.
+         int total = childNodes.Total()-1;
+         long xdist = Width();
+         long chigh = High();
+         //Перебираем элементы в обратном порядке, т.к. кнопки идут самыми последними
+         for(int i = total; i <= 0; i--)
+         {
+            ProtoNode* node = childNodes.At(i);
+            if(node.TypeElement() == ELEMENT_TYPE_BOTTON)
+            {
+               xdist -= chigh;
+               EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), xdist+2, 2, chigh-2, chigh-2);
+               node.Event(command);
+               delete command;
+            }
+            else
+            {
+               //Средняя ширина элемента
+               long avrg = (long)MathRound((double)xdist/(double)(total+1));
+               xdist -= avrg;
+               EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), xdist, 0, avrg, chigh);
+               node.Event(command);
+               delete command;
+            }
+         }
       }
+      ///
+      /// Идентификатор алгоритма выравнивания в линии.
+      ///
+      ENUM_LINE_ALIGN_TYPE typeAlign;
 };
 ///
 /// Прокрутка списка.
@@ -429,9 +541,15 @@ class Scroll : ProtoNode
       {
          //у скрола есть две кнопки и ползунок.
          up = new Button("UpClick", GetPointer(this));
+         up.BorderColor(clrNONE);
+         up.Font("Wingdings");
+         up.Label(CharToString(241));
          childNodes.Add(up);
          
          dn = new Button("DnClick", GetPointer(this));
+         dn.BorderColor(clrNONE);
+         dn.Font("Wingdings");
+         dn.Label(CharToString(242));
          childNodes.Add(dn);
          
          toddler = new Button("Todler", GetPointer(this));
@@ -462,6 +580,9 @@ class Scroll : ProtoNode
    private:
       void ChStatusExtern(EventNodeStatus* event)
       {
+         int dbg = 4;
+         if(!event.Visible())
+            dbg = 3;
          long w = event.Width();
          long h = event.High(); 
          bool v = event.Visible();

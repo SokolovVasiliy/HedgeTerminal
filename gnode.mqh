@@ -2,15 +2,8 @@
 #include <Arrays\ArrayObj.mqh>
 #include "events.mqh"
 #include "log.mqh"
+#include "defines.mqh"
 
-///
-/// Идентификатор окна графика на котором запущена панель.
-///
-#define MAIN_WINDOW 0
-///
-/// Идентификатор подокна графика, на котором запущена панель.
-///
-#define MAIN_SUBWINDOW 0
 
 ///
 /// Тип элемента графического интерфейса.
@@ -67,76 +60,6 @@ enum ENUM_ELEMENT_TYPE
    ELEMENT_TYPE_CELL
 };
 
-///
-/// Контекст передваемых координат для функции Move().
-///
-enum ENUM_COOR_CONTEXT
-{
-   ///
-   /// Текущие координаты задаются относительно левого верхнего угла окна терминала.
-   ///
-   COOR_GLOBAL,
-   ///
-   /// Текущие координаты задаются относительно левого верхнего угла родительского узла.
-   ///
-   COOR_LOCAL
-};
-
-///
-/// Класс, описывающий состояние объекта: его длину, ширину, горизонтальную
-/// и вертикальную координаты привязки, флаг его видимости.
-///
-///
-class State
-{
-   public:
-      ///
-      /// Возвращает флаг видимости объекта.
-      /// \return Истина, если элемент видим и ложь в противном случае.
-      ///
-      bool Visible(){return visible;}
-      ///
-      /// Устанавливает флаг видимости объекта.
-      /// \param isVisible - флаг видимости элемента.
-      /// Истина, если элемент видим и ложь в противном случае.
-      ///
-      void Visible(bool isVisible){ visible = isVisible;}
-   private:
-      ///
-      /// Уникальный строковый идентификатор элемента состоящий из его названия и индекса.
-      ///
-      string nameId;
-      ///
-      /// Название элемента
-      ///
-      string name;
-      ///
-      /// Флаг видимости объекта. Истина - если объект
-      /// отображается на графике, ложь в противном случае.
-      ///
-      bool visible;
-      ///
-      /// Горизонтальная координата привязки верхнего левого угла объекта к графику.
-      ///
-      long xDist;
-      ///
-      /// Вертикальная координата привязки верхнего левого угла объекта к графику.
-      ///
-      long yDist;
-      ///
-      /// Контекст используемых координат.
-      ///
-      ENUM_COOR_CONTEXT context;
-      ///
-      /// Ширина объекта в пикселях.
-      ///
-      long width;
-      ///
-      /// Высота объекта в пикселях.
-      ///
-      long high;
-};
-
 class ProtoNode : CObject
 {
    public:
@@ -145,7 +68,39 @@ class ProtoNode : CObject
       /// Принимаем событие и обрабатываем его в соответсвтии с правилами
       /// определенными в классе-потомке. 
       ///
-      virtual void Event(Event* newEvent){;}
+      virtual void Event(Event* event)
+      {
+         if(event.Direction() == EVENT_FROM_UP)
+         {
+            switch(event.EventId())
+            {
+               case EVENT_NODE_MOVE:
+                  Move(event);
+                  OnMove(event);
+                  break;
+               case EVENT_NODE_RESIZE:
+                  Resize(event);
+                  OnResize(event);
+                  break;
+               case EVENT_NODE_VISIBLE:
+                  Visible(event);
+                  OnVisible(event);
+                  break;
+               case EVENT_DEINIT:
+                  Deinit(event);
+                  OnDeinit(event);
+                  break;
+               default:
+                  OnEvent(event);
+            }
+         }
+      }
+      
+      virtual void OnVisible(EventVisible* event){;}
+      virtual void OnResize(EventResize* event){;}
+      virtual void OnMove(EventMove* event){;}
+      virtual void OnEvent(Event* event){;}
+      virtual void OnDeinit(EventDeinit* event){;}
       ///
       /// Возвращает ширину графического узла в пунктах.
       /// \return Высота графического узла в пунктах.
@@ -318,6 +273,10 @@ class ProtoNode : CObject
       }
       
    protected:
+      void Resize(EventResize* event)
+      {
+         Resize(event.NewHigh(), event.NewWidth());
+      }
       ///
       /// Устанавливает новый размер текущего графического узла.
       /// \return Истина, если размер графического узла был установлен на новый, ложь
@@ -360,6 +319,9 @@ class ProtoNode : CObject
          }
          width = newWidth;
          high = newHigh;
+         EventResize* er = new EventResize(EVENT_FROM_UP, nameId, width, high);
+         EventSend(er);
+         delete er;
          return true;
       }
       ///
@@ -376,6 +338,10 @@ class ProtoNode : CObject
          long newWidth = ParWidth() - LeftBorder - RightBorder;
          long newHigh = ParHigh() - UpBorder - DnBorder;
          return Resize(newWidth, newHigh);
+      }
+      void Visible(EventVisible* event)
+      {
+         Visible(event.Visible());
       }
       ///
       /// Устанавливает видимость графического узла.
@@ -420,6 +386,10 @@ class ProtoNode : CObject
             //Генерируем новое имя всякий раз когда требуется отобразить элемент, гарантируя его уникальность.
             GenNameId();
             visible = ObjectCreate(MAIN_WINDOW, nameId, typeObject, MAIN_SUBWINDOW, XAbsDistance(), YAbsDistance());
+            //Уведомляем дочерние элементы
+            EventVisible* ev = new EventVisible(EVENT_FROM_UP, NameID(), visible);
+            EventSend(ev);
+            delete ev;
             //Перемещаем элемент в соответствии с его установленными координатами
             Move(xDist, yDist, COOR_GLOBAL);
             if(!visible)
@@ -431,8 +401,16 @@ class ProtoNode : CObject
          if(Visible() && !status)
          {
             visible = !ObjectDelete(MAIN_WINDOW, nameId);
+            //Уведомляем дочерние элементы.
+            EventVisible* ev = new EventVisible(EVENT_FROM_UP, NameID(), visible);
+            EventSend(ev);
+            delete ev;
          }
          return visible;
+      }
+      void Move(EventMove* event)
+      {
+         Move(event.XDist(), event.YDist(), event.Context());
       }
       ///
       /// Передвигает графический узел на новое место, задаваемое координатами по осям X и Y.
@@ -496,17 +474,22 @@ class ProtoNode : CObject
          bool res = true;
          if(Visible())
          {
-            if(!ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_XDISTANCE, xCoordinate))
+            if(!ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_XDISTANCE, xDist))
             {
                LogWriter("Failed move element " + nameId, MESSAGE_TYPE_ERROR);
                res = false;
+               xDist = ObjectGetInteger(MAIN_WINDOW, NameID(), OBJPROP_XDISTANCE);
             }
-            if(!ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_YDISTANCE, yCoordinate))
+            if(!ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_YDISTANCE, yDist))
             {
                LogWriter("Failed move element " + nameId, MESSAGE_TYPE_ERROR); 
                res = false;
+               yDist = ObjectGetInteger(MAIN_WINDOW, NameID(), OBJPROP_YDISTANCE);
             }
          }
+         EventMove* em = new EventMove(EVENT_FROM_UP, nameId, xDist, yDist, context);
+         EventSend(em);
+         delete em;
          return res;
       }
       ///
@@ -550,6 +533,16 @@ class ProtoNode : CObject
          }
          childNodes.Shutdown();
          Visible(false);
+      }
+      ///
+      /// Перемещает текущий элемент на новые координаты и изменяет его размеры
+      /// в соответствии с коммандой-событием.
+      ///
+      void ExecuteCommand(EventNodeCommand* newEvent)
+      {
+         Move(newEvent.XDist(), newEvent.YDist());
+         Resize(newEvent.Width(), newEvent.High());
+         Visible(newEvent.Visible());
       }
       ///
       /// Указатель на родительский графический узел.
@@ -651,5 +644,3 @@ class ProtoNode : CObject
          optimalWidth = 80;
       }
 };
-
-

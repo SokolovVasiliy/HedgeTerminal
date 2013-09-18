@@ -1,3 +1,4 @@
+#include "defines.mqh"
 /*
   Идентификаторы событий и их параметры
 */
@@ -134,6 +135,27 @@ class EventResize : Event
    private:
       long myWidth;
       long myHigh;
+};
+///
+/// Событие EVENT_NODE_MOVE
+///
+class EventMove : Event
+{
+   public:
+      long XDist(){return xDist;}
+      long YDist(){return yDist;}
+      ENUM_COOR_CONTEXT Context(){return context;}
+      EventMove(ENUM_EVENT_DIRECTION eventDir, string mynameId ,long myXDist, long myYDist, ENUM_COOR_CONTEXT myContext):
+      Event(eventDir, EVENT_NODE_MOVE, mynameId)
+      {
+         xDist = myXDist;
+         yDist = myYDist;
+         context = myContext;
+      }
+   private:
+      long xDist;
+      long yDist;
+      ENUM_COOR_CONTEXT context;
 };
 ///
 /// События EVENT_NEW_TICK

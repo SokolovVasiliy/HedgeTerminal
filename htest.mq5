@@ -14,24 +14,13 @@ int OnInit()
   {
 //---
    
-   ObjectCreate(0, "cell", OBJ_RECTANGLE_LABEL, 0, 0, 0);
-   ObjectSetInteger(0, "cell", OBJPROP_XDISTANCE, 15);
-   ObjectSetInteger(0, "cell", OBJPROP_YDISTANCE, 60);
-   ObjectSetInteger(0, "cell", OBJPROP_BGCOLOR, clrWhite);
-   ObjectSetInteger(0, "cell", OBJPROP_BORDER_TYPE, BORDER_FLAT);
-   ObjectSetInteger(0, "cell", OBJPROP_BORDER_COLOR, clrBlack);
-   ObjectSetInteger(0, "cell", OBJPROP_BACK, false);
-   //ObjectSetInteger(0, "cell", OBJPROP_SELECTED, false);
-   
-   ObjectCreate(0, "edittext", OBJ_EDIT, 0, 30, 30);
-   ObjectSetInteger(0, "edittext", OBJPROP_XDISTANCE, 40);
-   ObjectSetInteger(0, "edittext", OBJPROP_YDISTANCE, 50);
-   ObjectSetInteger(0, "edittext", OBJPROP_BGCOLOR, clrNONE);
-   ObjectSetInteger(0, "edittext", OBJPROP_BORDER_COLOR, clrNONE);
-   //ObjectSetInteger(0, "edittext", OBJPROP_WIDTH, 3);
-   ObjectSetString(0, "edittext", OBJPROP_TEXT, "edit text");
-   ObjectSetInteger(0, "edittext", OBJPROP_BACK, false);
-   
+   ObjectCreate(0, "TestButton", OBJ_BUTTON, 0, 0, 0);
+   ObjectSetInteger(0, "TestButton", OBJPROP_XDISTANCE, 200);
+   ObjectSetInteger(0, "TestButton", OBJPROP_YDISTANCE, 200);
+   ObjectSetInteger(0, "TestButton", OBJPROP_XSIZE, 200);
+   ObjectSetInteger(0, "TestButton", OBJPROP_YSIZE, 100);
+   ObjectSetInteger(0, "TestButton", OBJPROP_BORDER_COLOR, clrBlack);
+   ObjectSetInteger(0, "TestButton", OBJPROP_BGCOLOR, clrWhite);
    
    EventSetTimer(1);
 //---

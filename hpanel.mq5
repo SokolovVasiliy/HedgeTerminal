@@ -10,7 +10,6 @@
 #property version   "1.001"
 
 #include "Log.mqh"
-#include "hpgui.mqh"
 #include "gelements.mqh"
 
 ///
@@ -68,7 +67,7 @@ void OnChartEvent(const int id,
    {
       long X = ChartGetInteger(MAIN_WINDOW, CHART_WIDTH_IN_PIXELS, MAIN_SUBWINDOW);
       long Y = ChartGetInteger(MAIN_WINDOW, CHART_HEIGHT_IN_PIXELS, MAIN_SUBWINDOW);
-      Print("Получены новые размеры окна X:" + (string)X + " Y:" + (string)Y);
+      //Print("Получены новые размеры окна X:" + (string)X + " Y:" + (string)Y);
       //EventResize* er = new EventResize(EVENT_FROM_UP, "TERMINAL_WINDOW", X, Y);
       EventNodeStatus* er = new EventNodeStatus(EVENT_FROM_UP, "TERMINAL WINDOW", true, 0, 0, X, Y);
       HedgePanel.Event(er);
