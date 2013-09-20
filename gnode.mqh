@@ -68,7 +68,7 @@ class ProtoNode : CObject
       /// Принимаем событие и обрабатываем его в соответсвтии с правилами
       /// определенными в классе-потомке. 
       ///
-      virtual void Event(Event* event)
+      void Event(Event* event)
       {
          if(event.Direction() == EVENT_FROM_UP)
          {
@@ -76,15 +76,15 @@ class ProtoNode : CObject
             {
                case EVENT_NODE_MOVE:
                   Move(event);
-                  OnMove(event);
                   break;
                case EVENT_NODE_RESIZE:
                   Resize(event);
-                  OnResize(event);
                   break;
                case EVENT_NODE_VISIBLE:
                   Visible(event);
-                  OnVisible(event);
+                  break;
+               case EVENT_NODE_COMMAND:
+                  ExecuteCommand(event);
                   break;
                case EVENT_DEINIT:
                   Deinit(event);
@@ -95,11 +95,6 @@ class ProtoNode : CObject
             }
          }
       }
-      
-      virtual void OnVisible(EventVisible* event){;}
-      virtual void OnResize(EventResize* event){;}
-      virtual void OnMove(EventMove* event){;}
-      virtual void OnEvent(Event* event){;}
       virtual void OnDeinit(EventDeinit* event){;}
       ///
       /// Возвращает ширину графического узла в пунктах.
@@ -271,11 +266,71 @@ class ProtoNode : CObject
          optimalHigh = optHigh;
          Resize(optHigh, optHigh);
       }
-      
+      ///
+      /// Устанавливает цвет заднего фона.
+      ///
+      void BackgroundColor(color clr)
+      {
+         bgColor = clr;
+         if(visible)
+            ObjectSetInteger(MAIN_WINDOW, nameId, OBJPROP_BGCOLOR, bgColor);
+      }
+      ///
+      /// Возвращает цвет заднего фона.
+      ///
+      color BackgroundColor()
+      {
+         return bgColor;
+      }
+      ///
+      /// Устанавливает цвет рамки текстовой метки.
+      ///
+      void BorderColor(color clr)
+      {
+         borderColor = clr;
+         if(visible)
+            ObjectSetInteger(MAIN_WINDOW, nameId, OBJPROP_BORDER_COLOR, borderColor);
+      }
+      ///
+      /// Возвращает цвет рамки текстовой метки.
+      ///
+      color BorderColor()
+      {
+         return borderColor;
+      }
    protected:
+      ///
+      /// Переопределяемый прием событий.
+      ///
+      virtual void OnEvent(Event* event){EventSend(event);}
+      virtual void OnVisible(EventVisible* event){EventSend(event);}
+      virtual void OnResize(EventResize* event)
+      {
+         int total = childNodes.Total();
+         for(int i = 0; i < total; i++)
+         {
+            ProtoNode* node = childNodes.At(i);
+            EventResize* er = new EventResize(EVENT_FROM_UP, NameID(), node.Width(), node.High());
+            node.Event(er);
+            delete er;
+         }
+      }
+      virtual void OnMove(EventMove* event)
+      {
+         int total = childNodes.Total();
+         for(int i = 0; i < total; i++)
+         {
+            ProtoNode* node = childNodes.At(i);
+            EventMove* em = new EventMove(EVENT_FROM_UP, NameID(), node.XAbsDistance(), node.YAbsDistance(), COOR_GLOBAL);
+            node.Event(em);
+            delete em;
+         }   
+      }
+      virtual void OnCommand(EventNodeCommand* event){;}
+      
       void Resize(EventResize* event)
       {
-         Resize(event.NewHigh(), event.NewWidth());
+         Resize(event.NewWidth(), event.NewHigh());
       }
       ///
       /// Устанавливает новый размер текущего графического узла.
@@ -317,11 +372,17 @@ class ProtoNode : CObject
                newHigh = ObjectGetInteger(MAIN_WINDOW, nameId, OBJPROP_YSIZE);
             }
          }
+         int k = 5;
+         if(width != newWidth)
+            k = 6;
          width = newWidth;
          high = newHigh;
-         EventResize* er = new EventResize(EVENT_FROM_UP, nameId, width, high);
-         EventSend(er);
+         if(nameId == NULL || nameId == "")
+            GenNameId();
+         EventResize* er = new EventResize(EVENT_FROM_UP, NameID(), Width(), High());
+         OnResize(er);
          delete er;
+         
          return true;
       }
       ///
@@ -352,7 +413,7 @@ class ProtoNode : CObject
       bool Visible(bool status)
       {
          // Включаем визуализацию.
-         if(!Visible() && status)
+         if(!visible && status)
          {
             // Размеры должны быть значимыми.
             if(width <= 0 || high <= 0)
@@ -360,7 +421,7 @@ class ProtoNode : CObject
             // 1. Узел не может располагаться выше верхней границы родительского узла.
             if (yDist < YAbsParDistance())
             {
-                LogWriter("Y-coordinate of node must be leter Y-coordinate parent node", MESSAGE_TYPE_WARNING);
+                //LogWriter("Y-coordinate of node must be leter Y-coordinate parent node", MESSAGE_TYPE_WARNING);
                 return false;
             }
             // 2. Узел не может располагаться ниже нижней границы родительского узла.
@@ -368,34 +429,34 @@ class ProtoNode : CObject
             {
                 long ypar = YAbsParDistance();
                 long hpar = ParHigh();
-                LogWriter("Node position must be biger down line parent node", MESSAGE_TYPE_WARNING);
+                //LogWriter("Node position must be biger down line parent node", MESSAGE_TYPE_WARNING);
                 return false;
             }
             // 3. Узел не может быть левей левой границы родительского узла.
             if (XAbsDistance() < XAbsParDistance())
             {
-                LogWriter("X-coordinate of node must be leter X-coordinate parent node", MESSAGE_TYPE_WARNING);
+                //LogWriter("X-coordinate of node must be leter X-coordinate parent node", MESSAGE_TYPE_WARNING);
                 return false;
             }
             // 4. Узел не может быть правей правой границы родительского узла.
             if (XAbsDistance() + Width() > XAbsParDistance() + ParWidth())
             {
-                LogWriter("Node position must be biger left line parent node", MESSAGE_TYPE_WARNING);
+                //LogWriter("Node position must be biger left line parent node", MESSAGE_TYPE_WARNING);
                 return false;
             }
             //Генерируем новое имя всякий раз когда требуется отобразить элемент, гарантируя его уникальность.
             GenNameId();
             visible = ObjectCreate(MAIN_WINDOW, nameId, typeObject, MAIN_SUBWINDOW, XAbsDistance(), YAbsDistance());
-            //Уведомляем дочерние элементы
-            EventVisible* ev = new EventVisible(EVENT_FROM_UP, NameID(), visible);
-            EventSend(ev);
-            delete ev;
-            //Перемещаем элемент в соответствии с его установленными координатами
-            Move(xDist, yDist, COOR_GLOBAL);
             if(!visible)
                LogWriter("Failed visualize element " + nameId, MESSAGE_TYPE_ERROR);
             else
+            {
+               EventVisible* ev = new EventVisible(EVENT_FROM_UP, NameID(), visible);
+               OnVisible(ev);
+               delete ev;
+               Move(xDist, yDist, COOR_GLOBAL);
                Resize(width, high);
+            }
          }
          // Выключаем визуализацию.
          if(Visible() && !status)
@@ -487,8 +548,10 @@ class ProtoNode : CObject
                yDist = ObjectGetInteger(MAIN_WINDOW, NameID(), OBJPROP_YDISTANCE);
             }
          }
-         EventMove* em = new EventMove(EVENT_FROM_UP, nameId, xDist, yDist, context);
-         EventSend(em);
+         if(nameId == NULL || nameId == "")
+            GenNameId();
+         EventMove* em = new EventMove(EVENT_FROM_UP, nameId, XAbsDistance(), YAbsDistance(), COOR_GLOBAL);
+         OnMove(em);
          delete em;
          return res;
       }
@@ -514,7 +577,7 @@ class ProtoNode : CObject
             //delete event;
          }
          //Событие идет снизу-вверх.
-         if(event.Direction() == EVENT_FROM_DOWN)
+          if(event.Direction() == EVENT_FROM_DOWN)
          {
             if(parentNode != NULL)
                parentNode.Event(event);
@@ -543,6 +606,7 @@ class ProtoNode : CObject
          Move(newEvent.XDist(), newEvent.YDist());
          Resize(newEvent.Width(), newEvent.High());
          Visible(newEvent.Visible());
+         OnCommand(newEvent);
       }
       ///
       /// Указатель на родительский графический узел.
@@ -608,6 +672,14 @@ class ProtoNode : CObject
       ///
       long yDist;
       ///
+      /// Цвет фона текстовой метки.
+      ///
+      color bgColor;
+      ///
+      /// Цвет границы текстовой рамки.
+      ///
+      color borderColor;
+      ///
       /// Генерирует уникальное имя объекта
       ///
       void GenNameId(void)
@@ -636,6 +708,8 @@ class ProtoNode : CObject
       {
          if(parNode != NULL)
             name = parNode.Name() + "-->" + myname;
+         else
+            name = myname;
          shortName = myname;
          elementType = myElementType;
          parentNode = parNode;

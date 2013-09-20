@@ -1,4 +1,6 @@
 #include "defines.mqh"
+#include  "gelements.mqh"
+
 /*
   Идентификаторы событий и их параметры
 */
@@ -47,6 +49,10 @@ enum ENUM_EVENT_DIRECTION
 /// Идентификатор события "Приказ".
 ///
 #define EVENT_NODE_COMMAND 7
+///
+/// Идентификатор события "Создана новая позиция".
+///
+#define EVENT_CREATE_NEWPOS 8 
 
 ///
 /// <b>Абстрактный базовый класс события.</b> Любое генерируемое событие должно иметь свой уникальный идентификатор,
@@ -152,6 +158,10 @@ class EventMove : Event
          yDist = myYDist;
          context = myContext;
       }
+      virtual Event* Clone()
+      {
+         return new EventMove(Direction(), NameNodeId(), xDist, yDist, context);
+      }
    private:
       long xDist;
       long yDist;
@@ -250,7 +260,7 @@ class EventNodeStatus : Event
 ///
 /// Событие содержит приказ на установку текущего узла в соответствующее положение.
 ///
-class EventNodeCommand : Event
+class EventNodeCommand : public Event
 {
    public:
       virtual Event* Clone()
@@ -292,4 +302,24 @@ class EventNodeCommand : Event
       /// Абсолютная горизонтальная координата.
       ///
       long yDist;
+};
+
+///
+/// Событие "Новая позиция создана".
+///
+class EventCreateNewPos : Event
+{
+   public:
+      EventCreateNewPos(ENUM_EVENT_DIRECTION myDir, string nodeId, Position* myPos):
+      Event(myDir, EVENT_CREATE_NEWPOS, nodeId)
+      {
+         pos = myPos;
+      }
+      virtual Event* Clone()
+      {
+         return new EventCreateNewPos(Direction(), NameNodeId(), pos);
+      }
+      Position* GetPosition(){return pos;}
+   private:
+      Position* pos;
 };

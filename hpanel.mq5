@@ -30,13 +30,6 @@ void OnInit(void)
    // Инициализируем систему логирования.
    EventSetTimer(RefreshRate);
    HedgePanel = new MainForm();
-   long X;     // Текущая ширина окна индикатора
-   long Y;     // Текущая высота окна индикатора
-   X = ChartGetInteger(MAIN_WINDOW, CHART_WIDTH_IN_PIXELS, MAIN_SUBWINDOW);
-   Y = ChartGetInteger(MAIN_WINDOW, CHART_HEIGHT_IN_PIXELS, MAIN_SUBWINDOW);
-   EventInit* ei = new EventInit();
-   HedgePanel.Event(ei);
-   delete ei;
 }
 void OnDeinit(const int reason)
 {
@@ -67,10 +60,23 @@ void OnChartEvent(const int id,
    {
       long X = ChartGetInteger(MAIN_WINDOW, CHART_WIDTH_IN_PIXELS, MAIN_SUBWINDOW);
       long Y = ChartGetInteger(MAIN_WINDOW, CHART_HEIGHT_IN_PIXELS, MAIN_SUBWINDOW);
-      //Print("Получены новые размеры окна X:" + (string)X + " Y:" + (string)Y);
-      //EventResize* er = new EventResize(EVENT_FROM_UP, "TERMINAL_WINDOW", X, Y);
-      EventNodeStatus* er = new EventNodeStatus(EVENT_FROM_UP, "TERMINAL WINDOW", true, 0, 0, X, Y);
-      HedgePanel.Event(er);
-      delete er;
+      string str = "X: " + (string)X + " Y:" + (string)Y;
+      Print("Получены новые размеры окна X:" + (string)X + " Y:" + (string)Y);
+      EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, "TERMINAL WINDOW", true, 0, 0, X, Y);
+      HedgePanel.Event(command);
+      delete command;
+      Position* pos = new Position(POSITION_STATUS_OPEN,
+                                   POSITION_TYPE_BUY,
+                                   12345,
+                                   Symbol(),
+                                   MathRand(),
+                                   0.1,
+                                   D'2015.01.01 00:00',
+                                   1.20394,
+                                   0, 0, str);
+      EventCreateNewPos* createPos = new EventCreateNewPos(EVENT_FROM_UP, "HP API", pos);
+      HedgePanel.Event(createPos);
+      delete pos;
+      delete createPos;
    }
 }

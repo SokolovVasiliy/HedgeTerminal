@@ -7,53 +7,44 @@
 #property link      "http://www.mql5.com"
 #property version   "1.00"
 #include <Object.mqh>
-//+------------------------------------------------------------------+
-//| Expert initialization function                                   |
-//+------------------------------------------------------------------+
-int OnInit()
-  {
-//---
-   
-   ObjectCreate(0, "TestButton", OBJ_BUTTON, 0, 0, 0);
-   ObjectSetInteger(0, "TestButton", OBJPROP_XDISTANCE, 200);
-   ObjectSetInteger(0, "TestButton", OBJPROP_YDISTANCE, 200);
-   ObjectSetInteger(0, "TestButton", OBJPROP_XSIZE, 200);
-   ObjectSetInteger(0, "TestButton", OBJPROP_YSIZE, 100);
-   ObjectSetInteger(0, "TestButton", OBJPROP_BORDER_COLOR, clrBlack);
-   ObjectSetInteger(0, "TestButton", OBJPROP_BGCOLOR, clrWhite);
-   
-   EventSetTimer(1);
-//---
-   return(INIT_SUCCEEDED);
-  }
-//+------------------------------------------------------------------+
-//| Expert deinitialization function                                 |
-//+------------------------------------------------------------------+
-void OnDeinit(const int reason)
-  {
-//---
-   ObjectDelete(0, "label");
-  }
-//+------------------------------------------------------------------+
-//| Expert tick function                                             |
-//+------------------------------------------------------------------+
-void OnTick()
+
+class A
 {
-   const OnlyOne *oo = OnlyOne::Instance();
-   oo.Push1();
-   //Print(oo.GetSum());
-   //tester::i = MathRand();
-   //Print(tester::i);
+   public:
+      int GetA(){return a;};
+   private:
+      int a;
+};
+
+class B
+{
+   public:
+      void MoveA(A* aclass)
+      {
+         Move(aclass);
+      }
+      virtual void Move(A* aclass)
+      {
+         int i = aclass.GetA();
+      }
+};
+
+class C : public B
+{
+   virtual void Move(A* aclass)
+   {
+      int l = aclass.GetA()+2;
+   }
+};
+
+void OnStart()
+{
+   ;
 }
-
-//+------------------------------------------------------------------+
-
-
-
 /// 
 /// Паттерн одиночка
 ///
-class OnlyOne
+/*class OnlyOne
 {
    public:
         static const OnlyOne* Instance()
@@ -74,5 +65,5 @@ void OnTimer(void)
 {
    const OnlyOne *myoo = OnlyOne::Instance();
    //Print("OnTimer(): " + (string)myoo.GetSum());
-}
+}*/
 
