@@ -283,9 +283,10 @@ class TableOpenPos : public Table
    public:
       TableOpenPos(ProtoNode* parNode):Table("TableOfOpenPos.", parNode)
       {
+         
          ow_magic = 100;
          ow_symbol = 70;
-         ow_order_id = 70;
+         ow_order_id = 130;
          ow_entry_date = 150;
          ow_type = 50;
          ow_vol = 50;
@@ -296,67 +297,81 @@ class TableOpenPos : public Table
          ow_profit = 70;
          ow_comment = 150;
          
+         name_magic = "Magic";
+         name_symbol = "Symbol";
+         name_order_id = "Order ID";
+         name_entry_date = "EntryDate";
+         name_type = "Type";
+         name_vol = "Vol.";
+         name_price = "Price";
+         name_sl = "S/L";
+         name_tp = "T/P";
+         name_currprice = "Last Price";
+         name_profit = "Profit";
+         name_comment = "Comment";
+         
+         ListPos = new CArrayObj();
          // Первая линия содержит заголовок таблицы.
          lineHeader = new Line("LineHeader", GetPointer(this));
          
          // Магический номер
-         Button* hmagic = new Button("Magic", GetPointer(lineHeader));
+         Button* hmagic = new Button(name_magic, GetPointer(lineHeader));
          hmagic.OptimalWidth(ow_magic);
          lineHeader.Add(hmagic);
          
          // Символ
-         Button* hSymbol = new Button("Symbol", GetPointer(lineHeader));
+         Button* hSymbol = new Button(name_symbol, GetPointer(lineHeader));
          hmagic.OptimalWidth(ow_symbol);
          lineHeader.Add(hSymbol);
          
          // Order ID
-         Button* hOrderId = new Button("Order ID", GetPointer(lineHeader));
+         Button* hOrderId = new Button(name_order_id, GetPointer(lineHeader));
          hOrderId.OptimalWidth(ow_order_id);
          lineHeader.Add(hOrderId);
          
          // Время входа в позицию.
-         Button* hEntryDate = new Button("Entry Date", GetPointer(lineHeader));
+         Button* hEntryDate = new Button(name_entry_date, GetPointer(lineHeader));
          hEntryDate.OptimalWidth(ow_entry_date);
          lineHeader.Add(hEntryDate);
          
          
          // Направление позиции.
-         Button* hTypePos = new Button("Type", GetPointer(lineHeader));
+         Button* hTypePos = new Button(name_type, GetPointer(lineHeader));
          hTypePos.OptimalWidth(ow_type);
          lineHeader.Add(hTypePos);
          
          // Объем
-         Button* hVolume = new Button("Vol.", GetPointer(lineHeader));
+         Button* hVolume = new Button(name_vol, GetPointer(lineHeader));
          hVolume.OptimalWidth(ow_vol);
          lineHeader.Add(hVolume);
          
          // Цена входа.
-         Button* hEntryPrice = new Button("Price", GetPointer(lineHeader));
+         Button* hEntryPrice = new Button(name_price, GetPointer(lineHeader));
          hEntryPrice.OptimalWidth(ow_price);
          lineHeader.Add(hEntryPrice);
          
          // Стоп-лосс
-         Button* hStopLoss = new Button("S/L", GetPointer(lineHeader));
+         Button* hStopLoss = new Button(name_sl, GetPointer(lineHeader));
          hStopLoss.OptimalWidth(ow_sl);
          lineHeader.Add(hStopLoss);
          
          // Тейк-профит
-         Button* hTakeProfit = new Button("T/P", GetPointer(lineHeader));
+         Button* hTakeProfit = new Button(name_tp, GetPointer(lineHeader));
          hTakeProfit.OptimalWidth(ow_tp);
          lineHeader.Add(hTakeProfit);
          
          // Текущая цена
-         Button* hCurrentPrice = new Button("Price", GetPointer(lineHeader));
+         Button* hCurrentPrice = new Button(name_currprice, GetPointer(lineHeader));
          hCurrentPrice.OptimalWidth(ow_currprice);
          lineHeader.Add(hCurrentPrice);
          
          // Профит
-         Button* hProfit = new Button("Profit", GetPointer(lineHeader));
+         Button* hProfit = new Button(name_profit, GetPointer(lineHeader));
          hProfit.OptimalWidth(ow_profit);
          lineHeader.Add(hProfit);
          
          // Комментарий
-         Button* hComment = new Button("Comment", GetPointer(lineHeader));
+         Button* hComment = new Button(name_comment, GetPointer(lineHeader));
          hComment.OptimalWidth(ow_comment);
          lineHeader.Add(hComment);
          
@@ -371,75 +386,158 @@ class TableOpenPos : public Table
       {
          switch(event.EventId())
          {
-            case EVENT_CREATE_NEWPOS:
-               AddPosition(event);
+            //case EVENT_CREATE_NEWPOS:
+               //AddPosition(event);
+               //break;
+            case EVENT_CHANGE_POS:
+               ChangePos(event);
                break;
          }
+      }
+   private:
+      
+      void ChangePos(EventChangeStatePos* event)
+      {
+         bool isNewPos = false;
+         Position* pos = event.GetPosition();
+         int total = ListPos.Total();
+         for(int i = 0; i < total; i++)
+         {
+            GPosition* gpos = ListPos.At(i);
+            if(gpos.OrderId != pos.EntryOrderID())continue;
+            isNewPos = true;
+            int el_total = gpos.line.ChildsTotal();
+            for(int k = 0; k < el_total; k++)
+            {
+               ProtoNode* node = gpos.line.ChildElementAt(k);
+               if(node.ShortName() == name_currprice)
+               {
+                  Label* curprice = node;
+                  curprice.Text((string)pos.CurrentPrice());
+               }
+               if(node.ShortName() == name_profit)
+               {
+                  Label* curprice = node;
+                  curprice.Text((string)pos.Profit());
+               }
+            }
+         }
+         if(!isNewPos)
+            AddPosition(event);
       }
       ///
       /// Добавляет новую позицию в таблицу.
       ///
-      void AddPosition(EventCreateNewPos* event)
+      void AddPosition(EventChangeStatePos* event)
       {
          Position* pos = event.GetPosition();
          Line* nline = new Line("pos.", GetPointer(this));
-         //Магик
-         Label* magic = new Label("magic", GetPointer(nline));
-         magic.OptimalWidth(ow_magic);
-         magic.BackgroundColor(clrWhite);
-         magic.BorderColor(clrWhiteSmoke);
-         magic.Text((string)pos.Magic());
-         nline.Add(magic);
-         
-         //Символ
-         Label* symbol = new Label("symbol", GetPointer(nline));
-         symbol.OptimalWidth(ow_magic);
-         symbol.BackgroundColor(clrWhite);
-         symbol.BorderColor(clrWhiteSmoke);
-         symbol.Text((string)pos.Symbol());
-         nline.Add(symbol);
-         
-         //OrderID
-         Label* orderId = new Label("OrderID", GetPointer(nline));
-         orderId.OptimalWidth(ow_magic);
-         orderId.BackgroundColor(clrWhite);
-         orderId.BorderColor(clrWhiteSmoke);
-         orderId.Text((string)pos.OrderID());
-         nline.Add(orderId);
-         
-         //EntryDate
-         Label* entryDate = new Label("EntryDate", GetPointer(nline));
-         entryDate.OptimalWidth(ow_entry_date);
-         entryDate.BackgroundColor(clrWhite);
-         entryDate.BorderColor(clrWhiteSmoke);
-         entryDate.Text((string)pos.EntryDate());
-         nline.Add(entryDate);
-         
-         //EntryDate
-         Label* type = new Label("Type", GetPointer(nline));
-         type.OptimalWidth(ow_type);
-         type.BackgroundColor(clrWhite);
-         type.BorderColor(clrWhiteSmoke);
-         if(pos.Type() == POSITION_TYPE_BUY)
-            type.Text("BUY");
-         else
-            type.Text("SELL");
-         nline.Add(type);
-         
-         //Comment
-         Label* comment = new Label("comment", GetPointer(nline));
-         comment.OptimalWidth(ow_comment);
-         comment.BackgroundColor(clrWhite);
-         comment.BorderColor(clrWhiteSmoke);
-         comment.Text(pos.EntryComment());
-         nline.Add(comment);
-         
-         //Добавляем строку
+         int total = lineHeader.ChildsTotal();
+         Label* cell;
+         for(int i = 0; i < total; i++)
+         {
+            bool isReadOnly = true;
+            ProtoNode* node = lineHeader.ChildElementAt(i);
+            if(node.ShortName() == name_magic)
+            {
+               cell = new Label(name_magic, GetPointer(nline));
+               cell.Text((string)pos.Magic());
+            }
+            else if(node.ShortName() == name_symbol)
+            {
+               cell = new Label(name_symbol, GetPointer(nline));
+               cell.Text((string)pos.Symbol());
+            }
+            else if(node.ShortName() == name_order_id)
+            {
+               cell = new Label(name_order_id, GetPointer(nline));
+               cell.Text((string)pos.EntryOrderID());
+            }
+            else if(node.ShortName() == name_entry_date)
+            {
+               cell = new Label(name_entry_date, GetPointer(nline));
+               string date = TimeToString(pos.EntryDate(), TIME_DATE|TIME_SECONDS);
+               cell.Text(date);
+            }
+            else if(node.ShortName() == name_type)
+            {
+               cell = new Label(name_type, GetPointer(nline));
+               string stype = "BUY";
+               //if(pos.Type() == POSITION_TYPE_BUY)
+               //   stype = "BUY";
+               //else stype = "SELL";
+               cell.Text(stype);
+            }
+            else if(node.ShortName() == name_vol)
+            {
+               cell = new Label(name_vol, GetPointer(nline));
+               cell.Text((string)pos.Volume());
+               isReadOnly = false;
+            }
+            else if(node.ShortName() == name_price)
+            {
+               cell = new Label(name_price, GetPointer(nline));
+               cell.Text((string)pos.EntryPrice());
+            }
+            else if(node.ShortName() == name_sl)
+            {
+               cell = new Label(name_sl, GetPointer(nline));
+               cell.Text((string)pos.StopLoss());
+               isReadOnly = false;
+            }
+            else if(node.ShortName() == name_tp)
+            {
+               cell = new Label(name_tp, GetPointer(nline));
+               cell.Text((string)pos.TakeProfit());
+               isReadOnly = false; 
+            }
+            else if(node.ShortName() == name_currprice)
+            {
+               cell = new Label(name_currprice, GetPointer(nline));
+               cell.Text((string)pos.CurrentPrice());
+            }
+            
+            else if(node.ShortName() == name_profit)
+            {
+               cell = new Label(name_profit, GetPointer(nline));
+               cell.Text((string)pos.Profit());
+            }
+            else if(node.ShortName() == name_comment)
+            {
+               cell = new Label(name_comment, GetPointer(nline));
+               cell.Text((string)pos.EntryComment());
+            }
+            else
+               cell = new Label("edit", GetPointer(nline));
+            cell.OptimalWidth(node.OptimalWidth());
+            cell.BackgroundColor(clrWhite);
+            cell.BorderColor(clrWhiteSmoke);
+            cell.Edit(isReadOnly);
+            nline.Add(cell);
+         }
          Add(nline);
-         
+         GPosition* gpos = new GPosition();
+         gpos.OrderId = pos.EntryOrderID();
+         gpos.line = nline;
+         ListPos.Add(gpos);
+         //Что бы новая позиция тут же отобразилась в таблице активных позиций
+         //уведомляем родительский элемент, что необходимо сделать refresh
+         EventRefresh* er = new EventRefresh(EVENT_FROM_DOWN, NameID());
+         EventSend(er);
+         delete er;
       }
-   private:
+      ///
+      /// Графическое представление позиции.
+      ///
+      class GPosition : CObject
+      {
+         public:
+            Line* line;
+            ulong OrderId;
+      };
+      CArrayObj* ListPos;
       Line* lineHeader;
+      /*Рекомендованные размеры*/
       long ow_magic;
       long ow_symbol;
       long ow_order_id;
@@ -452,6 +550,19 @@ class TableOpenPos : public Table
       long ow_currprice;
       long ow_profit;
       long ow_comment;
+      /*Названия колонок*/
+      string name_magic;
+      string name_symbol;
+      string name_order_id;
+      string name_entry_date;
+      string name_type;
+      string name_vol;
+      string name_price;
+      string name_sl;
+      string name_tp;
+      string name_currprice;
+      string name_profit;
+      string name_comment;
 };
 ///
 /// Основная форма панели.
@@ -467,15 +578,28 @@ class MainForm : public ProtoNode
    private:
       virtual void OnCommand(EventNodeCommand* event)
       {
-         event.High();
          if(event.Direction() == EVENT_FROM_DOWN)return;
          //Конфигурируем местоположение таблицы
-         long cwidth = Width()-25;
          EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 20, 40, Width()-25, High()-50);
          openPos.Event(command);
          delete command;
       }
       
+      virtual void OnEvent(Event* event)
+      {
+         //Принимаем команды снизу на обновление терминала
+         if(event.Direction() == EVENT_FROM_DOWN)
+         {
+            if(event.EventId() == EVENT_REFRESH)
+            {
+               EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 20, 40, Width()-25, High()-50);
+               openPos.Event(command);
+               delete command;
+               return;
+            }
+         }
+         EventSend(event);
+      }
       ///
       /// Проверяет возможно ли установить требуемую ширину. Если требуемая ширина возможна - возвращает ее,
       /// если нет, возвращает ближайшую возможную.

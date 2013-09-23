@@ -11,12 +11,13 @@
 
 #include "Log.mqh"
 #include "gelements.mqh"
+#include "hpapi.mqh"
 
 ///
 /// —корость обновлени€ панели
 ///
-input int RefreshRate = 1;
-
+input int RefreshRate = 5;
+CHedge hedge;
 
 MainForm* HedgePanel;
 //Table TableOfOpenPos("op", GetPointer(form));
@@ -45,7 +46,9 @@ void OnDeinit(const int reason)
 ///
 void OnTimer(void)
 {
-   //Print(TERMINAL_NAME);
+   EventTimer* et = new EventTimer(RefreshRate);
+   hedge.Event(et);
+   delete et;
 }
 ///
 /// ѕодстраиваем размер главной формы панели под размер текущего окна
@@ -65,18 +68,26 @@ void OnChartEvent(const int id,
       EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, "TERMINAL WINDOW", true, 0, 0, X, Y);
       HedgePanel.Event(command);
       delete command;
-      Position* pos = new Position(POSITION_STATUS_OPEN,
+      /*Position* pos = new Position(POSITION_STATUS_OPEN,
                                    POSITION_TYPE_BUY,
                                    12345,
                                    Symbol(),
                                    MathRand(),
                                    0.1,
-                                   D'2015.01.01 00:00',
+                                   TimeCurrent(),
                                    1.20394,
                                    0, 0, str);
       EventCreateNewPos* createPos = new EventCreateNewPos(EVENT_FROM_UP, "HP API", pos);
       HedgePanel.Event(createPos);
       delete pos;
       delete createPos;
+      */
+   }
+   if(id == CHARTEVENT_CUSTOM+EVENT_CHANGE_POS)
+   {
+      Position* pos = hedge.ActivePosAt((int)lparam);
+      EventChangeStatePos* changePos = new EventChangeStatePos(EVENT_FROM_UP, "HP API", pos);
+      HedgePanel.Event(changePos);
+      delete changePos;
    }
 }

@@ -1,3 +1,5 @@
+#include <Object.mqh>
+#include "Log.mqh"
 ///
 /// Статус позиции.
 ///
@@ -9,7 +11,7 @@ enum ENUM_POSITION_STATUS
 ///
 /// Позиция.
 ///
-class Position
+class Position : CObject
 {
    public:
       Position(ENUM_POSITION_STATUS myStatus,
@@ -28,7 +30,7 @@ class Position
          status = myStatus;
          type = myType;
          symbol = mySymbol;
-         orderId = myOrderId;
+         entryOrderId = myOrderId;
          volume = myVolume;
          entryDate = myEntryTime;
          entryPrice = myEntryPrice;
@@ -37,13 +39,44 @@ class Position
          entryComment = myEntryComment;
       }
       ///
+      /// Создает новую историческую позицию на основании входящего и исходящего ордера
+      ///
+      Position(ulong in_ticket, ulong out_ticket)
+      {
+         Init(in_ticket);
+         status = POSITION_STATUS_CLOSED;
+         volume = HistoryOrderGetDouble(out_ticket, ORDER_VOLUME_CURRENT);
+         entryDate = (datetime)HistoryOrderGetInteger(in_ticket, ORDER_TIME_DONE);
+         exitPrice = HistoryOrderGetDouble(out_ticket, ORDER_PRICE_OPEN);
+         exitComment = HistoryOrderGetString(out_ticket, ORDER_COMMENT);
+      }
+      
+      Position(ulong in_ticket)
+      {
+         bool isHistory = true;
+         LoadHistory();
+         if(!HistoryOrderSelect(in_ticket))
+         {
+            LogWriter("History position not find", MESSAGE_TYPE_ERROR);
+            return;            
+         }
+         status = POSITION_STATUS_OPEN;
+         magic = HistoryOrderGetInteger(in_ticket, ORDER_MAGIC);
+         entryOrderId = in_ticket;
+         symbol = HistoryOrderGetString(in_ticket, ORDER_SYMBOL);
+         volume = HistoryOrderGetDouble(in_ticket, ORDER_VOLUME_INITIAL) - HistoryOrderGetDouble(in_ticket, ORDER_VOLUME_CURRENT);
+         entryDate = (datetime)HistoryOrderGetInteger(in_ticket, ORDER_TIME_DONE);
+         entryPrice = HistoryOrderGetDouble(in_ticket, ORDER_PRICE_OPEN);
+         entryComment = HistoryOrderGetString(in_ticket, ORDER_COMMENT);
+      }
+      ///
       /// Возвращает статус позиции.
       ///
       ENUM_POSITION_STATUS Status(){return status;}
       ///
       /// Возвращает направление позиции.
       ///
-      ENUM_POSITION_TYPE Type(){return type;}
+      //ENUM_POSITION_TYPE Type(){return type;}
       ///
       /// Возвращает магический номер эксперта, открывшего позицию.
       ///
@@ -55,7 +88,7 @@ class Position
       ///
       /// Возвращает идентификатор позиции.
       ///
-      long OrderID(){return orderId;}
+      ulong EntryOrderID(){return entryOrderId;}
       ///
       /// Возвращает объем позиции.
       ///
@@ -87,13 +120,36 @@ class Position
       ///
       double TakeProfit(){return takeProfit;}
       ///
+      /// Возвращает текущую цену инструмента, по которому открыта позиция
+      ///
+      double CurrentPrice()
+      {
+         double last_price;
+         if(type == POSITION_TYPE_BUY)
+            last_price = SymbolInfoDouble(symbol, SYMBOL_BID);
+         else
+            last_price = SymbolInfoDouble(symbol, SYMBOL_ASK);
+         return last_price;
+      }
+      ///
       /// Возвращает накопленный своп позиции.
       ///
       double Swap(){return swap;}
       ///
       /// Возвращает прибыль позиции.
       ///
-      double Profit(){return profit;}
+      double Profit()
+      {
+         if(type == POSITION_TYPE_BUY)
+         {
+            return CurrentPrice() - EntryPrice();
+         }
+         if(type == POSITION_TYPE_SELL)
+         {
+            return EntryPrice() - CurrentPrice();
+         }
+         return 0.0;
+      }
       ///
       /// Возвращает комментарий который был введен при открытии позиции.
       ///
@@ -102,12 +158,48 @@ class Position
       /// Возвращает комментарий который был введен при закрытии позиции.
       ///
       string ExitComment(){return exitComment;}
+      ///
+      /// Список сделок открывших позицию.
+      ///
+      Position* ListOpenDeals;
+      ///
+      /// Список сделок закрывших историческу позицию.
+      ///
+      Position* ListClosedDeals;
    private:
+      ///
+      /// Создает новую активную позицию.
+      ///
+      void Init(ulong in_ticket)
+      {
+         LoadHistory();
+         if(!HistoryOrderSelect(in_ticket))
+         {
+            LogWriter("History position not find", MESSAGE_TYPE_ERROR);
+            return;            
+         }
+         status = POSITION_STATUS_OPEN;
+         magic = HistoryOrderGetInteger(in_ticket, ORDER_MAGIC);
+         entryOrderId = in_ticket;
+         symbol = HistoryOrderGetString(in_ticket, ORDER_SYMBOL);
+         volume = HistoryOrderGetDouble(in_ticket, ORDER_VOLUME_INITIAL) - HistoryOrderGetDouble(in_ticket, ORDER_VOLUME_CURRENT);
+         entryDate = (datetime)HistoryOrderGetInteger(in_ticket, ORDER_TIME_DONE);
+         entryPrice = HistoryOrderGetDouble(in_ticket, ORDER_PRICE_OPEN);
+         entryComment = HistoryOrderGetString(in_ticket, ORDER_COMMENT);
+      }
+      ///
+      /// Загружает историю ордеров
+      ///
+      void LoadHistory(void)
+      {
+         HistorySelect(D'1970.01.01', TimeCurrent());
+      }
       ENUM_POSITION_STATUS status;
       ENUM_POSITION_TYPE type;
       long magic;
       string symbol;
-      long orderId;
+      ulong entryOrderId;
+      ulong exitOrderId;
       double volume;
       datetime entryDate;
       double entryPrice;

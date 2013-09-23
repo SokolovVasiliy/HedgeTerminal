@@ -52,7 +52,20 @@ enum ENUM_EVENT_DIRECTION
 ///
 /// Идентификатор события "Создана новая позиция".
 ///
-#define EVENT_CREATE_NEWPOS 8 
+#define EVENT_CREATE_NEWPOS 8
+///
+/// Идентификатор события Свойство позиции изменено
+///
+#define EVENT_CHANGE_POS 9 
+///
+/// Идентификатор события таймер.
+///
+#define EVENT_TIMER 10
+
+///
+/// Идентификатор события обновление экрана.
+///
+#define EVENT_REFRESH 11
 
 ///
 /// <b>Абстрактный базовый класс события.</b> Любое генерируемое событие должно иметь свой уникальный идентификатор,
@@ -305,21 +318,48 @@ class EventNodeCommand : public Event
 };
 
 ///
-/// Событие "Новая позиция создана".
+/// Событие "Состояние позиции изменилось".
 ///
-class EventCreateNewPos : Event
+class EventChangeStatePos : public Event
 {
    public:
-      EventCreateNewPos(ENUM_EVENT_DIRECTION myDir, string nodeId, Position* myPos):
-      Event(myDir, EVENT_CREATE_NEWPOS, nodeId)
+      EventChangeStatePos(ENUM_EVENT_DIRECTION myDir, string nodeId, Position* myPos):
+      Event(myDir, EVENT_CHANGE_POS, nodeId)
       {
          pos = myPos;
       }
       virtual Event* Clone()
       {
-         return new EventCreateNewPos(Direction(), NameNodeId(), pos);
+         return new EventChangeStatePos(Direction(), NameNodeId(), pos);
       }
       Position* GetPosition(){return pos;}
    private:
       Position* pos;
 };
+
+///
+/// Событие, генерируемое с заданой периодичностью. Создается в функции OnTimer()
+///
+class EventTimer : public Event
+{
+   public:
+      EventTimer(int myRefreshRate):Event(EVENT_FROM_UP, EVENT_TIMER, "TERMINAL")
+      {
+         refreshRate = myRefreshRate;
+      }
+      virtual Event* Clone()
+      {
+         EventTimer* timer = new EventTimer(refreshRate);
+         return timer;
+      }
+   private:
+      int refreshRate;
+};
+
+class EventRefresh : public Event
+{
+   public:
+      EventRefresh(ENUM_EVENT_DIRECTION Dir, string nameNodeId):
+      Event(Dir, EVENT_REFRESH, nameNodeId){;}
+};
+

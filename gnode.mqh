@@ -60,7 +60,7 @@ enum ENUM_ELEMENT_TYPE
    ELEMENT_TYPE_CELL
 };
 
-class ProtoNode : CObject
+class ProtoNode : public CObject
 {
    public:
       ENUM_ELEMENT_TYPE TypeElement(){return elementType;}   
@@ -94,6 +94,8 @@ class ProtoNode : CObject
                   OnEvent(event);
             }
          }
+         else
+            OnEvent(event);
       }
       virtual void OnDeinit(EventDeinit* event){;}
       ///
@@ -129,7 +131,21 @@ class ProtoNode : CObject
       {
          optimalHigh = optHigh;
       }
-      
+      ///
+      /// Возвращает количество подузлов, входящее в графический элемент.
+      ///
+      int ChildsTotal()
+      {
+         return childNodes.Total();
+      }
+      ///
+      /// Возвращает ссылку на дочерний элемент под номером n
+      ///
+      ProtoNode* ChildElementAt(int n)
+      {
+         ProtoNode* node = childNodes.At(n);
+         return node;
+      }
       ///
       /// Возвращает статус видимости графического узла.
       /// \return Истина, если графический узел отображается в окне терминала,
@@ -569,9 +585,9 @@ class ProtoNode : CObject
             {
                node = childNodes.At(i);
                //Клонируем событие для каждого подузла
-               Event* ev = event.Clone();
-               node.Event(ev);
-               delete ev;
+               //Event* ev = event.Clone();
+               node.Event(event);
+               //delete ev;
             }
             // ? Оригинальное событие утилизируем.
             //delete event;
