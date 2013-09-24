@@ -283,6 +283,8 @@ class TableOpenPos : public Table
    public:
       TableOpenPos(ProtoNode* parNode):Table("TableOfOpenPos.", parNode)
       {
+         nProfit = -1;
+         nLastPrice = -1;
          
          ow_magic = 100;
          ow_symbol = 70;
@@ -311,70 +313,117 @@ class TableOpenPos : public Table
          name_comment = "Comment";
          
          ListPos = new CArrayObj();
-         // Первая линия содержит заголовок таблицы.
+         int count = 0;
+         
+         // Первая линия содержит заголовок таблицы (Она есть всегда).
          lineHeader = new Line("LineHeader", GetPointer(this));
+         Button* hmagic;
+         if(true)
+         {
+            // Магический номер
+            hmagic = new Button(name_magic, GetPointer(lineHeader));
+            hmagic.OptimalWidth(ow_magic);
+            lineHeader.Add(hmagic);
+            count++;
+         }
+         if(true)
+         {
+            // Символ
+            Button* hSymbol = new Button(name_symbol, GetPointer(lineHeader));
+            hmagic.OptimalWidth(ow_symbol);
+            lineHeader.Add(hSymbol);
+            count++;
+         }
+         if(true)
+         {
+            // Order ID
+            Button* hOrderId = new Button(name_order_id, GetPointer(lineHeader));
+            hOrderId.OptimalWidth(ow_order_id);
+            lineHeader.Add(hOrderId);
+            count++;
+         }
          
-         // Магический номер
-         Button* hmagic = new Button(name_magic, GetPointer(lineHeader));
-         hmagic.OptimalWidth(ow_magic);
-         lineHeader.Add(hmagic);
+         if(true)
+         {
+            // Время входа в позицию.
+            Button* hEntryDate = new Button(name_entry_date, GetPointer(lineHeader));
+            hEntryDate.OptimalWidth(ow_entry_date);
+            lineHeader.Add(hEntryDate);
+            count++;
+         }
          
-         // Символ
-         Button* hSymbol = new Button(name_symbol, GetPointer(lineHeader));
-         hmagic.OptimalWidth(ow_symbol);
-         lineHeader.Add(hSymbol);
+         if(true)
+         {
+            // Направление позиции.
+            Button* hTypePos = new Button(name_type, GetPointer(lineHeader));
+            hTypePos.OptimalWidth(ow_type);
+            lineHeader.Add(hTypePos);
+            count++;
+         }
          
-         // Order ID
-         Button* hOrderId = new Button(name_order_id, GetPointer(lineHeader));
-         hOrderId.OptimalWidth(ow_order_id);
-         lineHeader.Add(hOrderId);
+         if(true)
+         {
+            // Объем
+            Button* hVolume = new Button(name_vol, GetPointer(lineHeader));
+            hVolume.OptimalWidth(ow_vol);
+            lineHeader.Add(hVolume);
+            count++;
+         }
          
-         // Время входа в позицию.
-         Button* hEntryDate = new Button(name_entry_date, GetPointer(lineHeader));
-         hEntryDate.OptimalWidth(ow_entry_date);
-         lineHeader.Add(hEntryDate);
+         if(true)
+         {
+            // Цена входа.
+            Button* hEntryPrice = new Button(name_price, GetPointer(lineHeader));
+            hEntryPrice.OptimalWidth(ow_price);
+            lineHeader.Add(hEntryPrice);
+            count++;
+         }
          
+         if(true)
+         {
+            // Стоп-лосс
+            Button* hStopLoss = new Button(name_sl, GetPointer(lineHeader));
+            hStopLoss.OptimalWidth(ow_sl);
+            lineHeader.Add(hStopLoss);
+            count++;
+         }
          
-         // Направление позиции.
-         Button* hTypePos = new Button(name_type, GetPointer(lineHeader));
-         hTypePos.OptimalWidth(ow_type);
-         lineHeader.Add(hTypePos);
+         if(true)
+         {
+            // Тейк-профит
+            Button* hTakeProfit = new Button(name_tp, GetPointer(lineHeader));
+            hTakeProfit.OptimalWidth(ow_tp);
+            lineHeader.Add(hTakeProfit);
+            count++;
+         }
          
-         // Объем
-         Button* hVolume = new Button(name_vol, GetPointer(lineHeader));
-         hVolume.OptimalWidth(ow_vol);
-         lineHeader.Add(hVolume);
+         if(true)
+         {
+            // Текущая цена
+            Button* hCurrentPrice = new Button(name_currprice, GetPointer(lineHeader));
+            hCurrentPrice.OptimalWidth(ow_currprice);
+            lineHeader.Add(hCurrentPrice);
+            nLastPrice = count;
+            count++;
+         }
          
-         // Цена входа.
-         Button* hEntryPrice = new Button(name_price, GetPointer(lineHeader));
-         hEntryPrice.OptimalWidth(ow_price);
-         lineHeader.Add(hEntryPrice);
-         
-         // Стоп-лосс
-         Button* hStopLoss = new Button(name_sl, GetPointer(lineHeader));
-         hStopLoss.OptimalWidth(ow_sl);
-         lineHeader.Add(hStopLoss);
-         
-         // Тейк-профит
-         Button* hTakeProfit = new Button(name_tp, GetPointer(lineHeader));
-         hTakeProfit.OptimalWidth(ow_tp);
-         lineHeader.Add(hTakeProfit);
-         
-         // Текущая цена
-         Button* hCurrentPrice = new Button(name_currprice, GetPointer(lineHeader));
-         hCurrentPrice.OptimalWidth(ow_currprice);
-         lineHeader.Add(hCurrentPrice);
-         
-         // Профит
-         Button* hProfit = new Button(name_profit, GetPointer(lineHeader));
-         hProfit.OptimalWidth(ow_profit);
-         lineHeader.Add(hProfit);
-         
-         // Комментарий
-         Button* hComment = new Button(name_comment, GetPointer(lineHeader));
-         hComment.OptimalWidth(ow_comment);
-         lineHeader.Add(hComment);
-         
+         if(true)
+         {
+            // Профит
+            Button* hProfit = new Button(name_profit, GetPointer(lineHeader));
+            hProfit.OptimalWidth(ow_profit);
+            lineHeader.Add(hProfit);
+            nProfit = count;
+            count++;
+         }
+         if(true)
+         {
+            // Комментарий
+            Button* hComment = new Button(name_comment, GetPointer(lineHeader));
+            hComment.OptimalWidth(ow_comment);
+            lineHeader.Add(hComment);
+            count++;
+         }
          //Скрол
          Scroll* myscroll = new Scroll("Scroll", GetPointer(this));
          Add(myscroll);
@@ -386,51 +435,48 @@ class TableOpenPos : public Table
       {
          switch(event.EventId())
          {
-            //case EVENT_CREATE_NEWPOS:
-               //AddPosition(event);
-               //break;
-            case EVENT_CHANGE_POS:
-               ChangePos(event);
+            case EVENT_CREATE_NEWPOS:
+               AddPosition(event);
+               break;
+            case EVENT_REFRESH:
+               RefreshPos();
                break;
          }
       }
    private:
-      
-      void ChangePos(EventChangeStatePos* event)
+      ///
+      /// Обновляем состояние позиций
+      ///
+      void RefreshPos()
       {
-         bool isNewPos = false;
-         Position* pos = event.GetPosition();
          int total = ListPos.Total();
          for(int i = 0; i < total; i++)
          {
-            GPosition* gpos = ListPos.At(i);
-            if(gpos.OrderId != pos.EntryOrderID())continue;
-            isNewPos = true;
-            int el_total = gpos.line.ChildsTotal();
-            for(int k = 0; k < el_total; k++)
+            GPosition* gposition = ListPos.At(i);
+            //Обновляем профит позиции.
+            if(nProfit != -1)
             {
-               ProtoNode* node = gpos.line.ChildElementAt(k);
-               if(node.ShortName() == name_currprice)
-               {
-                  Label* curprice = node;
-                  curprice.Text((string)pos.CurrentPrice());
-               }
-               if(node.ShortName() == name_profit)
-               {
-                  Label* curprice = node;
-                  curprice.Text((string)pos.Profit());
-               }
+               Label* profit = gposition.gpos.ChildElementAt(nProfit);
+               profit.Text((string)gposition.pos.Profit());
+            }
+            //Обновляем последнюю цену позиции
+            if(nLastPrice)
+            {
+               Label* lastprice = gposition.gpos.ChildElementAt(nLastPrice);
+               lastprice.Text((string)gposition.pos.CurrentPrice());
             }
          }
-         if(!isNewPos)
-            AddPosition(event);
       }
+      
+      
       ///
-      /// Добавляет новую позицию в таблицу.
+      /// Добавляем новую созданную таблицу.
       ///
-      void AddPosition(EventChangeStatePos* event)
+      void AddPosition(EventCreatePos* event)
       {
          Position* pos = event.GetPosition();
+         //Добавляем только активные позиции.
+         //if(pos.Status == POSITION_STATUS_CLOSED)return;
          Line* nline = new Line("pos.", GetPointer(this));
          int total = lineHeader.ChildsTotal();
          Label* cell;
@@ -516,10 +562,11 @@ class TableOpenPos : public Table
             nline.Add(cell);
          }
          Add(nline);
-         GPosition* gpos = new GPosition();
-         gpos.OrderId = pos.EntryOrderID();
-         gpos.line = nline;
-         ListPos.Add(gpos);
+
+         GPosition* gposition = new GPosition();
+         gposition.pos = pos;
+         gposition.gpos = nline;
+         ListPos.Add(gposition);
          //Что бы новая позиция тут же отобразилась в таблице активных позиций
          //уведомляем родительский элемент, что необходимо сделать refresh
          EventRefresh* er = new EventRefresh(EVENT_FROM_DOWN, NameID());
@@ -532,8 +579,14 @@ class TableOpenPos : public Table
       class GPosition : CObject
       {
          public:
-            Line* line;
-            ulong OrderId;
+            ///
+            /// Графическое представление позиции.
+            ///
+            Line* gpos;
+            ///
+            /// Указатель на текущую позицию.
+            ///
+            Position* pos;
       };
       CArrayObj* ListPos;
       Line* lineHeader;
@@ -563,6 +616,15 @@ class TableOpenPos : public Table
       string name_currprice;
       string name_profit;
       string name_comment;
+      ///
+      /// Номер ячейки в линии, отображающий профит позиции.
+      ///
+      int nProfit;
+      ///
+      /// Номер ячейки в линии, отображающий последнюю цену инструмента,
+      /// по которому открыта позиция.
+      ///
+      int nLastPrice;
 };
 ///
 /// Основная форма панели.

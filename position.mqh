@@ -8,6 +8,31 @@ enum ENUM_POSITION_STATUS
    POSITION_STATUS_OPEN,
    POSITION_STATUS_CLOSED
 };
+
+///
+/// Возможный режим сортировки списка позиций.
+///
+enum ENUM_POSITION_SORT
+{
+   POSITION_SORT_MAGIC,
+   POSITION_SORT_SYMBOL,
+   POSITION_SORT_ENTRY_ORDERID,
+   POSITION_SORT_ENTRY_DATE,
+   POSITION_SORT_ENTRY_PRICE,
+   POSITION_SORT_ENTRY_COMMENT,
+   POSITION_SORT_EXIT_ORDERID,
+   POSITION_SORT_EXIT_PRICE,
+   POSITION_SORT_EXIT_DATE,
+   POSITION_SORT_EXIT_COMMENT,
+   POSITION_SORT_TYPE,
+   POSITION_SORT_VOL,
+   POSITION_SORT_STOPLOSS,
+   POSITION_SORT_TAKEPROFIT,
+   POSITION_SORT_LASTPRICE,
+   POSITION_SORT_PROFIT,
+   POSITION_SORT_SWAP
+};
+
 ///
 /// Позиция.
 ///
@@ -46,28 +71,13 @@ class Position : CObject
          Init(in_ticket);
          status = POSITION_STATUS_CLOSED;
          volume = HistoryOrderGetDouble(out_ticket, ORDER_VOLUME_CURRENT);
-         entryDate = (datetime)HistoryOrderGetInteger(in_ticket, ORDER_TIME_DONE);
          exitPrice = HistoryOrderGetDouble(out_ticket, ORDER_PRICE_OPEN);
          exitComment = HistoryOrderGetString(out_ticket, ORDER_COMMENT);
       }
       
       Position(ulong in_ticket)
       {
-         bool isHistory = true;
-         LoadHistory();
-         if(!HistoryOrderSelect(in_ticket))
-         {
-            LogWriter("History position not find", MESSAGE_TYPE_ERROR);
-            return;            
-         }
-         status = POSITION_STATUS_OPEN;
-         magic = HistoryOrderGetInteger(in_ticket, ORDER_MAGIC);
-         entryOrderId = in_ticket;
-         symbol = HistoryOrderGetString(in_ticket, ORDER_SYMBOL);
-         volume = HistoryOrderGetDouble(in_ticket, ORDER_VOLUME_INITIAL) - HistoryOrderGetDouble(in_ticket, ORDER_VOLUME_CURRENT);
-         entryDate = (datetime)HistoryOrderGetInteger(in_ticket, ORDER_TIME_DONE);
-         entryPrice = HistoryOrderGetDouble(in_ticket, ORDER_PRICE_OPEN);
-         entryComment = HistoryOrderGetString(in_ticket, ORDER_COMMENT);
+         Init(in_ticket);
       }
       ///
       /// Возвращает статус позиции.
@@ -124,6 +134,9 @@ class Position : CObject
       ///
       double CurrentPrice()
       {
+         //LoadHistory();
+         //OrderSelect(entryOrderId);
+         //return OrderGetDouble(ORDER_PRICE_CURRENT);
          double last_price;
          if(type == POSITION_TYPE_BUY)
             last_price = SymbolInfoDouble(symbol, SYMBOL_BID);
@@ -163,9 +176,38 @@ class Position : CObject
       ///
       Position* ListOpenDeals;
       ///
-      /// Список сделок закрывших историческу позицию.
+      /// Список сделок закрывших историческую позицию.
       ///
       Position* ListClosedDeals;
+      virtual int Compare(const CObject *node,const int mode=0) const
+      {
+         const Position* pos = node;
+         int LESS = -1;
+         int GREATE = 1;
+         int EQUAL = 0;
+         switch(mode)
+         {
+            case POSITION_SORT_ENTRY_ORDERID:
+               if(entryOrderId > pos.EntryOrderID())
+                  return GREATE;
+               if(entryOrderId > pos.EntryOrderID())
+                  return LESS;
+               if(entryOrderId == pos.EntryOrderID())
+                  return EQUAL;
+               break;
+            case POSITION_SORT_ENTRY_DATE:
+               if(entryDate > pos.EntryDate())
+                  return GREATE;
+               if(entryDate > pos.EntryDate())
+                  return LESS;
+               if(entryDate == pos.EntryDate())
+                  return EQUAL;
+               break;
+            default:
+               return 0;
+         }
+         return 0;
+      }
    private:
       ///
       /// Создает новую активную позицию.

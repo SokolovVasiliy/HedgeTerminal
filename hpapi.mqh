@@ -13,12 +13,12 @@ class CHedge
       ///
       void Event(Event* event)
       {
-         switch(event.EventId())
+         /*switch(event.EventId())
          {
             case EVENT_TIMER:
                OnTimer(event);
                break;
-         }
+         }*/
       }
       ///
       ///
@@ -28,7 +28,7 @@ class CHedge
          ListTickets = new CArrayLong();
          ActivePos = new CArrayObj();
          HistoryPos = new CArrayObj();
-         LoadHistory();
+         //HistoryPos.Sort(
          //Заносим все доступные ордера в список ордеров
          LoadHistory();
          int total = HistoryOrdersTotal();
@@ -43,10 +43,10 @@ class CHedge
          for(int i = 0; i < total; i++)
          {
             ulong ticket1 = ListTickets.At(i);
-            for(int k = 0; k < total; k++)
+             for(int k = 0; k < total; k++)
             {
                if(k == i)continue;
-               ulong ticket2 = ListTickets.At(i);
+               ulong ticket2 = ListTickets.At(k);
                // ticket2 является закрывающим ордером ticket1?
                if(ticket2 == FaeryMagic(ticket1))
                {
@@ -59,13 +59,19 @@ class CHedge
                }
             }
             //Если закрывающий ордер не найден, то это - открытая позиция.
-            pos = new Position(ticket1);
+            if(pos == NULL)
+               pos = new Position(ticket1);
+            if(pos.Status() == POSITION_STATUS_OPEN)
+               ActivePos.Add(pos);
+            else
+               HistoryPos.Add(pos);
+           //Посылаем событие: "Новая позиция создана"
+           ulong tick = pos.EntryOrderID();
+           EventCreatePos* create_pos = new EventCreatePos(EVENT_FROM_UP, "HP API", pos);
+           EventExchange::PushEvent(create_pos);
+           delete create_pos;
+           pos = NULL;
          }
-         if(pos == NULL)return;
-         if(pos.Status() == POSITION_STATUS_OPEN)
-            ActivePos.Add(pos);
-         else
-            HistoryPos.Add(pos);
       }
       ///
       /// Добавляет новую позицию в список позиций
@@ -95,9 +101,7 @@ class CHedge
       ///
       void OnTimer(EventTimer* event)
       {
-         int total = ActivePos.Total();
-         for(int i = 0; i < total; i++)
-            EventChartCustom(MAIN_WINDOW, EVENT_CHANGE_POS, i, 0, "");
+         ;
       }
       //
       // Возвращает magic закрывающего ордера. Ноль - в случае неудачи.
@@ -122,6 +126,23 @@ class CHedge
       {
          HistorySelect(D'1970.01.01', TimeCurrent());
       }
+      
+      void LoadPosition()
+      {
+         LoadHistory();
+         int total = HistoryDealsTotal();
+         //Перебираем все доступные трейды и формируем на их основе позиции
+         for(int i = 0; i < total; i++)
+         {
+            ulong ticket = HistoryDealGetTicket(i);
+            HistoryDealSelect(ticket);
+            // Находим ордер, порадивший сделку.
+            ulong order_ticket = HistoryDealGetInteger(ticket, DEAL_ORDER);
+            //if(PosTicket.Search(order_ticket) != -1)
+            //ActivePos.Search(
+         }
+      }
+      CArrayLong* PosTicket;
       ///
       /// Список активных позиций.
       ///

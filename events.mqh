@@ -1,6 +1,6 @@
 #include "defines.mqh"
 #include  "gelements.mqh"
-
+#include <Arrays\ArrayObj.mqh>
 /*
   Идентификаторы событий и их параметры
 */
@@ -67,6 +67,8 @@ enum ENUM_EVENT_DIRECTION
 ///
 #define EVENT_REFRESH 11
 
+
+
 ///
 /// <b>Абстрактный базовый класс события.</b> Любое генерируемое событие должно иметь свой уникальный идентификатор,
 /// а также уникальное имя графического узла, который это событие произвел.
@@ -114,6 +116,9 @@ class Event
       int eventId;
       string nameNodeId;
 };
+
+
+
 ///
 /// Событие EVENT_NODE_VISIBLE
 ///
@@ -318,12 +323,12 @@ class EventNodeCommand : public Event
 };
 
 ///
-/// Событие "Состояние позиции изменилось".
+/// Событие "Состояние позиций изменилось".
 ///
-class EventChangeStatePos : public Event
+/*class EventChangeStatePos : public Event
 {
    public:
-      EventChangeStatePos(ENUM_EVENT_DIRECTION myDir, string nodeId, Position* myPos):
+      EventChangeStatePos(ENUM_EVENT_DIRECTION myDir, string nodeId, CArrayObj* myPos):
       Event(myDir, EVENT_CHANGE_POS, nodeId)
       {
          pos = myPos;
@@ -332,11 +337,36 @@ class EventChangeStatePos : public Event
       {
          return new EventChangeStatePos(Direction(), NameNodeId(), pos);
       }
+      CArrayObj* GetPositions(){return pos;}
+   private:
+      ///
+      /// Список изменившихся позиций
+      ///
+      CArrayObj* pos;
+};*/
+
+///
+/// Событие "Новая позиция создана".
+///
+class EventCreatePos : public Event
+{
+   public:
+      EventCreatePos(ENUM_EVENT_DIRECTION myDir, string nodeId, Position* myPos):
+      Event(myDir, EVENT_CREATE_NEWPOS, nodeId)
+      {
+         pos = myPos;
+      }
+      virtual Event* Clone()
+      {
+         return new EventCreatePos(Direction(), NameNodeId(), pos);
+      }
       Position* GetPosition(){return pos;}
    private:
+      ///
+      /// Список изменившихся позиций
+      ///
       Position* pos;
 };
-
 ///
 /// Событие, генерируемое с заданой периодичностью. Создается в функции OnTimer()
 ///
@@ -359,7 +389,7 @@ class EventTimer : public Event
 class EventRefresh : public Event
 {
    public:
-      EventRefresh(ENUM_EVENT_DIRECTION Dir, string nameNodeId):
-      Event(Dir, EVENT_REFRESH, nameNodeId){;}
+      EventRefresh(ENUM_EVENT_DIRECTION Dir, string nodeId):
+      Event(Dir, EVENT_REFRESH, nodeId){;}
 };
 
