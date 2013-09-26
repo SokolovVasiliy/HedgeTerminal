@@ -502,16 +502,15 @@ class TableOpenPos : public Table
             else if(node.ShortName() == name_entry_date)
             {
                cell = new Label(name_entry_date, GetPointer(nline));
-               string date = TimeToString(pos.EntryDate(), TIME_DATE|TIME_SECONDS);
-               cell.Text(date);
+               CTime* date = pos.EntryDate();
+               string sdate = date.TimeToString(TIME_DATE | TIME_MINUTES | TIME_SECONDS);
+               cell.Text(sdate);
             }
             else if(node.ShortName() == name_type)
             {
                cell = new Label(name_type, GetPointer(nline));
-               string stype = "BUY";
-               //if(pos.Type() == POSITION_TYPE_BUY)
-               //   stype = "BUY";
-               //else stype = "SELL";
+               string stype = EnumToString(pos.PositionType());
+               stype = StringSubstr(stype, 11);
                cell.Text(stype);
             }
             else if(node.ShortName() == name_vol)

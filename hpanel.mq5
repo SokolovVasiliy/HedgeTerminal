@@ -30,9 +30,10 @@ void OnInit(void)
    Print("Инициализация советника");
    EventSetTimer(RefreshRate);
    HedgePanel = new MainForm();
+   api = new CHedge();
    EventExchange::Add(HedgePanel);
    EventExchange::Add(api);
-   api = new CHedge();
+   api.Init();
 }
 void OnDeinit(const int reason)
 {
@@ -70,6 +71,7 @@ void OnChartEvent(const int id,
       Print("Получены новые размеры окна X:" + (string)X + " Y:" + (string)Y);
       EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, "TERMINAL WINDOW", true, 0, 0, X, Y);
       HedgePanel.Event(command);
+      
       delete command;
       /*Position* pos = new Position(POSITION_STATUS_OPEN,
                                    POSITION_TYPE_BUY,

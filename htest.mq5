@@ -7,39 +7,16 @@
 #property link      "http://www.mql5.com"
 #property version   "1.00"
 #include <Object.mqh>
+#include <Arrays\ArrayObj.mqh>
+#include "Time.mqh"
 
-class A
-{
-   public:
-      int GetA(){return a;};
-   private:
-      int a;
-};
 
-class B
-{
-   public:
-      void MoveA(A* aclass)
-      {
-         Move(aclass);
-      }
-      virtual void Move(A* aclass)
-      {
-         int i = aclass.GetA();
-      }
-};
-
-class C : public B
-{
-   virtual void Move(A* aclass)
-   {
-      int l = aclass.GetA()+2;
-   }
-};
 
 void OnStart()
 {
-   ;
+   CTime time(1928372823372);
+   string format = time.TimeToString(TIME_DATE | TIME_MINUTES | TIME_MSC);
+   printf(format);
 }
 /// 
 /// Паттерн одиночка

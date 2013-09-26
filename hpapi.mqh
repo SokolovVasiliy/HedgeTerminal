@@ -2,6 +2,7 @@
 #include <Arrays\ArrayObj.mqh>
 #include "position.mqh"
 #include "events.mqh"
+#include "Order.mqh"
 ///
 ///  ласс позиции
 ///
@@ -13,6 +14,7 @@ class CHedge
       ///
       void Event(Event* event)
       {
+         ;
          /*switch(event.EventId())
          {
             case EVENT_TIMER:
@@ -28,50 +30,10 @@ class CHedge
          ListTickets = new CArrayLong();
          ActivePos = new CArrayObj();
          HistoryPos = new CArrayObj();
-         //HistoryPos.Sort(
-         //«аносим все доступные ордера в список ордеров
-         LoadHistory();
-         int total = HistoryOrdersTotal();
-         for(int i = 0; i < total; i++)
-            ListTickets.Add(HistoryOrderGetTicket(i));
-         total = OrdersTotal();
-         for(int i = 0; i < total; i++)
-            ListTickets.Add(OrderGetTicket(i));
-         //—хлопываем ордера в открытые и закрытые
-         total = ListTickets.Total();
-         Position* pos = NULL;
-         for(int i = 0; i < total; i++)
-         {
-            ulong ticket1 = ListTickets.At(i);
-             for(int k = 0; k < total; k++)
-            {
-               if(k == i)continue;
-               ulong ticket2 = ListTickets.At(k);
-               // ticket2 €вл€етс€ закрывающим ордером ticket1?
-               if(ticket2 == FaeryMagic(ticket1))
-               {
-                  pos = new Position(ticket1, ticket2);
-               }
-               //ticket1 €вл€етс€ закрывающим ордером ticket2
-               if(ticket1 == FaeryMagic(ticket2))
-               {
-                  pos = new Position(ticket2, ticket1);
-               }
-            }
-            //≈сли закрывающий ордер не найден, то это - открыта€ позици€.
-            if(pos == NULL)
-               pos = new Position(ticket1);
-            if(pos.Status() == POSITION_STATUS_OPEN)
-               ActivePos.Add(pos);
-            else
-               HistoryPos.Add(pos);
-           //ѕосылаем событие: "Ќова€ позици€ создана"
-           ulong tick = pos.EntryOrderID();
-           EventCreatePos* create_pos = new EventCreatePos(EVENT_FROM_UP, "HP API", pos);
-           EventExchange::PushEvent(create_pos);
-           delete create_pos;
-           pos = NULL;
-         }
+      }
+      void Init()
+      {
+         LoadPosition();
       }
       ///
       /// ƒобавл€ет новую позицию в список позиций
@@ -103,21 +65,30 @@ class CHedge
       {
          ;
       }
-      //
-      // ¬озвращает magic закрывающего ордера. Ќоль - в случае неудачи.
-      // ticket - тикет инициализирующего ордера.
-      //
-      ulong FaeryMagic(ulong ticket)
+      ///
+      /// “ип преобразовани€
+      ///
+      enum ENYM_REGIM_CONV
       {
-         // јнализируем только сработавшие ордера попавшие в историю, потому что у отложенных,
-         // активных ордеров не может быть закрывающего ордера.
-         
-         /*if(!HistoryOrderSelect(ticket))
-         {
-            Print("HedgePanel: Order with ticket #" +(string)ticket + " not find");
-            return 0;
-         }*/
-         return ticket;
+         ///
+         /// 
+         ///
+         MAGIC_TO_TICKET,
+         ///
+         ///
+         ///
+         TICKET_TO_MAGIC
+      };
+      ///
+      /// ѕреобразует magic номер закрывающей позиции в тикет отрывающей, либо
+      /// тикет открывающией в magic закрывающей.
+      ///
+      ulong FaeryMagic(ulong value, ENYM_REGIM_CONV)
+      {
+         ///
+         ///
+         ///        
+         return value;
       }
       ///
       /// «агружает историю ордеров
@@ -127,21 +98,85 @@ class CHedge
          HistorySelect(D'1970.01.01', TimeCurrent());
       }
       
+      ///
+      /// —оздает позиции из исторических сделок и ордеров.
+      ///
       void LoadPosition()
       {
          LoadHistory();
          int total = HistoryDealsTotal();
-         //ѕеребираем все доступные трейды и формируем на их основе позиции
+         ulong prev_order = -1;
+         CArrayObj listOrders;
+         listOrders.Sort(1);
+         //ѕеребираем все доступные трейды и формируем на их основе прототипы будущих позиций типа COrder
+         for(int i = 0; i < total; i++)
+         {  
+            // Ќаходим ордер, породивший сделку.
+            LoadHistory();
+            ulong ticket = HistoryDealGetTicket(i);
+            if(ticket == 0)continue;
+            
+            //«агружаем только торговые операции
+            ENUM_DEAL_TYPE op_type = (ENUM_DEAL_TYPE)HistoryDealGetInteger(ticket, DEAL_TYPE);
+            if(op_type != DEAL_TYPE_BUY && op_type != DEAL_TYPE_SELL)
+               continue;
+            //Ќаходим тикет ордера, совершивгего сделку
+            ulong order_id;
+            if(!HistoryDealGetInteger(ticket, DEAL_ORDER, order_id))continue;
+            
+            COrder* order = new COrder(order_id);
+            order.AddDeal(ticket);
+            int pos = listOrders.Search(order);
+            // ¬ списке ордеров уже есть такой ордер?
+            if(pos != -1)
+            {
+               delete order;
+               order = listOrders.At(pos);
+            }
+            //≈сли нет, создаем новый
+            else
+               listOrders.InsertSort(order);
+            //delete norder;
+         }
+         //Ќа основе списка ордеров собираем позиции.
+         total = listOrders.Total();
          for(int i = 0; i < total; i++)
          {
-            ulong ticket = HistoryDealGetTicket(i);
-            HistoryDealSelect(ticket);
-            // Ќаходим ордер, порадивший сделку.
-            ulong order_ticket = HistoryDealGetInteger(ticket, DEAL_ORDER);
-            //if(PosTicket.Search(order_ticket) != -1)
-            //ActivePos.Search(
+            Position* npos = NULL;
+            COrder* order = listOrders.At(i);
+            // ≈сли ордер закрывающий, то он закрывает ордер с этим тикетом.
+            ulong fticket = FaeryMagic(order.Magic(), MAGIC_TO_TICKET);
+            int pos = -1;
+            //≈сли тикет может существовать - ищем ордер с этим тикетом.
+            if(fticket != -1)
+            {
+               COrder* sorder = new COrder(fticket);
+               pos = listOrders.Search(sorder);
+               //ќткрывающий ордер найден? - —оздаем историческую позицию.
+               if(pos != -1)
+               {
+                  COrder* in_order = listOrders.At(pos);
+                  npos = new Position(in_order.OrderId(), in_order.Deals(), order.OrderId(), order.Deals());
+                  HistoryPos.Add(npos);     
+               }
+            }
+            //ќткрывающий ордер не найден? - «начит это открыта€ позици€
+            if(fticket == -1 || pos == -1)
+            {
+               npos = new Position(order.OrderId(), order.Deals());
+               ActivePos.Add(npos);
+            }
+            //”ведомл€ем о создании новой позиции
+            if(npos != NULL)
+            {
+               EventCreatePos* create_pos = new EventCreatePos(EVENT_FROM_UP, "HP API", npos);
+               EventExchange::PushEvent(create_pos);
+               delete create_pos;
+            }
          }
       }
+      
+      
       CArrayLong* PosTicket;
       ///
       /// —писок активных позиций.

@@ -1,11 +1,20 @@
 #include <Object.mqh>
+#include <Arrays\ArrayLong.mqh>
+#include <Arrays\ArrayObj.mqh>
 #include "Log.mqh"
+#include "time.mqh"
 ///
-/// Статус позиции.
+/// Статус позиции/Сделки.
 ///
 enum ENUM_POSITION_STATUS
 {
+   ///
+   /// Позиция открыта.
+   ///
    POSITION_STATUS_OPEN,
+   ///
+   /// Позиция закрыта.
+   ///
    POSITION_STATUS_CLOSED
 };
 
@@ -32,52 +41,85 @@ enum ENUM_POSITION_SORT
    POSITION_SORT_PROFIT,
    POSITION_SORT_SWAP
 };
+///
+/// Загружает историю ордеров
+///
+void LoadHistory(void)
+{
+   HistorySelect(D'1970.01.01', TimeCurrent());
+}
 
+class Deal : CObject
+{
+   public:
+      ///
+      /// Создает новую сделку и заполняет ее параметры, на основе ее номера тикета.
+      ///
+      Deal(ulong dticket)
+      {
+         date = new CTime();
+         LoadHistory();
+         if(!HistoryDealSelect(dticket))
+         {
+            LogWriter("Deal with ticket #" + (string)dticket + " not find.", MESSAGE_TYPE_ERROR);
+            return;
+         }
+         ticket = dticket;
+         volume = HistoryDealGetDouble(dticket, DEAL_VOLUME);
+         date = HistoryDealGetInteger(dticket, DEAL_TIME_MSC);
+         price = HistoryDealGetDouble(dticket, DEAL_PRICE);
+         commission = HistoryDealGetDouble(dticket, DEAL_COMMISSION);
+      }
+      ~Deal()
+      {
+         delete date;
+      }
+      ulong Ticket(){return ticket;}
+      CTime* Date(){return date;}
+      double Volume(){return volume;}
+      double Comission(){return commission;}
+      double Price(){return price;}
+   private:
+      ///
+      /// Уникальный идентификатор сделки.
+      ///
+      ulong ticket;
+      ///
+      /// Время совершения сделки в миллисекундах с 01.01.1970.
+      ///
+      CTime* date; 
+      ///
+      /// Объем совершенной сделки.
+      ///
+      double volume;
+      ///
+      /// Цена совершенной сделки.
+      ///
+      double price;
+      ///
+      /// Комиссия по сделки.
+      ///
+      double commission;
+};
 ///
 /// Позиция.
 ///
 class Position : CObject
 {
    public:
-      Position(ENUM_POSITION_STATUS myStatus,
-               ENUM_POSITION_TYPE myType,
-               long myMagic,
-               string mySymbol,
-               long myOrderId,
-               double myVolume,
-               datetime myEntryTime,
-               double myEntryPrice,
-               datetime myExitTime,
-               double myExitPrice,
-               string myEntryComment)
-      {
-         magic = myMagic;
-         status = myStatus;
-         type = myType;
-         symbol = mySymbol;
-         entryOrderId = myOrderId;
-         volume = myVolume;
-         entryDate = myEntryTime;
-         entryPrice = myEntryPrice;
-         exitDate = myExitTime;
-         exitPrice = myExitPrice;
-         entryComment = myEntryComment;
-      }
-      ///
-      /// Создает новую историческую позицию на основании входящего и исходящего ордера
-      ///
-      Position(ulong in_ticket, ulong out_ticket)
-      {
-         Init(in_ticket);
-         status = POSITION_STATUS_CLOSED;
-         volume = HistoryOrderGetDouble(out_ticket, ORDER_VOLUME_CURRENT);
-         exitPrice = HistoryOrderGetDouble(out_ticket, ORDER_PRICE_OPEN);
-         exitComment = HistoryOrderGetString(out_ticket, ORDER_COMMENT);
-      }
       
-      Position(ulong in_ticket)
+      Position(ulong in_ticket, CArrayLong* in_deals, ulong out_ticket, CArrayLong* out_deals)
       {
-         Init(in_ticket);
+         Init();
+      }
+      Position(ulong in_ticket, CArrayLong* in_deals)
+      {
+         Init();
+         InitPosition(in_ticket, in_deals);
+      }
+      ~Position()
+      {
+         Deinit();
       }
       ///
       /// Возвращает статус позиции.
@@ -86,7 +128,7 @@ class Position : CObject
       ///
       /// Возвращает направление позиции.
       ///
-      //ENUM_POSITION_TYPE Type(){return type;}
+      ENUM_ORDER_TYPE PositionType(){return type;}
       ///
       /// Возвращает магический номер эксперта, открывшего позицию.
       ///
@@ -106,7 +148,7 @@ class Position : CObject
       ///
       /// Возвращает время входа в позицию.
       ///
-      datetime EntryDate(){return entryDate;}
+      CTime* EntryDate(){return entryDate;}
       ///
       /// Возвращает цену входа в позицию.
       ///
@@ -115,7 +157,7 @@ class Position : CObject
       /// Возвращает дату выхода из позиции.
       /// Возвращает ноль, если позиция открыта.
       ///
-      datetime ExitDate(){return exitDate;}
+      CTime* ExitDate(){return exitDate;}
       ///
       /// Возвращает цену выхода из позиции.
       /// Возвращает ноль, если позиция открыта.
@@ -138,7 +180,7 @@ class Position : CObject
          //OrderSelect(entryOrderId);
          //return OrderGetDouble(ORDER_PRICE_CURRENT);
          double last_price;
-         if(type == POSITION_TYPE_BUY)
+         if(type == ORDER_TYPE_BUY)
             last_price = SymbolInfoDouble(symbol, SYMBOL_BID);
          else
             last_price = SymbolInfoDouble(symbol, SYMBOL_ASK);
@@ -153,11 +195,11 @@ class Position : CObject
       ///
       double Profit()
       {
-         if(type == POSITION_TYPE_BUY)
+         if(type == ORDER_TYPE_BUY)
          {
             return CurrentPrice() - EntryPrice();
          }
-         if(type == POSITION_TYPE_SELL)
+         if(type == ORDER_TYPE_SELL)
          {
             return EntryPrice() - CurrentPrice();
          }
@@ -171,14 +213,14 @@ class Position : CObject
       /// Возвращает комментарий который был введен при закрытии позиции.
       ///
       string ExitComment(){return exitComment;}
-      ///
-      /// Список сделок открывших позицию.
-      ///
-      Position* ListOpenDeals;
-      ///
-      /// Список сделок закрывших историческую позицию.
-      ///
-      Position* ListClosedDeals;
+      CArrayObj* EntryDeals()
+      {
+         return GetPointer(entryDeals);
+      }
+      CArrayObj* ExitDeals()
+      {
+         return GetPointer(exitDeals);
+      }
       virtual int Compare(const CObject *node,const int mode=0) const
       {
          const Position* pos = node;
@@ -212,7 +254,7 @@ class Position : CObject
       ///
       /// Создает новую активную позицию.
       ///
-      void Init(ulong in_ticket)
+      void InitPosition(ulong in_ticket, CArrayLong* deals)
       {
          LoadHistory();
          if(!HistoryOrderSelect(in_ticket))
@@ -220,32 +262,103 @@ class Position : CObject
             LogWriter("History position not find", MESSAGE_TYPE_ERROR);
             return;            
          }
-         status = POSITION_STATUS_OPEN;
          magic = HistoryOrderGetInteger(in_ticket, ORDER_MAGIC);
          entryOrderId = in_ticket;
          symbol = HistoryOrderGetString(in_ticket, ORDER_SYMBOL);
-         volume = HistoryOrderGetDouble(in_ticket, ORDER_VOLUME_INITIAL) - HistoryOrderGetDouble(in_ticket, ORDER_VOLUME_CURRENT);
-         entryDate = (datetime)HistoryOrderGetInteger(in_ticket, ORDER_TIME_DONE);
-         entryPrice = HistoryOrderGetDouble(in_ticket, ORDER_PRICE_OPEN);
+         //Лучшая цена входа
+         double best_price = HistoryOrderGetDouble(in_ticket, ORDER_PRICE_OPEN);
+         // Если позиция имеет сделки, то ее тип меняется на sell или buy, а
+         // объем и время входа узнаются из сделок.
+         if(deals != NULL && deals.Total()>0)
+         {
+            ENUM_ORDER_TYPE op_type = (ENUM_ORDER_TYPE)HistoryOrderGetInteger(in_ticket, ORDER_TYPE);
+            switch(op_type)
+            {
+               case ORDER_TYPE_BUY:
+               case ORDER_TYPE_BUY_STOP:
+               case ORDER_TYPE_BUY_LIMIT:
+               case ORDER_TYPE_BUY_STOP_LIMIT:
+                  type = ORDER_TYPE_BUY;
+                  break;
+               default:
+                  type = ORDER_TYPE_SELL;
+            }
+            //Для стоповых и рыночных ордеров лучшая цена указана в ордере. 
+            //Если лучшая цена не указана, либо используются лимитные
+            //ордера, лучшая цена равна наиболее выгодной сделке.
+            bool find = (NormalizeDouble(best_price, 6) == 0.000000) ||
+                        (op_type == ORDER_TYPE_BUY_LIMIT) || (op_type == ORDER_TYPE_SELL_LIMIT);
+            //Тикеты сделок превращаются в классы сделок.
+            int total = deals.Total();
+            for(int i = 0; i < total; i++)
+            {
+               ulong dticket = deals.At(i);
+               Deal* cdeal = new Deal(dticket);
+               entryDeals.Add(cdeal);
+               volume += cdeal.Volume();
+               //Ищем самое раннее время совершения первой сделки
+               long time;
+               if(op_type == ORDER_TYPE_BUY || op_type == ORDER_TYPE_SELL)
+               {
+                  entryDate = HistoryOrderGetInteger(in_ticket, ORDER_TIME_DONE_MSC);
+                  time = (datetime)HistoryOrderGetInteger(in_ticket, ORDER_TIME_DONE);
+               }
+               else if(i == 0)entryDate = cdeal.Date();
+               else if(entryDate > cdeal.Date())
+                  entryDate = cdeal.Date();
+               
+               //Ищем самую выгодную цену сделки
+               if(find && type == ORDER_TYPE_BUY)
+               {
+                  if(i == 0)best_price = cdeal.Price();
+                  else if(cdeal.Price() < best_price)
+                     best_price = cdeal.Price();
+               }
+               else if(find && type == ORDER_TYPE_SELL)
+               {
+                  if(i == 0)best_price = cdeal.Price();
+                  else if(cdeal.Price() > best_price)
+                     best_price = cdeal.Price();
+               }
+            }
+         }
+         //Имеем дело с отложенными ордерами
+         else
+         {
+            volume = HistoryOrderGetDouble(in_ticket, ORDER_VOLUME_INITIAL) - HistoryOrderGetDouble(in_ticket, ORDER_VOLUME_CURRENT);
+            entryDate = HistoryOrderGetInteger(in_ticket, ORDER_TIME_DONE) * 1000;
+         }
+         entryPrice = best_price;
          entryComment = HistoryOrderGetString(in_ticket, ORDER_COMMENT);
       }
-      ///
-      /// Загружает историю ордеров
-      ///
-      void LoadHistory(void)
+      
+      void ClosePosition()
       {
-         HistorySelect(D'1970.01.01', TimeCurrent());
+         ;
+      }
+      void Init()
+      {
+         entryDate = new CTime();
+         exitDate = new CTime();
+      }
+      void Deinit()
+      {
+         delete entryDate;
+         delete exitDate;
       }
       ENUM_POSITION_STATUS status;
-      ENUM_POSITION_TYPE type;
+      ENUM_ORDER_TYPE type;
       long magic;
       string symbol;
       ulong entryOrderId;
       ulong exitOrderId;
       double volume;
-      datetime entryDate;
+      ///
+      /// Время входа в позицию.
+      ///
+      CTime* entryDate;
       double entryPrice;
-      datetime exitDate;
+      CTime* exitDate;
       double exitPrice;
       double stopLoss;
       double takeProfit;
@@ -253,4 +366,12 @@ class Position : CObject
       double profit;
       string entryComment;
       string exitComment;
+      ///
+      /// Список сделок, открывающих текущую позицию.
+      ///
+      CArrayObj entryDeals;
+      ///
+      /// Список сделок, закрывающих текущую позицию.
+      ///
+      CArrayObj exitDeals;
 };
