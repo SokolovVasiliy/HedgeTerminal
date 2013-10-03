@@ -85,7 +85,7 @@ class Deal : CObject
       ///
       ulong ticket;
       ///
-      /// Время совершения сделки в миллисекундах с 01.01.1970.
+      /// Время совершения сделки.
       ///
       CTime* date; 
       ///
@@ -119,7 +119,23 @@ class Position : CObject
       }
       ~Position()
       {
-         Deinit();
+         static int count;
+         printf(count++);
+         delete entryDate;
+         delete exitDate;
+         int total = entryDeals.Total();
+         for(int i = 0; i < total; i++)
+         {
+            Deal* deal = entryDeals.At(i);
+            delete deal;
+         }
+         entryDeals.Clear();
+         for(int i = 0; i < exitDeals.Total(); i++)
+         {
+            Deal* deal = exitDeals.At(i);
+            delete deal;
+         }
+         exitDeals.Clear();
       }
       ///
       /// Возвращает статус позиции.
@@ -176,11 +192,9 @@ class Position : CObject
       ///
       double CurrentPrice()
       {
-         //LoadHistory();
-         //OrderSelect(entryOrderId);
-         //return OrderGetDouble(ORDER_PRICE_CURRENT);
          double last_price;
-         if(type == ORDER_TYPE_BUY)
+         //Четные значения - покупка, нечетные - продажа.
+         if(type % 2 == 0)
             last_price = SymbolInfoDouble(symbol, SYMBOL_BID);
          else
             last_price = SymbolInfoDouble(symbol, SYMBOL_ASK);
@@ -195,13 +209,15 @@ class Position : CObject
       ///
       double Profit()
       {
-         if(type == ORDER_TYPE_BUY)
+         switch(type)
          {
-            return CurrentPrice() - EntryPrice();
-         }
-         if(type == ORDER_TYPE_SELL)
-         {
-            return EntryPrice() - CurrentPrice();
+            case ORDER_TYPE_BUY:
+            case ORDER_TYPE_BUY_STOP:
+            case ORDER_TYPE_BUY_LIMIT:
+            case ORDER_TYPE_BUY_STOP_LIMIT:
+               return CurrentPrice() - EntryPrice();
+            default:
+               return EntryPrice() - CurrentPrice();   
          }
          return 0.0;
       }
@@ -269,9 +285,9 @@ class Position : CObject
          double best_price = HistoryOrderGetDouble(in_ticket, ORDER_PRICE_OPEN);
          // Если позиция имеет сделки, то ее тип меняется на sell или buy, а
          // объем и время входа узнаются из сделок.
+         ENUM_ORDER_TYPE op_type = (ENUM_ORDER_TYPE)HistoryOrderGetInteger(in_ticket, ORDER_TYPE);
          if(deals != NULL && deals.Total()>0)
          {
-            ENUM_ORDER_TYPE op_type = (ENUM_ORDER_TYPE)HistoryOrderGetInteger(in_ticket, ORDER_TYPE);
             switch(op_type)
             {
                case ORDER_TYPE_BUY:
@@ -297,16 +313,16 @@ class Position : CObject
                entryDeals.Add(cdeal);
                volume += cdeal.Volume();
                //Ищем самое раннее время совершения первой сделки
-               long time;
-               if(op_type == ORDER_TYPE_BUY || op_type == ORDER_TYPE_SELL)
+               entryDate = HistoryOrderGetInteger(in_ticket, ORDER_TIME_DONE_MSC);
+               /*if(op_type == ORDER_TYPE_BUY || op_type == ORDER_TYPE_SELL)
                {
                   entryDate = HistoryOrderGetInteger(in_ticket, ORDER_TIME_DONE_MSC);
-                  time = (datetime)HistoryOrderGetInteger(in_ticket, ORDER_TIME_DONE);
                }
-               else if(i == 0)entryDate = cdeal.Date();
+               else if(i == 0)entryDate.operator=(cdeal.Date());
                else if(entryDate > cdeal.Date())
-                  entryDate = cdeal.Date();
-               
+                  entryDate.operator=(cdeal.Date());
+               */
+               //entryDate.operator<(cdeal.Date());
                //Ищем самую выгодную цену сделки
                if(find && type == ORDER_TYPE_BUY)
                {
@@ -330,6 +346,7 @@ class Position : CObject
          }
          entryPrice = best_price;
          entryComment = HistoryOrderGetString(in_ticket, ORDER_COMMENT);
+         type = op_type;
       }
       
       void ClosePosition()
@@ -340,11 +357,6 @@ class Position : CObject
       {
          entryDate = new CTime();
          exitDate = new CTime();
-      }
-      void Deinit()
-      {
-         delete entryDate;
-         delete exitDate;
       }
       ENUM_POSITION_STATUS status;
       ENUM_ORDER_TYPE type;

@@ -14,9 +14,15 @@
 
 void OnStart()
 {
-   CTime time(1928372823372);
-   string format = time.TimeToString(TIME_DATE | TIME_MINUTES | TIME_MSC);
-   printf(format);
+   //CTime time(1928372823372);
+   //string format = time.TimeToString(TIME_DATE | TIME_MINUTES | TIME_MSC);
+   //printf(format);
+   printf(ORDER_TYPE_BUY);
+   printf(ORDER_TYPE_BUY_STOP);
+   printf(ORDER_TYPE_BUY_LIMIT);
+   printf(ORDER_TYPE_BUY_STOP_LIMIT);
+   //for(char ch = 0; ch < CHAR_MAX; ch++)
+   //   printf(CharToString(ch));
 }
 /// 
 /// Паттерн одиночка

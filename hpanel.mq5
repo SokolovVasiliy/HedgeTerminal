@@ -39,6 +39,7 @@ void OnDeinit(const int reason)
 {
    EventDeinit* ed = new EventDeinit();
    HedgePanel.Event(ed);
+   api.Event(ed);
    delete ed;
    delete HedgePanel;
    delete api;

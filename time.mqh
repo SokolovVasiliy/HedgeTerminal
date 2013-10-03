@@ -22,6 +22,12 @@ class CTime
       ///
       long Tiks(){return tiks;}
       ///
+      /// Устанавливает время.
+      /// \param value - количество тиков.
+      ///
+      void Tiks(long value){tiks = value;}
+      
+      ///
       /// Возвращает количество секунд прошедших с 1 января 1970 года.
       ///
       datetime ToDatetime()
@@ -96,6 +102,10 @@ class CTime
          else return false;
       }
       /*Set timer*/
+      void operator=(const CTime* value)
+      {
+         tiks = value.Tiks();
+      }
       void operator=(const long value)
       {
          tiks = value;

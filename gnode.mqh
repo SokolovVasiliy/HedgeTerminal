@@ -87,8 +87,8 @@ class ProtoNode : public CObject
                   ExecuteCommand(event);
                   break;
                case EVENT_DEINIT:
-                  Deinit(event);
                   OnDeinit(event);
+                  Deinit(event);
                   break;
                default:
                   OnEvent(event);
@@ -113,6 +113,8 @@ class ProtoNode : public CObject
       ///
       long OptimalWidth()
       {
+         if(CheckPointer(bindOptWidth) != POINTER_INVALID)
+            return bindOptWidth.OptimalWidth();
          return optimalWidth;
       }
       ///
@@ -120,17 +122,48 @@ class ProtoNode : public CObject
       ///
       long OptimalHigh()
       {
+         if(CheckPointer(bindOptHigh) != POINTER_INVALID)
+            return bindOptHigh.OptimalHigh();
          return optimalHigh;
       }
        
       void OptimalWidth(long optWidth)
       {
+         if(bindOptWidth != NULL)
+            bindOptWidth.OptimalWidth(optWidth);
          optimalWidth = optWidth;
       }
+      
       void OptimalHigh(long optHigh)
       {
+         if(bindOptHigh != NULL)
+            bindOptHigh.OptimalHigh(optHigh);
          optimalHigh = optHigh;
       }
+      ///
+      /// Привязывает свою оптимальную ширину к оптимальной ширене другого узла.
+      ///
+      void BindOptWidth(ProtoNode* node)
+      {
+         bindOptWidth = node;
+         optimalWidth = node.OptimalWidth();
+      }
+      ///
+      /// Привязывает свою оптимальную высоту к оптимальной высоте другого узла.
+      ///
+      void BindOptHigh(ProtoNode* node)
+      {
+         bindOptHigh = node;
+         optimalHigh = node.OptimalHigh();
+      }
+      ///
+      /// Отвязывает оптималную ширину от другого узла.
+      ///
+      void UnbindOptWidth(){bindOptWidth = NULL;}
+      ///
+      /// Отвязывает оптимальную высоту от другого узла.
+      ///
+      void UnbindOptHigh(){bindOptHigh = NULL;}
       ///
       /// Возвращает количество подузлов, входящее в графический элемент.
       ///
@@ -642,6 +675,14 @@ class ProtoNode : public CObject
       ///
       ENUM_ELEMENT_TYPE elementType;
    private:
+      ///
+      /// Указатель на другой узел, чью оптимальную ширину надо получить.
+      ///
+      ProtoNode* bindOptWidth;
+      ///
+      /// Указатель на другой узел, чью оптимальную высоту надо получить.
+      ///
+      ProtoNode* bindOptHigh;
       ///
       /// Полное имя графического узла, состоящее из последовательности имен предыдущих узлов и текущего имени узла.
       ///

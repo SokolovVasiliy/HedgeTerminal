@@ -14,13 +14,12 @@ class CHedge
       ///
       void Event(Event* event)
       {
-         ;
-         /*switch(event.EventId())
+         switch(event.EventId())
          {
-            case EVENT_TIMER:
-               OnTimer(event);
+            case EVENT_DEINIT:
+               //OnDeinit(event);
                break;
-         }*/
+         }
       }
       ///
       ///
@@ -31,10 +30,37 @@ class CHedge
          ActivePos = new CArrayObj();
          HistoryPos = new CArrayObj();
       }
+      
+      ~CHedge()
+      {
+         // Удаляем список тикеров
+         ListTickets.Clear();
+         delete ListTickets;
+         // Удаляем список активных позиций.
+         for(int i = 0; i < ActivePos.Total(); i++)
+         {
+            Position* pos = ActivePos.At(i);
+            delete pos;
+         }
+         ActivePos.Clear();
+         delete ActivePos;
+         // Удаляем список исторических позиций.
+         for(int i = 0; i < HistoryPos.Total(); i++)
+         {
+            Position* pos = HistoryPos.At(i);
+            delete pos;
+         }
+         HistoryPos.Clear();
+         delete HistoryPos;
+         
+         //listOrder
+      }
+      
       void Init()
       {
          LoadPosition();
       }
+      
       ///
       /// Добавляет новую позицию в список позиций
       ///
@@ -136,7 +162,6 @@ class CHedge
             //Если нет, создаем новый
             else
                listOrders.InsertSort(order);
-            //delete norder;
          }
          //На основе списка ордеров собираем позиции.
          total = listOrders.Total();
@@ -159,6 +184,7 @@ class CHedge
                   npos = new Position(in_order.OrderId(), in_order.Deals(), order.OrderId(), order.Deals());
                   HistoryPos.Add(npos);     
                }
+               delete sorder;
             }
             //Открывающий ордер не найден? - Значит это открытая позиция
             if(fticket == -1 || pos == -1)
@@ -176,8 +202,6 @@ class CHedge
          }
       }
       
-      
-      CArrayLong* PosTicket;
       ///
       /// Список активных позиций.
       ///

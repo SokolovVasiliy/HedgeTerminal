@@ -288,7 +288,7 @@ class TableOpenPos : public Table
          
          ow_magic = 100;
          ow_symbol = 70;
-         ow_order_id = 130;
+         ow_order_id = 100;
          ow_entry_date = 150;
          ow_type = 50;
          ow_vol = 50;
@@ -445,6 +445,14 @@ class TableOpenPos : public Table
       }
    private:
       ///
+      /// Деинициализируем дополнительные динамические объекты
+      ///
+      void OnDeinit(EventDeinit* event)
+      {
+         ListPos.Clear();
+         delete ListPos;
+      }
+      ///
       /// Обновляем состояние позиций
       ///
       void RefreshPos()
@@ -456,14 +464,21 @@ class TableOpenPos : public Table
             //Обновляем профит позиции.
             if(nProfit != -1)
             {
-               Label* profit = gposition.gpos.ChildElementAt(nProfit);
-               profit.Text((string)gposition.pos.Profit());
+               Label* lprofit = gposition.gpos.ChildElementAt(nProfit);
+               double profit = gposition.pos.Profit();
+               int digits = SymbolInfoInteger(gposition.pos.Symbol(), SYMBOL_DIGITS);
+               double point = SymbolInfoDouble(gposition.pos.Symbol(), SYMBOL_POINT);
+               string points = DoubleToString(profit/point, 0) + "p.";
+               lprofit.Text(points);
             }
             //Обновляем последнюю цену позиции
             if(nLastPrice)
             {
                Label* lastprice = gposition.gpos.ChildElementAt(nLastPrice);
-               lastprice.Text((string)gposition.pos.CurrentPrice());
+               double digits = SymbolInfoInteger(gposition.pos.Symbol(), SYMBOL_DIGITS);
+               string price = DoubleToString(gposition.pos.CurrentPrice(), digits);
+               //lastprice.Text((string)gposition.pos.CurrentPrice());
+               lastprice.Text(price);
             }
          }
       }
@@ -479,7 +494,9 @@ class TableOpenPos : public Table
          //if(pos.Status == POSITION_STATUS_CLOSED)return;
          Line* nline = new Line("pos.", GetPointer(this));
          int total = lineHeader.ChildsTotal();
-         Label* cell;
+         Label* cell = NULL;
+         //Комбинированный элемент
+         Line* comby = NULL;
          for(int i = 0; i < total; i++)
          {
             bool isReadOnly = true;
@@ -511,18 +528,28 @@ class TableOpenPos : public Table
                cell = new Label(name_type, GetPointer(nline));
                string stype = EnumToString(pos.PositionType());
                stype = StringSubstr(stype, 11);
+               StringReplace(stype, "_", " ");
+               int len = StringLen(stype);
+               int optW = len*10;
+               if(node.OptimalWidth() < optW)
+                  node.OptimalWidth(optW);
                cell.Text(stype);
             }
             else if(node.ShortName() == name_vol)
             {
                cell = new Label(name_vol, GetPointer(nline));
-               cell.Text((string)pos.Volume());
+               double step = SymbolInfoDouble(pos.Symbol(), SYMBOL_VOLUME_STEP);
+               double mylog = MathLog10(step);
+               string vol = mylog < 0 ? DoubleToString(pos.Volume(),(mylog*(-1))) : DoubleToString(pos.Volume(), 0);
+               cell.Text(vol);
                isReadOnly = false;
             }
             else if(node.ShortName() == name_price)
             {
                cell = new Label(name_price, GetPointer(nline));
-               cell.Text((string)pos.EntryPrice());
+               double digits = SymbolInfoInteger(pos.Symbol(), SYMBOL_DIGITS);
+               string price = DoubleToString(pos.EntryPrice(), digits);
+               cell.Text(price);
             }
             else if(node.ShortName() == name_sl)
             {
@@ -539,13 +566,22 @@ class TableOpenPos : public Table
             else if(node.ShortName() == name_currprice)
             {
                cell = new Label(name_currprice, GetPointer(nline));
-               cell.Text((string)pos.CurrentPrice());
+               double digits = SymbolInfoInteger(pos.Symbol(), SYMBOL_DIGITS);
+               string price = DoubleToString(pos.CurrentPrice(), digits);
+               cell.Text(price);
             }
             
             else if(node.ShortName() == name_profit)
             {
+               //comby = new Line(name_profit, GetPointer(nline));
+               //comby.AlignType(LINE_ALIGN_CELLBUTTON);
+               //cell = new Label(name_profit, comby);
                cell = new Label(name_profit, GetPointer(nline));
                cell.Text((string)pos.Profit());
+               //Button* btnClose = new Button("btnClosePos.", comby);
+               //btnClose.O
+               //comby.Add(cell);
+               //comby.Add(btnClose);
             }
             else if(node.ShortName() == name_comment)
             {
@@ -554,11 +590,20 @@ class TableOpenPos : public Table
             }
             else
                cell = new Label("edit", GetPointer(nline));
-            cell.OptimalWidth(node.OptimalWidth());
-            cell.BackgroundColor(clrWhite);
-            cell.BorderColor(clrWhiteSmoke);
-            cell.Edit(isReadOnly);
-            nline.Add(cell);
+            if(comby != NULL)
+            {
+               nline.Add(comby);
+            }
+            else if(cell != NULL)
+            {
+               cell.BindOptWidth(node);
+               //cell.OptimalWidth(node.OptimalWidth());
+               cell.BackgroundColor(clrWhite);
+               cell.BorderColor(clrWhiteSmoke);
+               cell.Edit(isReadOnly);
+               nline.Add(cell);
+            }
+            
          }
          Add(nline);
 
