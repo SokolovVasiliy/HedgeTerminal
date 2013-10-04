@@ -17,56 +17,65 @@ enum ENUM_EVENT_DIRECTION
    ///
    EVENT_FROM_DOWN
 };
-///
-/// Идентификатор события "Размер графического узла изменен".
-///
-#define EVENT_NODE_RESIZE 0
-///
-/// Идентификатор события "Графический узел передвинут".
-///
-#define EVENT_NODE_MOVE 1
-///
-/// Идентификатор события "Видимость графического узла изменена".
-///
-#define EVENT_NODE_VISIBLE 2
-///
-/// Идентификатор события "новый тик".
-///
-#define EVENT_NEW_TICK 3
-///
-/// Идентификатор события "Инициализация эксперта".
-///
-#define EVENT_INIT 4
-///
-/// Идентификатор события "Деинициализация эксперта".
-///
-#define EVENT_DEINIT 5
-///
-/// Идентификатор события "Положение и размер родительского узла изменен"
-///
-#define EVENT_CHSTATUS 6
-///
-/// Идентификатор события "Приказ".
-///
-#define EVENT_NODE_COMMAND 7
-///
-/// Идентификатор события "Создана новая позиция".
-///
-#define EVENT_CREATE_NEWPOS 8
-///
-/// Идентификатор события Свойство позиции изменено
-///
-#define EVENT_CHANGE_POS 9 
-///
-/// Идентификатор события таймер.
-///
-#define EVENT_TIMER 10
-
-///
-/// Идентификатор события обновление экрана.
-///
-#define EVENT_REFRESH 11
-
+enum ENUM_EVENT
+{
+   ///
+   /// Идентификатор события "Размер графического узла изменен".
+   ///
+   EVENT_NODE_RESIZE,
+   ///
+   /// Идентификатор события "Графический узел передвинут".
+   ///   
+   EVENT_NODE_MOVE,
+   ///
+   /// Идентификатор события "Видимость графического узла изменена".
+   ///
+   EVENT_NODE_VISIBLE,
+   ///
+   /// Идентификатор события "новый тик".
+   ///  
+   EVENT_NEW_TICK,
+   ///
+   /// Идентификатор события "Инициализация эксперта".
+   ///   
+   EVENT_INIT,
+   ///
+   /// Идентификатор события "Деинициализация эксперта".
+   ///
+   EVENT_DEINIT,
+   ///
+   /// Идентификатор события "Приказ".
+   ///
+   EVENT_NODE_COMMAND,
+   ///
+   /// Идентификатор события "Создана новая позиция".
+   ///
+   EVENT_CREATE_NEWPOS,
+   ///
+   /// Идентификатор события Свойство позиции изменено.
+   ///
+   EVENT_CHANGE_POS,
+   ///
+   /// Команда на удаление позиции.
+   ///
+   EVENT_DEL_POS,
+   ///
+   /// Идентификатор события "Позиция закрылась".
+   ///
+   EVENT_CLOSE_POS,
+   ///
+   /// Идентификатор события таймер.
+   ///
+   EVENT_TIMER,
+   ///
+   /// Идентификатор события обновление экрана.
+   ///
+   EVENT_REFRESH,
+   ///
+   /// Идентификатор события "кнопка нажата".
+   ///
+   EVENT_BUTTON_PUSH
+};
 
 
 ///
@@ -96,7 +105,10 @@ class Event
       {
          return new Event(eventDirection, eventId, nameNodeId);
       }
-      
+      ///
+      /// Возвращает количество милисекунд прошедщих с момента запуска терминала до момента создания события.
+      ///
+      uint TickCount(){return tickCount;}
    // Непосредствено создать класс может только его потомок, т.е. класс является абстрактным и
    // его конструктор защищен от внешнего вызова.
    protected:
@@ -105,16 +117,21 @@ class Event
       /// указать уникальный идентификатор события и имя графического узла
       /// который его инициализировал.
       ///
-      Event(ENUM_EVENT_DIRECTION myeventDirection ,int myeventId, string nameNode)
+      Event(ENUM_EVENT_DIRECTION myeventDirection ,ENUM_EVENT myeventId, string nameNode)
       {
          eventDirection = myeventDirection;
          eventId = myeventId;
          nameNodeId = nameNode;
+         tickCount = GetTickCount();
       }
    private:
       ENUM_EVENT_DIRECTION eventDirection;
-      int eventId;
+      ENUM_EVENT eventId;
       string nameNodeId;
+      ///
+      /// Количество милисекунд, прошедщих с момента запуска терминала до создания события.
+      ///
+      uint tickCount;
 };
 
 
@@ -227,52 +244,6 @@ class EventDeinit : Event
       }
       EventDeinit():
       Event(EVENT_FROM_UP, EVENT_DEINIT, "TERMINAL_WINDOW"){;}
-};
-///
-/// Событие "Статус (положение, размер, видимость) графического узла изменен".
-///
-class EventNodeStatus : Event
-{
-   public:
-      virtual Event* Clone()
-      {
-         return new EventNodeStatus(Direction(), NameNodeId(), visible, xDist, yDist, width, high);
-      }
-      long XDist(){return xDist;}
-      long YDist(){return yDist;}
-      long Width(){return width;}
-      long High(){return high;}
-      bool Visible(){return visible;}
-      EventNodeStatus(ENUM_EVENT_DIRECTION myDir, string nodeId, bool isVisible, long newXDist, long newYDist, long newWidth, long newHigh):
-      Event(myDir, EVENT_CHSTATUS, nodeId)
-      {
-         visible = isVisible;
-         width = newWidth;
-         high = newHigh;
-         xDist = newXDist;
-         yDist = newYDist;
-      }
-   private:
-      ///
-      /// Статус видимости объекта.
-      ///
-      bool visible;
-      ///
-      /// Ширина узла в пунктах.
-      ///
-      long width;
-      ///
-      /// Высота узла в пунктах.
-      ///
-      long high;
-      ///
-      /// Абсолютная вертикальная координата.
-      ///
-      long xDist;
-      ///
-      /// Абсолютная горизонтальная координата.
-      ///
-      long yDist;
 };
 
 ///
@@ -391,5 +362,45 @@ class EventRefresh : public Event
    public:
       EventRefresh(ENUM_EVENT_DIRECTION Dir, string nodeId):
       Event(Dir, EVENT_REFRESH, nodeId){;}
+};
+
+class EventButtonPush : public Event
+{
+   public:
+      EventButtonPush(string btnName): Event(EVENT_FROM_UP, EVENT_BUTTON_PUSH, "TERMINAL WINDOW")
+      {
+         buttonName = btnName;
+      }
+      ///
+      /// Возвращает название кноки.
+      ///
+      string ButtonName(){return buttonName;}
+      virtual Event* Clone()
+      {
+         return new EventButtonPush(buttonName);
+      }
+   private:
+      ///
+      /// Хранит название кнопки, которая была нажата.
+      ///
+      string buttonName;
+};
+
+///
+/// Команда на закрытие позиции.
+///
+class EventDelPos : public Event
+{
+   public:
+      EventDelPos(ulong posId, string nodeId) : Event(EVENT_FROM_DOWN, EVENT_DEL_POS, nodeId)
+      {
+         positionId = posId;
+      }
+      Event* Clone()
+      {
+         return new EventDelPos(positionId, NameNodeId());
+      }
+   private:
+      ulong positionId;
 };
 

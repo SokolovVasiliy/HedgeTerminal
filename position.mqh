@@ -119,8 +119,6 @@ class Position : CObject
       }
       ~Position()
       {
-         static int count;
-         printf(count++);
          delete entryDate;
          delete exitDate;
          int total = entryDeals.Total();
@@ -220,6 +218,16 @@ class Position : CObject
                return EntryPrice() - CurrentPrice();   
          }
          return 0.0;
+      }
+      ///
+      /// Конвертирует профит позиции в строковое представление профита
+      ///
+      string ProfitAsString()
+      {
+         int digits = (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS);
+         double point = SymbolInfoDouble(symbol, SYMBOL_POINT);
+         string points = DoubleToString(Profit()/point, 0) + "p.";
+         return points;
       }
       ///
       /// Возвращает комментарий который был введен при открытии позиции.

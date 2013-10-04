@@ -69,11 +69,13 @@ class Line : public ProtoNode
       virtual void OnCommand(EventNodeCommand* newEvent)
       {
          if(!Visible() || newEvent.Direction() == EVENT_FROM_DOWN)return;
+         string cname = ShortName();
          switch(typeAlign)
          {
             case LINE_ALIGN_CELL:
             case LINE_ALIGN_CELLBUTTON:
                AlgoCellButton();
+               break;
             default:
                AlgoScale();
                break;
@@ -116,20 +118,21 @@ class Line : public ProtoNode
          long xdist = Width();
          long chigh = High();
          //Перебираем элементы в обратном порядке, т.к. кнопки идут самыми последними
-         for(int i = total; i <= 0; i--)
+         for(int i = total; i >= 0; i--)
          {
             ProtoNode* node = childNodes.At(i);
+            ENUM_ELEMENT_TYPE type = node.TypeElement();
             if(node.TypeElement() == ELEMENT_TYPE_BOTTON)
             {
                xdist -= chigh;
-               EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), xdist+2, 2, chigh-2, chigh-2);
+               EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), xdist, 0, chigh, chigh);
                node.Event(command);
                delete command;
             }
             else
             {
                //Средняя ширина элемента
-               long avrg = (long)MathRound((double)xdist/(double)(total+1));
+               long avrg = (long)MathRound((double)xdist/(double)(total));
                xdist -= avrg;
                EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), xdist, 0, avrg, chigh);
                node.Event(command);
@@ -142,6 +145,7 @@ class Line : public ProtoNode
       ///
       ENUM_LINE_ALIGN_TYPE typeAlign;
 };
+
 ///
 /// Текстовая метка
 ///
@@ -180,6 +184,7 @@ class Label : public ProtoNode
          BorderColor(BorderColor());
          Text(Text());
          Edit(Edit());
+         ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_COLOR, clrBlack);
       }
       ///
       /// Истина, если текстовая метка может редактироваться пользователем, ложь, в противном случае.
@@ -296,7 +301,7 @@ class TableOpenPos : public Table
          ow_sl = 70;
          ow_tp = 70;
          ow_currprice = 70;
-         ow_profit = 70;
+         ow_profit = 90;
          ow_comment = 150;
          
          name_magic = "Magic";
@@ -424,6 +429,12 @@ class TableOpenPos : public Table
             lineHeader.Add(hComment);
             count++;
          }
+         //Изменяем тип рамки для каждого из элементов
+         for(int i = 0; i < lineHeader.ChildsTotal();i++)
+         {
+            ProtoNode* node = lineHeader.ChildElementAt(i);
+            node.BorderColor(clrBlack);
+         }
          //Скрол
          Scroll* myscroll = new Scroll("Scroll", GetPointer(this));
          Add(myscroll);
@@ -440,6 +451,9 @@ class TableOpenPos : public Table
                break;
             case EVENT_REFRESH:
                RefreshPos();
+               break;
+            default:
+               EventSend(event);
                break;
          }
       }
@@ -458,24 +472,31 @@ class TableOpenPos : public Table
       void RefreshPos()
       {
          int total = ListPos.Total();
+         color lossZone = clrLavenderBlush;
+         color profitZone = clrMintCream;
          for(int i = 0; i < total; i++)
          {
             GPosition* gposition = ListPos.At(i);
             //Обновляем профит позиции.
             if(nProfit != -1)
             {
-               Label* lprofit = gposition.gpos.ChildElementAt(nProfit);
+               Line* lline = gposition.gpos.ChildElementAt(nProfit);
+               if(lline.ChildsTotal() < 1)continue;
+               Label* lprofit = lline.ChildElementAt(0);
                double profit = gposition.pos.Profit();
-               int digits = SymbolInfoInteger(gposition.pos.Symbol(), SYMBOL_DIGITS);
-               double point = SymbolInfoDouble(gposition.pos.Symbol(), SYMBOL_POINT);
-               string points = DoubleToString(profit/point, 0) + "p.";
-               lprofit.Text(points);
+               string sprofit = gposition.pos.ProfitAsString();
+               Button* btnClose = lline.ChildElementAt(1);
+               if(profit > 0 && btnClose.BackgroundColor() != profitZone)
+                  btnClose.BackgroundColor(profitZone);
+               else if(profit <= 0 && btnClose.BackgroundColor() != lossZone)
+                  btnClose.BackgroundColor(lossZone);
+               lprofit.Text(sprofit);
             }
             //Обновляем последнюю цену позиции
             if(nLastPrice)
             {
                Label* lastprice = gposition.gpos.ChildElementAt(nLastPrice);
-               double digits = SymbolInfoInteger(gposition.pos.Symbol(), SYMBOL_DIGITS);
+               int digits = (int)SymbolInfoInteger(gposition.pos.Symbol(), SYMBOL_DIGITS);
                string price = DoubleToString(gposition.pos.CurrentPrice(), digits);
                //lastprice.Text((string)gposition.pos.CurrentPrice());
                lastprice.Text(price);
@@ -540,14 +561,14 @@ class TableOpenPos : public Table
                cell = new Label(name_vol, GetPointer(nline));
                double step = SymbolInfoDouble(pos.Symbol(), SYMBOL_VOLUME_STEP);
                double mylog = MathLog10(step);
-               string vol = mylog < 0 ? DoubleToString(pos.Volume(),(mylog*(-1))) : DoubleToString(pos.Volume(), 0);
+               string vol = mylog < 0 ? DoubleToString(pos.Volume(),(int)(mylog*(-1.0))) : DoubleToString(pos.Volume(), 0);
                cell.Text(vol);
                isReadOnly = false;
             }
             else if(node.ShortName() == name_price)
             {
                cell = new Label(name_price, GetPointer(nline));
-               double digits = SymbolInfoInteger(pos.Symbol(), SYMBOL_DIGITS);
+               int digits = (int)SymbolInfoInteger(pos.Symbol(), SYMBOL_DIGITS);
                string price = DoubleToString(pos.EntryPrice(), digits);
                cell.Text(price);
             }
@@ -566,22 +587,33 @@ class TableOpenPos : public Table
             else if(node.ShortName() == name_currprice)
             {
                cell = new Label(name_currprice, GetPointer(nline));
-               double digits = SymbolInfoInteger(pos.Symbol(), SYMBOL_DIGITS);
+               int digits = (int)SymbolInfoInteger(pos.Symbol(), SYMBOL_DIGITS);
                string price = DoubleToString(pos.CurrentPrice(), digits);
                cell.Text(price);
             }
             
             else if(node.ShortName() == name_profit)
             {
-               //comby = new Line(name_profit, GetPointer(nline));
-               //comby.AlignType(LINE_ALIGN_CELLBUTTON);
-               //cell = new Label(name_profit, comby);
-               cell = new Label(name_profit, GetPointer(nline));
-               cell.Text((string)pos.Profit());
-               //Button* btnClose = new Button("btnClosePos.", comby);
-               //btnClose.O
-               //comby.Add(cell);
-               //comby.Add(btnClose);
+               comby = new Line(name_profit, GetPointer(nline));
+               comby.BindOptWidth(node);
+               comby.AlignType(LINE_ALIGN_CELLBUTTON);
+               cell = new Label(name_profit, comby);
+               cell.Text(pos.ProfitAsString());
+               cell.BackgroundColor(clrWhite);
+               cell.BorderColor(clrWhiteSmoke);
+               cell.Edit(true);
+               ButtonClosePos* btnClose = new ButtonClosePos("btnClosePos.", comby);
+               btnClose.Font("Wingdings");
+               btnClose.FontSize(12);
+               btnClose.Label(CharToString(251));
+               btnClose.BorderColor(clrWhite);
+               double profit = pos.Profit();
+               if(profit > 0)
+                  btnClose.BackgroundColor(clrMintCream);
+               else
+                  btnClose.BackgroundColor(clrLavenderBlush);
+               comby.Add(cell);
+               comby.Add(btnClose);
             }
             else if(node.ShortName() == name_comment)
             {
@@ -593,6 +625,7 @@ class TableOpenPos : public Table
             if(comby != NULL)
             {
                nline.Add(comby);
+               comby = NULL;
             }
             else if(cell != NULL)
             {
@@ -740,21 +773,14 @@ class Button : public ProtoNode
 {
    public:
       
-      Button(string myName, ProtoNode* parNode):ProtoNode(OBJ_BUTTON, ELEMENT_TYPE_HEAD_COLUMN, myName, parNode)
+      Button(string myName, ProtoNode* parNode):ProtoNode(OBJ_BUTTON, ELEMENT_TYPE_BOTTON, myName, parNode)
       {
          borderColor = clrBlack;
          label = myName;
          font = "Arial";
          fontsize = 10;
       }
-      void BorderColor(color clr)
-      {
-         borderColor = clr;
-      }
-      color BorderColor()
-      {
-         return borderColor;
-      }
+      
       ///
       /// Возвращает надпись кнопки.
       ///
@@ -779,13 +805,31 @@ class Button : public ProtoNode
       /// Устанавливает размер используемого шрифта.
       ///
       void FontSize(int size){fontsize = size;}
-   private:
+   protected:
+      ///
+      /// Каждый потомок должен самостоятельно определить свои действия,
+      /// при нажатии кнопки.
+      ///
+      virtual void OnPush(){;}
+      //
+      virtual void OnEvent(Event* event)
+      {
+         int id = event.EventId();
+         if(id == EVENT_BUTTON_PUSH)
+         {
+            EventButtonPush* push = event;
+            if(push.ButtonName() == NameID())
+            {
+               OnPush();
+            }
+         }
+         else
+            EventSend(event);
+      }
       virtual void OnVisible(EventVisible* event)
       {
          if(!Visible())return;
          ObjectSetString(MAIN_WINDOW, NameID(), OBJPROP_TEXT, label);
-         ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_BORDER_COLOR, clrNONE);
-         ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_BORDER_COLOR, borderColor);
          ObjectSetString(MAIN_WINDOW, NameID(), OBJPROP_FONT, font);
          ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_FONTSIZE, fontsize);
       }
@@ -820,6 +864,22 @@ class Button : public ProtoNode
       int fontsize;
 };
 
+class ButtonClosePos : public Button
+{
+   public:
+      ButtonClosePos(string myName, ProtoNode* parNode) : Button(myName, parNode){;}
+   protected:
+      virtual void OnPush()
+      {
+         //bool state = ObjectGetInteger(MAIN_WINDOW, NameID(), OBJPROP_STATE);
+         ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_STATE, false);
+         //prinf("MSC: " + );
+         //if(state)
+         //   printf("Кнокпа нажата");
+         //else
+         //   printf("Кнокпа отжата");
+      }
+};
 
 ///
 /// Прокрутка списка.

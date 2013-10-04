@@ -90,6 +90,7 @@ class ProtoNode : public CObject
                   OnDeinit(event);
                   Deinit(event);
                   break;
+               //Все события о которых мы не знаем - делегируем потомкам.
                default:
                   OnEvent(event);
             }
@@ -347,6 +348,8 @@ class ProtoNode : public CObject
       {
          return borderColor;
       }
+      
+      
    protected:
       ///
       /// Переопределяемый прием событий.
@@ -501,6 +504,9 @@ class ProtoNode : public CObject
             else
             {
                EventVisible* ev = new EventVisible(EVENT_FROM_UP, NameID(), visible);
+               //Устанавливаем оформление по-умолчанию.
+               BackgroundColor(bgColor);
+               BorderColor(borderColor);
                OnVisible(ev);
                delete ev;
                Move(xDist, yDist, COOR_GLOBAL);
@@ -729,7 +735,7 @@ class ProtoNode : public CObject
       ///
       long yDist;
       ///
-      /// Цвет фона текстовой метки.
+      /// Цвет фона графического узла.
       ///
       color bgColor;
       ///
@@ -773,5 +779,17 @@ class ProtoNode : public CObject
          typeObject = mytype;
          optimalHigh = 20;
          optimalWidth = 80;
+         switch(myElementType)
+         {
+            case ELEMENT_TYPE_GCONTAINER:
+            case ELEMENT_TYPE_VCONTAINER:
+               borderColor = clrBlack;
+               bgColor = clrNONE;
+               break;
+            default:
+               bgColor = clrWhite;
+               borderColor = clrNONE;      
+               break;
+         }
       }
 };
