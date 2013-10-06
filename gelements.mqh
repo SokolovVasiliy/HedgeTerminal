@@ -1,6 +1,19 @@
 
 #include "gnode.mqh"
-
+///
+/// Состояние кнопки
+///
+enum ENUM_BUTTON_STATE
+{
+   ///
+   /// Кнопка выключена, или отжата.
+   ///
+   BUTTON_STATE_OFF,
+   ///
+   /// Кнопка включена, или нажата.
+   ///
+   BUTTON_STATE_ON
+};
 
 ///
 /// Горизонтальный вектор.
@@ -703,69 +716,7 @@ class TableOpenPos : public Table
       ///
       int nLastPrice;
 };
-///
-/// Основная форма панели.
-///
-class MainForm : public ProtoNode
-{
-   public:
-      MainForm():ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_FORM, "HedgePanel", NULL)
-      {
-         openPos = new TableOpenPos(GetPointer(this));
-         childNodes.Add(openPos);
-      }
-   private:
-      virtual void OnCommand(EventNodeCommand* event)
-      {
-         if(event.Direction() == EVENT_FROM_DOWN)return;
-         //Конфигурируем местоположение таблицы
-         EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 20, 40, Width()-25, High()-50);
-         openPos.Event(command);
-         delete command;
-      }
-      
-      virtual void OnEvent(Event* event)
-      {
-         //Принимаем команды снизу на обновление терминала
-         if(event.Direction() == EVENT_FROM_DOWN)
-         {
-            if(event.EventId() == EVENT_REFRESH)
-            {
-               EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 20, 40, Width()-25, High()-50);
-               openPos.Event(command);
-               delete command;
-               return;
-            }
-         }
-         EventSend(event);
-      }
-      ///
-      /// Проверяет возможно ли установить требуемую ширину. Если требуемая ширина возможна - возвращает ее,
-      /// если нет, возвращает ближайшую возможную.
-      /// \return Ширина узла.
-      ///
-      long CheckWidth(long cwidth)
-      {
-         if(cwidth < 100)
-            return 100;
-         return cwidth;
-      }
-      ///
-      /// Проверяет возможно ли установить требуемую высоту. Если требуемая высота возможна - возвращает ее,
-      /// если нет, возвращает ближайшую возможную.
-      /// \return Высота узла.
-      ///
-      long CheckHigh(long chigh)
-      {
-         if(chigh < 70)
-            return 70;
-         return chigh;
-      }
-      ///
-      /// Таблица открытых позиций.
-      ///
-      TableOpenPos* openPos;
-};
+
 ///
 /// Класс "Кнопка".
 ///
@@ -780,7 +731,34 @@ class Button : public ProtoNode
          font = "Arial";
          fontsize = 10;
       }
-      
+      ///
+      /// Возвращает состояние кнопки. Если кнопка невидима или отжата возвращает false.
+      /// Если кнопка нажата - возвращает true;
+      ///
+      ENUM_BUTTON_STATE State()
+      {
+         if(!Visible())return BUTTON_STATE_OFF;
+         bool state = ObjectGetInteger(MAIN_WINDOW, NameID(), OBJPROP_STATE);
+         if(state)return BUTTON_STATE_ON;
+         return BUTTON_STATE_OFF;
+      }
+      ///
+      /// Устанавливает кнопку в нажатое или отжатое состояние. Кнопка должна отображаться в окне.
+      /// \param state - Состояние, в которое требуется установить кнопку.
+      ///
+      void State(ENUM_BUTTON_STATE set_state)
+      {
+         if(!Visible())return;
+         ENUM_BUTTON_STATE state = State();
+         if(set_state != state)
+         {
+            bool flag;
+            if(set_state == BUTTON_STATE_OFF) flag = false;
+            else flag = true;
+            bool rez = ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_STATE, flag);
+            if(rez)OnPush();
+         }
+      }
       ///
       /// Возвращает надпись кнопки.
       ///
@@ -864,6 +842,230 @@ class Button : public ProtoNode
       int fontsize;
 };
 
+class TabButton : public Button
+{
+   public:
+      TabButton(string myName, ProtoNode* protoNode) : Button(myName, protoNode){;}
+   private:
+      /*virtual void OnPush()
+      {
+         static int count;
+         if(State() == BUTTON_STATE_ON)
+         {
+            printf(count + ". " + ShortName() + " Нажата");
+         }
+         else
+            printf(ShortName() + " Отжата");
+      }*/
+};
+///
+/// Класс вкладки.
+///
+class Tab : public ProtoNode
+{
+   public:
+      Tab(ProtoNode* protoNode) : ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_TAB, "Tab", protoNode)
+      {
+         //Конфигурируем вкладки
+         BorderType(BORDER_FLAT);
+         BackgroundColor(clrDarkGray);
+         BorderColor(clrAqua);
+         //Создаем панель управления влкадками
+         comPanel = new Line("TabComPanel", GetPointer(this));
+         comPanel.AlignType(LINE_ALIGN_SCALE);
+         
+         //Конфигурируем кнопки вкладок
+         btnActivPos = new TabButton("Active", GetPointer(comPanel));
+         btnActivPos.OptimalWidth(100);
+         btnActivPos.BorderColor(clrBlack);
+         btnArray.Add(btnActivPos);
+         comPanel.Add(btnActivPos);
+         
+         btnHistoryPos = new TabButton("History", GetPointer(comPanel));
+         btnHistoryPos.OptimalWidth(100);
+         btnHistoryPos.BorderColor(clrBlack);
+         btnArray.Add(btnHistoryPos);
+         comPanel.Add(btnHistoryPos);
+         
+         //Конфигурируем заглушку.
+         stub = new Label("stub", GetPointer(comPanel));
+         if(parentNode != NULL)
+         {
+            stub.BorderColor(parentNode.BackgroundColor());
+            stub.BackgroundColor(parentNode.BackgroundColor());
+         }
+         stub.Edit(false);
+         comPanel.Add(stub);
+         childNodes.Add(comPanel);
+      }
+      
+   private:
+      virtual void OnEvent(Event* event)
+      {
+         if(event.Direction() == EVENT_FROM_UP)
+         {
+            // Ловим событие нажатия одной из кнопок панели
+            if(event.EventId() == EVENT_BUTTON_PUSH)
+            {
+               EventButtonPush* push = event;
+               string btnName = push.ButtonName();
+               bool sendEvent = true;
+               for(int i = 0; i < btnArray.Total(); i++)
+               {
+                  Button* btn = btnArray.At(i);
+                  if(btn.NameID() == btnName)
+                  {
+                     sendEvent = false;
+                     ENUM_BUTTON_STATE state = btn.State();
+                     //Кнопка нажата?
+                     if(state == BUTTON_STATE_ON)
+                     {
+                        printf("tab: " + btn.ShortName() + " Нажата");
+                        btn.BackgroundColor(clrWhite);
+                        //Значит все остальные кнопки отжаты
+                        for(int k = 0; k < btnArray.Total(); k++)
+                        {
+                           if(k == i)continue;
+                           Button* aBtn = btnArray.At(k);
+                           aBtn.State(BUTTON_STATE_OFF);
+                           //aBtn.BackgroundColor(clrDarkGray);
+                           ENUM_BUTTON_STATE currState = aBtn.State();
+                           if(currState == BUTTON_STATE_OFF)
+                           {
+                              aBtn.BackgroundColor(clrDarkGray);
+                           }
+                        }
+                     }
+                     //Эту кнопку можно отжать только другой кнопкой.
+                     else
+                     {
+                        btn.State(BUTTON_STATE_ON);
+                        btn.BackgroundColor(clrWhite);
+                     }
+                  }
+               }
+               // Если это какая-то другая нажатая кнопка, отправляем событие для нее.
+               if(sendEvent)
+                  EventSend(event);
+               //Для изменений вида кнопок делаем Refresh();
+               if(true)
+               {
+                  EventRefresh* er = new EventRefresh(EVENT_FROM_DOWN, NameID());
+                  parentNode.Event(er);
+                  delete er;
+               }
+            }
+         }
+      }
+      
+      virtual void OnCommand(EventNodeCommand* event)
+      {
+         if(event.Direction() == EVENT_FROM_DOWN)return;
+         //Определяем положение заглушки.
+         EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 0, High()-25, Width(), 25);
+         comPanel.Event(command);
+         delete command;
+         //
+      }
+      
+      ///
+      /// Панель управления табами.
+      ///
+      Line* comPanel;
+      ///
+      /// Заглушка для линии.
+      ///
+      Label* stub;
+      ///
+      /// Активирует влкдку "Активные позиции".
+      ///
+      TabButton* btnActivPos;
+      ///
+      /// Активирует вкладку "Исторические позиции".
+      ///
+      TabButton* btnHistoryPos;
+      ///
+      /// Массив кнопок.
+      ///
+      CArrayObj btnArray;
+};
+
+///
+/// Основная форма панели.
+///
+class MainForm : public ProtoNode
+{
+   public:
+      MainForm():ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_FORM, "HedgePanel", NULL)
+      {
+         BorderType(BORDER_FLAT);
+         //openPos = new TableOpenPos(GetPointer(this));
+         //childNodes.Add(openPos);
+         tabs = new Tab(GetPointer(this));
+         childNodes.Add(tabs);
+      }
+   private:
+      virtual void OnCommand(EventNodeCommand* event)
+      {
+         if(event.Direction() == EVENT_FROM_DOWN)return;
+         //Конфигурируем местоположение таблицы
+         EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 20, 40, Width()-25, High()-50);
+         //openPos.Event(command);
+         tabs.Event(command);
+         delete command;
+         
+      }
+      
+      virtual void OnEvent(Event* event)
+      {
+         //Принимаем команды снизу на обновление терминала
+         if(event.Direction() == EVENT_FROM_DOWN)
+         {
+            if(event.EventId() == EVENT_REFRESH)
+            {
+               EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 20, 40, Width()-25, High()-50);
+               EventSend(command);
+               //tabs.Event(command);
+               //openPos.Event(command);
+               delete command;
+               return;
+            }
+         }
+         EventSend(event);
+      }
+      ///
+      /// Проверяет возможно ли установить требуемую ширину. Если требуемая ширина возможна - возвращает ее,
+      /// если нет, возвращает ближайшую возможную.
+      /// \return Ширина узла.
+      ///
+      long CheckWidth(long cwidth)
+      {
+         if(cwidth < 100)
+            return 100;
+         return cwidth;
+      }
+      ///
+      /// Проверяет возможно ли установить требуемую высоту. Если требуемая высота возможна - возвращает ее,
+      /// если нет, возвращает ближайшую возможную.
+      /// \return Высота узла.
+      ///
+      long CheckHigh(long chigh)
+      {
+         if(chigh < 70)
+            return 70;
+         return chigh;
+      }
+      ///
+      /// Таблица открытых позиций.
+      ///
+      TableOpenPos* openPos;
+      ///
+      /// Вкладки
+      ///
+      Tab* tabs;
+      
+};
+
 class ButtonClosePos : public Button
 {
    public:
@@ -923,4 +1125,6 @@ class Scroll : ProtoNode
       Button* dn;
       Button* toddler;
 };
+
+
 

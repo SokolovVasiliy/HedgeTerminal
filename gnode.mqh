@@ -348,7 +348,16 @@ class ProtoNode : public CObject
       {
          return borderColor;
       }
-      
+      ///
+      /// Тип рамки для объекта "Прямоугольная рамка".
+      ///
+      void BorderType(ENUM_BORDER_TYPE bType)
+      {
+         borderType = bType;
+         //Это свойство поддерживает только прямоугольная рамка.
+         if(visible && typeObject == OBJ_RECTANGLE_LABEL)
+            ObjectSetInteger(MAIN_WINDOW, nameId, OBJPROP_BORDER_TYPE, borderType);
+      }
       
    protected:
       ///
@@ -507,6 +516,7 @@ class ProtoNode : public CObject
                //Устанавливаем оформление по-умолчанию.
                BackgroundColor(bgColor);
                BorderColor(borderColor);
+               BorderType(borderType);
                OnVisible(ev);
                delete ev;
                Move(xDist, yDist, COOR_GLOBAL);
@@ -743,6 +753,10 @@ class ProtoNode : public CObject
       ///
       color borderColor;
       ///
+      /// Тип рамки для объекта "Прямоугольная рамка".
+      ///
+      ENUM_BORDER_TYPE borderType;
+      ///
       /// Генерирует уникальное имя объекта
       ///
       void GenNameId(void)
@@ -779,6 +793,7 @@ class ProtoNode : public CObject
          typeObject = mytype;
          optimalHigh = 20;
          optimalWidth = 80;
+         borderType = BORDER_RAISED;
          switch(myElementType)
          {
             case ELEMENT_TYPE_GCONTAINER:

@@ -102,5 +102,5 @@ void OnChartEvent(const int id,
          delete pushButton;
       }
    }
-   
 }
+
