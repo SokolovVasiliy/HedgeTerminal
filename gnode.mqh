@@ -141,6 +141,19 @@ class ProtoNode : public CObject
             bindOptHigh.OptimalHigh(optHigh);
          optimalHigh = optHigh;
       }
+      void ConstWidth(bool status)
+      {
+         constWidth = status;
+      }
+      bool ConstWidth()
+      {
+         return constWidth;
+      }
+      void ConstHigh(bool status)
+      {
+         constHigh = status;
+      }
+      bool ConstHigh(){return constHigh;}
       ///
       /// Привязывает свою оптимальную ширину к оптимальной ширене другого узла.
       ///
@@ -512,15 +525,17 @@ class ProtoNode : public CObject
                LogWriter("Failed visualize element " + nameId, MESSAGE_TYPE_ERROR);
             else
             {
-               EventVisible* ev = new EventVisible(EVENT_FROM_UP, NameID(), visible);
                //Устанавливаем оформление по-умолчанию.
                BackgroundColor(bgColor);
                BorderColor(borderColor);
                BorderType(borderType);
-               OnVisible(ev);
-               delete ev;
                Move(xDist, yDist, COOR_GLOBAL);
                Resize(width, high);
+               //
+               EventVisible* ev = new EventVisible(EVENT_FROM_UP, NameID(), visible);
+               OnVisible(ev);
+               delete ev;
+               ChartRedraw();
             }
          }
          // Выключаем визуализацию.
@@ -727,6 +742,10 @@ class ProtoNode : public CObject
       ///
       long optimalWidth;
       ///
+      /// Истина, если оптимальная ширина объекта является константой и не может быть перемасштабирована.
+      ///
+      bool constWidth;
+      ///
       /// Содержит высоту графического узла в пунктах.
       ///
       long high;
@@ -734,6 +753,10 @@ class ProtoNode : public CObject
       /// Содержит оптимальную высоту объекта в пунктах.
       ///
       long optimalHigh;
+      ///
+      /// Истина, если оптимальная высота объекта является константой и не может быть перемастштабирована.
+      ///
+      bool constHigh;
       ///
       /// Расстояние по горизонтали от левого верхнего угла графического узла
       /// до левого верхнего угла окна терминала.
@@ -764,7 +787,8 @@ class ProtoNode : public CObject
          //Получаем имя с указанием его порядкового номера
          if(name == NULL || name == "")
             name = "VisualForm";
-         nameId = name;
+         //nameId = name;
+         nameId = ShortName();
          //Если объект с таким именем уже существует
          //добавляем к имени индекс, до тех пор пока имя не станет уникальным.
          int index = 0;
@@ -787,6 +811,8 @@ class ProtoNode : public CObject
             name = parNode.Name() + "-->" + myname;
          else
             name = myname;
+         constHigh = false;
+         constWidth = false;
          shortName = myname;
          elementType = myElementType;
          parentNode = parNode;

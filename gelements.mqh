@@ -114,7 +114,11 @@ class Line : public ProtoNode
             xdist = i > 0 ? prevColumn.XLocalDistance() + prevColumn.Width() : 0;
             //Последний элемент занимает все оставшееся место
             long cwidth = 0;
-            cwidth = i == total-1 ? cwidth = Width() - xdist : (long)MathRound((double)node.OptimalWidth() * kScale);
+            //Кнопки всегда квадратные, независимо от ширины окна.
+            if(node.ConstWidth())
+               cwidth = node.OptimalWidth();
+            else
+               cwidth = i == total-1 ? cwidth = Width() - xdist : (long)MathRound((double)node.OptimalWidth() * kScale);
             EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), xdist, 0, cwidth, High());
             node.Event(command);
             delete command;
@@ -159,13 +163,97 @@ class Line : public ProtoNode
       ENUM_LINE_ALIGN_TYPE typeAlign;
 };
 
+class TextNode : public ProtoNode
+{
+   public:
+      ///
+      /// Возвращает надпись элемента.
+      ///
+      string Text(){return text;}
+      ///
+      /// Устанавливает надпись элемента.
+      ///
+      void Text(string newText)
+      {
+         text = newText;
+         if(Visible())
+            ObjectSetString(MAIN_WINDOW, NameID(), OBJPROP_TEXT, text);
+      }
+      ///
+      /// Возвращает имя используемого шрифта.
+      ///
+      string Font(){return font;}
+      ///
+      /// Устанавливает имя используемого шрифта.
+      ///
+      void Font(string myFont)
+      {
+         font = myFont;
+         if(Visible())
+            ObjectSetString(MAIN_WINDOW, NameID(), OBJPROP_FONT, font);
+      }
+      ///
+      /// Возвращает размер используемого шрифта.
+      ///
+      int FontSize(){return fontsize;}
+      ///
+      /// Устанавливает размер используемого шрифта.
+      ///
+      void FontSize(int size)
+      {
+         fontsize = size;
+         if(Visible())
+            ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_FONTSIZE, fontsize);
+      }
+      color FontColor(){return fontColor;}
+      void FontColor(color clrFont)
+      {
+         fontColor = clrFont;
+         if(Visible())
+            ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_COLOR, fontColor);
+      }
+   protected:
+      TextNode(ENUM_OBJECT objType, ENUM_ELEMENT_TYPE elType, string myName, ProtoNode* parNode):
+      ProtoNode(objType, elType, myName, parNode)
+      {
+         text = myName;
+         font = "Arial";
+         fontsize = 10;
+      }
+   private:
+      virtual void OnVisible(EventVisible* event)
+      {
+         if(!Visible())return;
+         Text(Text());
+         Font(Font());
+         FontSize(FontSize());
+         FontColor(FontColor());
+      }
+      ///
+      ///  Надпись кнопки.
+      ///
+      string text;
+      ///
+      /// Имя шрифта.
+      ///
+      string font;
+      ///
+      /// Размер шрифта.
+      ///
+      int fontsize;
+      ///
+      /// Цвет шрифта.
+      ///
+      color fontColor;
+};
+
 ///
 /// Текстовая метка
 ///
-class Label : public ProtoNode
+class Label : public TextNode
 {
    public:
-      Label(string myName, ProtoNode* node) : ProtoNode(OBJ_EDIT, ELEMENT_TYPE_LABEL, myName, node){;}
+      Label(string myName, ProtoNode* node) : TextNode(OBJ_EDIT, ELEMENT_TYPE_LABEL, myName, node){;}
       void Edit(bool edit)
       {
          isEdit = edit;
@@ -179,25 +267,28 @@ class Label : public ProtoNode
       ///
       /// Устанавливает текст, который будет отображаться в текстовой метке.
       ///
-      void Text(string myText)
+      /*void Text(string myText)
       {
          text = myText;
          if(Visible())
             ObjectSetString(MAIN_WINDOW, NameID(), OBJPROP_TEXT, text);
-      }
+      }*/
       ///
       /// Возвращает текст метки.
       ///
-      string Text(){return text;}
+      //string Text(){return text;}
    private:
       virtual void OnVisible(EventVisible* event)
       {
-         if(!event.Visible())return;
-         BackgroundColor(BackgroundColor());
-         BorderColor(BorderColor());
+         int d = 5;
+         if(Text() == CharToString(74))
+            d = 8;
          Text(Text());
+         Font(Font());
+         FontSize(FontSize());
+         FontColor(FontColor());
          Edit(Edit());
-         ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_COLOR, clrBlack);
+         //ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_COLOR, clrBlack);
       }
       ///
       /// Истина, если текстовая метка может редактироваться пользователем, ложь, в противном случае.
@@ -244,7 +335,11 @@ class Table : public ProtoNode
    public:
       Table(string myName, ProtoNode* parNode):ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_UCONTAINER, myName, parNode)
       {
-         backgroundColor = clrDimGray;
+         //BorderType(BORDER_FLAT);
+         if(parentNode != NULL)
+            backgroundColor = parentNode.BackgroundColor();
+         else
+            backgroundColor = clrDimGray;
       }
       void Add(ProtoNode* lineNode)
       {
@@ -274,7 +369,7 @@ class Table : public ProtoNode
             ProtoNode* node = childNodes.At(i);
             if(node.TypeElement() == ELEMENT_TYPE_GCONTAINER)
             {
-               EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 2, ydist, Width()-20, 20);
+               EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 2, ydist, Width()-24, 20);
                node.Event(command);
                delete command;
                ydist += node.High();
@@ -284,7 +379,7 @@ class Table : public ProtoNode
             {
                bool v = Visible();
                //EventNodeStatus* ch = new EventNodeStatus(EVENT_FROM_UP, NameID(), Visible(), XAbsDistance(), YAbsDistance(), Width(), High());
-               EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(),Width()-20,0,20, High());
+               EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(),Width()-22, 2, 20, High()-4);
                node.Event(command);
                delete command;
             }
@@ -414,7 +509,15 @@ class TableOpenPos : public Table
             lineHeader.Add(hTakeProfit);
             count++;
          }
-         
+         //Флаг управления тралом
+         if(true)
+         {
+            Button* hTralProfit = new Button(name_tralSl, GetPointer(lineHeader));
+            hTralProfit.OptimalWidth(lineHeader.High());
+            hTralProfit.ConstWidth(true);
+            lineHeader.Add(hTralProfit);
+            count++;
+         }
          if(true)
          {
             // Текущая цена
@@ -447,6 +550,7 @@ class TableOpenPos : public Table
          {
             ProtoNode* node = lineHeader.ChildElementAt(i);
             node.BorderColor(clrBlack);
+            node.BackgroundColor(clrWhiteSmoke);
          }
          //Скрол
          Scroll* myscroll = new Scroll("Scroll", GetPointer(this));
@@ -529,6 +633,8 @@ class TableOpenPos : public Table
          Line* nline = new Line("pos.", GetPointer(this));
          int total = lineHeader.ChildsTotal();
          Label* cell = NULL;
+         //Кнопка трала Stop-Loss
+         Button* btnTralSL = NULL;
          //Комбинированный элемент
          Line* comby = NULL;
          for(int i = 0; i < total; i++)
@@ -597,6 +703,12 @@ class TableOpenPos : public Table
                cell.Text((string)pos.TakeProfit());
                isReadOnly = false; 
             }
+            else if(node.ShortName() == name_tralSl)
+            {
+               btnTralSL = new Button("Tral SL", GetPointer(nline));
+               btnTralSL.OptimalWidth(nline.Width());
+               btnTralSL.ConstWidth(true);
+            }
             else if(node.ShortName() == name_currprice)
             {
                cell = new Label(name_currprice, GetPointer(nline));
@@ -618,7 +730,7 @@ class TableOpenPos : public Table
                ButtonClosePos* btnClose = new ButtonClosePos("btnClosePos.", comby);
                btnClose.Font("Wingdings");
                btnClose.FontSize(12);
-               btnClose.Label(CharToString(251));
+               btnClose.Text(CharToString(251));
                btnClose.BorderColor(clrWhite);
                double profit = pos.Profit();
                if(profit > 0)
@@ -649,7 +761,11 @@ class TableOpenPos : public Table
                cell.Edit(isReadOnly);
                nline.Add(cell);
             }
-            
+            else if(node.ShortName() == name_tralSl)
+            {
+               nline.Add(btnTralSL);
+               btnTralSL = NULL;
+            }
          }
          Add(nline);
 
@@ -703,6 +819,7 @@ class TableOpenPos : public Table
       string name_price;
       string name_sl;
       string name_tp;
+      string name_tralSl;
       string name_currprice;
       string name_profit;
       string name_comment;
@@ -720,16 +837,13 @@ class TableOpenPos : public Table
 ///
 /// Класс "Кнопка".
 ///
-class Button : public ProtoNode
+class Button : public TextNode
 {
    public:
       
-      Button(string myName, ProtoNode* parNode):ProtoNode(OBJ_BUTTON, ELEMENT_TYPE_BOTTON, myName, parNode)
+      Button(string myName, ProtoNode* parNode) : TextNode(OBJ_BUTTON, ELEMENT_TYPE_BOTTON, myName, parNode)
       {
-         borderColor = clrBlack;
-         label = myName;
-         font = "Arial";
-         fontsize = 10;
+         BorderColor(clrBlack);
       }
       ///
       /// Возвращает состояние кнопки. Если кнопка невидима или отжата возвращает false.
@@ -759,30 +873,6 @@ class Button : public ProtoNode
             if(rez)OnPush();
          }
       }
-      ///
-      /// Возвращает надпись кнопки.
-      ///
-      string Label(){return label;}
-      ///
-      /// Устанавливает надпись кнопки.
-      ///
-      void Label(string text){label = text;}
-      ///
-      /// Возвращает имя используемого шрифта.
-      ///
-      string Font(){return font;}
-      ///
-      /// Устанавливает имя используемого шрифта.
-      ///
-      void Font(string myFont){font = myFont;}
-      ///
-      /// Возвращает размер используемого шрифта.
-      ///
-      int FontSize(){return fontsize;}
-      ///
-      /// Устанавливает размер используемого шрифта.
-      ///
-      void FontSize(int size){fontsize = size;}
    protected:
       ///
       /// Каждый потомок должен самостоятельно определить свои действия,
@@ -799,17 +889,13 @@ class Button : public ProtoNode
             if(push.ButtonName() == NameID())
             {
                OnPush();
+               //После каждого нажатия кнопки принудительно обновляем окно
+               ChartRedraw(MAIN_WINDOW);
             }
+            
          }
          else
             EventSend(event);
-      }
-      virtual void OnVisible(EventVisible* event)
-      {
-         if(!Visible())return;
-         ObjectSetString(MAIN_WINDOW, NameID(), OBJPROP_TEXT, label);
-         ObjectSetString(MAIN_WINDOW, NameID(), OBJPROP_FONT, font);
-         ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_FONTSIZE, fontsize);
       }
       
       ///
@@ -824,40 +910,8 @@ class Button : public ProtoNode
          EventSend(ev);
          delete ev;
       }
-      ///
-      /// Цвет рамки кнопки
-      ///
-      color borderColor;
-      ///
-      ///  Надпись кнопки.
-      ///
-      string label;
-      ///
-      /// Имя шрифта.
-      ///
-      string font;
-      ///
-      /// Размер шрифта.
-      ///
-      int fontsize;
 };
 
-class TabButton : public Button
-{
-   public:
-      TabButton(string myName, ProtoNode* protoNode) : Button(myName, protoNode){;}
-   private:
-      /*virtual void OnPush()
-      {
-         static int count;
-         if(State() == BUTTON_STATE_ON)
-         {
-            printf(count + ". " + ShortName() + " Нажата");
-         }
-         else
-            printf(ShortName() + " Отжата");
-      }*/
-};
 ///
 /// Класс вкладки.
 ///
@@ -868,27 +922,29 @@ class Tab : public ProtoNode
       {
          //Конфигурируем вкладки
          BorderType(BORDER_FLAT);
-         BackgroundColor(clrDarkGray);
-         BorderColor(clrAqua);
+         BackgroundColor(clrWhite);
+         clrShadowTab = clrGainsboro;
          //Создаем панель управления влкадками
          comPanel = new Line("TabComPanel", GetPointer(this));
          comPanel.AlignType(LINE_ALIGN_SCALE);
          
          //Конфигурируем кнопки вкладок
-         btnActivPos = new TabButton("Active", GetPointer(comPanel));
+         btnActivPos = new Button("Active", GetPointer(comPanel));
          btnActivPos.OptimalWidth(100);
          btnActivPos.BorderColor(clrBlack);
          btnArray.Add(btnActivPos);
+         btnActive = btnActivPos;
          comPanel.Add(btnActivPos);
          
-         btnHistoryPos = new TabButton("History", GetPointer(comPanel));
+         btnHistoryPos = new Button("History", GetPointer(comPanel));
          btnHistoryPos.OptimalWidth(100);
          btnHistoryPos.BorderColor(clrBlack);
          btnArray.Add(btnHistoryPos);
          comPanel.Add(btnHistoryPos);
          
-         //Конфигурируем заглушку.
+         //Конфигурируем заглушки.
          stub = new Label("stub", GetPointer(comPanel));
+         stub.Text("");
          if(parentNode != NULL)
          {
             stub.BorderColor(parentNode.BackgroundColor());
@@ -897,6 +953,18 @@ class Tab : public ProtoNode
          stub.Edit(false);
          comPanel.Add(stub);
          childNodes.Add(comPanel);
+         
+         sstub = new Label("stub2", GetPointer(this));
+         sstub.Text("");
+         sstub.BorderColor(BackgroundColor());
+         sstub.BackgroundColor(BackgroundColor());
+         sstub.Edit(false);
+         childNodes.Add(sstub);
+         
+         //Внедряем таблицу открытых позиций в окно вкладок.
+         openPos = new TableOpenPos(GetPointer(this));
+         openPos.BorderType(BORDER_FLAT);
+         childNodes.Add(openPos);
       }
       
    private:
@@ -907,6 +975,7 @@ class Tab : public ProtoNode
             // Ловим событие нажатия одной из кнопок панели
             if(event.EventId() == EVENT_BUTTON_PUSH)
             {
+               ENUM_BUTTON_STATE myState = btnHistoryPos.State();
                EventButtonPush* push = event;
                string btnName = push.ButtonName();
                bool sendEvent = true;
@@ -918,35 +987,50 @@ class Tab : public ProtoNode
                      sendEvent = false;
                      ENUM_BUTTON_STATE state = btn.State();
                      //Кнопка нажата?
-                     if(state == BUTTON_STATE_ON)
+                     if(state == BUTTON_STATE_OFF)
                      {
-                        printf("tab: " + btn.ShortName() + " Нажата");
-                        btn.BackgroundColor(clrWhite);
+                        btn.BackgroundColor(BackgroundColor());
+                        //Перемещаем заглушку к новой кнопке
+                        btnActive = btn;
+                        EventNodeCommand* command2 = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), btnActive.XLocalDistance()+1,
+                        comPanel.YLocalDistance()-1, btnActive.Width()-2, 5);
+                        sstub.Event(command2);
+                        delete command2;
+                        
                         //Значит все остальные кнопки отжаты
                         for(int k = 0; k < btnArray.Total(); k++)
                         {
                            if(k == i)continue;
                            Button* aBtn = btnArray.At(k);
-                           aBtn.State(BUTTON_STATE_OFF);
+                           aBtn.State(BUTTON_STATE_ON);
                            //aBtn.BackgroundColor(clrDarkGray);
                            ENUM_BUTTON_STATE currState = aBtn.State();
-                           if(currState == BUTTON_STATE_OFF)
+                           if(currState == BUTTON_STATE_ON)
                            {
-                              aBtn.BackgroundColor(clrDarkGray);
+                              aBtn.BackgroundColor(clrShadowTab);
                            }
                         }
                      }
                      //Эту кнопку можно отжать только другой кнопкой.
                      else
                      {
-                        btn.State(BUTTON_STATE_ON);
-                        btn.BackgroundColor(clrWhite);
+                        btn.State(BUTTON_STATE_OFF);
+                        btn.BackgroundColor(BackgroundColor());
+                        //Значит все остальные кнопки отжаты
+                        for(int k = 0; k < btnArray.Total(); k++)
+                        {
+                           if(k == i)continue;
+                           Button* aBtn = btnArray.At(k);
+                           aBtn.State(BUTTON_STATE_ON);
+                        }
                      }
                   }
                }
                // Если это какая-то другая нажатая кнопка, отправляем событие для нее.
                if(sendEvent)
                   EventSend(event);
+               else
+                  ChartRedraw(MAIN_WINDOW);
                //Для изменений вида кнопок делаем Refresh();
                if(true)
                {
@@ -955,39 +1039,77 @@ class Tab : public ProtoNode
                   delete er;
                }
             }
+            else
+               EventSend(event);
          }
+         else
+            EventSend(event);
       }
       
       virtual void OnCommand(EventNodeCommand* event)
       {
          if(event.Direction() == EVENT_FROM_DOWN)return;
          //Определяем положение заглушки.
+         bool vis = comPanel.Visible();
          EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 0, High()-25, Width(), 25);
          comPanel.Event(command);
          delete command;
-         //
+         if(!vis && vis != comPanel.Visible())
+         {
+            btnActivPos.BackgroundColor(BackgroundColor());
+            btnHistoryPos.BackgroundColor(clrShadowTab);
+            btnHistoryPos.State(BUTTON_STATE_ON);
+            ENUM_BUTTON_STATE state = btnHistoryPos.State();
+            ChartRedraw(MAIN_WINDOW);
+         }
+         
+         //Определяем местоположение таблицы
+         command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 0, 0, Width(), High()-25);
+         openPos.Event(command);
+         delete command;
+         //Конфигурируем заглушку.
+         EventNodeCommand* command2 = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), btnActive.XLocalDistance()+1,
+         comPanel.YLocalDistance()-3, btnActive.Width()-2, 5);
+         sstub.Event(command2);
+         delete command2;
       }
-      
       ///
       /// Панель управления табами.
       ///
       Line* comPanel;
       ///
-      /// Заглушка для линии.
+      /// Заглушка для панели кнопок.
       ///
       Label* stub;
       ///
+      /// Заглушка для активной кнопки.
+      ///
+      Label* sstub;
+      ///
       /// Активирует влкдку "Активные позиции".
       ///
-      TabButton* btnActivPos;
+      Button* btnActivPos;
       ///
       /// Активирует вкладку "Исторические позиции".
       ///
-      TabButton* btnHistoryPos;
+      Button* btnHistoryPos;
+      ///
+      /// Текущая активная кнопка.
+      ///
+      Button* btnActive;
+      ///
+      /// Таблица открытых позиций.
+      ///
+      TableOpenPos* openPos;
+      
       ///
       /// Массив кнопок.
       ///
       CArrayObj btnArray;
+      ///
+      /// Цвет не активной вкладки.
+      ///
+      color clrShadowTab;
 };
 
 ///
@@ -999,33 +1121,105 @@ class MainForm : public ProtoNode
       MainForm():ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_FORM, "HedgePanel", NULL)
       {
          BorderType(BORDER_FLAT);
-         //openPos = new TableOpenPos(GetPointer(this));
-         //childNodes.Add(openPos);
+         BackgroundColor(clrWhiteSmoke);
          tabs = new Tab(GetPointer(this));
          childNodes.Add(tabs);
+         allowed = false;
+         
+         status = new Label("TradeStatus", GetPointer(this));
+         status.Edit(true);
+         status.BackgroundColor(BackgroundColor());
+         status.BorderColor(BackgroundColor());
+         status.Font("Wingdings");
+         status.Text(CharToString(76));
+         status.FontSize(14);
+         status.FontColor(clrRed);
+         
+         mailStatus = new Label("MailStatus", GetPointer(this));
+         mailStatus.Edit(true);
+         mailStatus.BackgroundColor(BackgroundColor());
+         mailStatus.BorderColor(BackgroundColor());
+         mailStatus.Font("Wingdings");
+         mailStatus.Text(CharToString(42));
+         mailStatus.FontSize(12);
+         mailStatus.FontColor(clrRed);
+         childNodes.Add(mailStatus);
+         
+         connected = new Label("ConnectedStatus", GetPointer(this));
+         connected.Edit(true);
+         connected.BackgroundColor(BackgroundColor());
+         connected.BorderColor(BackgroundColor());
+         connected.Font("Wingdings");
+         connected.Text(CharToString(40));
+         connected.FontSize(12);
+         connected.FontColor(clrRed);
+         childNodes.Add(mailStatus);
+         
       }
    private:
       virtual void OnCommand(EventNodeCommand* event)
       {
          if(event.Direction() == EVENT_FROM_DOWN)return;
          //Конфигурируем местоположение таблицы
-         EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 20, 40, Width()-25, High()-50);
-         //openPos.Event(command);
+         EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 5, 40, Width()-10, High()-45);
          tabs.Event(command);
          delete command;
-         
+         command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), Width()-22, 2, 20, 18);
+         status.Event(command);
+         delete command;
+         command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), Width()-55, 1, 25, 18);
+         mailStatus.Event(command);
+         delete command;
+         command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), Width()-88, 1, 25, 18);
+         connected.Event(command);
+         delete command;
       }
       
       virtual void OnEvent(Event* event)
       {
+         if(event.Direction() == EVENT_FROM_UP)
+         {
+            if(event.EventId() == EVENT_REFRESH)
+            {
+               //Проверяем возможность торговли
+               bool is_allowed = TerminalInfoInteger(TERMINAL_TRADE_ALLOWED);
+               if(is_allowed != allowed)
+               {
+                  allowed = is_allowed;
+                  if(!is_allowed)
+                  {
+                     status.FontColor(clrRed);
+                     status.Text(CharToString(76));
+                  }
+                  else
+                  {
+                     status.FontColor(clrGreen);
+                     status.Text(CharToString(74));
+                  }
+               }
+               bool isMail = TerminalInfoInteger(TERMINAL_EMAIL_ENABLED);
+               if(isMail != mail_allowed)
+               {
+                  mail_allowed = isMail;
+                  if(isMail)mailStatus.FontColor(clrGreen);
+                  else mailStatus.FontColor(clrRed);
+               }
+               bool isConn = TerminalInfoInteger(TERMINAL_CONNECTED);
+               if(isConnected != isConn)
+               {
+                  isConnected = isConn;
+                  if(isConn)connected.FontColor(clrGreen);
+                  else connected.FontColor(clrRed);
+               }
+            }
+         }
          //Принимаем команды снизу на обновление терминала
          if(event.Direction() == EVENT_FROM_DOWN)
          {
             if(event.EventId() == EVENT_REFRESH)
             {
-               EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 20, 40, Width()-25, High()-50);
-               EventSend(command);
-               //tabs.Event(command);
+               EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 5, 40, Width()-10, High()-45);
+               tabs.Event(command);
                //openPos.Event(command);
                delete command;
                return;
@@ -1056,14 +1250,33 @@ class MainForm : public ProtoNode
          return chigh;
       }
       ///
-      /// Таблица открытых позиций.
-      ///
-      TableOpenPos* openPos;
-      ///
       /// Вкладки
       ///
       Tab* tabs;
-      
+      ///
+      /// Статус торговли
+      ///
+      Label* status;
+      ///
+      /// Флаг разрешения торговли советником.
+      ///
+      bool allowed;
+      ///
+      /// Разрешение на отправку писем
+      ///
+      bool mail_allowed;
+      ///
+      /// Показывает разрешение на отправку писем.
+      ///
+      Label* mailStatus;
+      ///
+      /// Флаг подключения к серверу.
+      ///
+      bool isConnected;
+      ///
+      /// Статус подключения к серверу.
+      ///
+      Label* connected;
 };
 
 class ButtonClosePos : public Button
@@ -1095,17 +1308,23 @@ class Scroll : ProtoNode
          up = new Button("UpClick", GetPointer(this));
          up.BorderColor(clrNONE);
          up.Font("Wingdings");
-         up.Label(CharToString(241));
+         up.Text(CharToString(241));
+         up.BackgroundColor(clrWhiteSmoke);
          childNodes.Add(up);
          
          dn = new Button("DnClick", GetPointer(this));
          dn.BorderColor(clrNONE);
          dn.Font("Wingdings");
-         dn.Label(CharToString(242));
+         dn.Text(CharToString(242));
+         dn.BackgroundColor(clrWhiteSmoke);
          childNodes.Add(dn);
          
          toddler = new Button("Todler", GetPointer(this));
-         childNodes.Add(toddler);  
+         toddler.BorderType(BORDER_FLAT);
+         toddler.BackgroundColor(clrWhiteSmoke);
+         //toddler.BorderColor(toddler.BackgroundColor());
+         childNodes.Add(toddler);
+         BackgroundColor(clrWhiteSmoke); 
       }
    private:
       virtual void OnCommand(EventNodeCommand* event)

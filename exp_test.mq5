@@ -65,6 +65,7 @@ void OnChartEvent(const int id,
                //
                printf("Принудительно перевожу B1 в нажатое состояние");
                bool res = ObjectSetInteger(0, B1, OBJPROP_STATE, true);
+               // Сейчас результат изменения свойств кнопки - истна, хотя визуально она их не изменила.
                if(!res)printf("Не удалось нажать кнопку, ошибка: " + _LastError);
                else printf("Кнопка нажата!");
             }
@@ -90,6 +91,7 @@ void OnChartEvent(const int id,
                //
                printf("Принудительно перевожу B2 в нажатое состояние");
                bool res = ObjectSetInteger(0, B2, OBJPROP_STATE, true);
+               // Сейчас результат изменения свойств кнопки - истна, хотя визуально она их не изменила.
                if(!res)printf("Не удалось нажать кнопку, ошибка: " + _LastError);
                else printf("Кнопка нажата!");
             }
