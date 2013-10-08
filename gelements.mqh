@@ -23,6 +23,7 @@ class Line : public ProtoNode
    public:
       Line(string myName, ProtoNode* parNode):ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_GCONTAINER, myName, parNode)
       {
+         OptimalHigh(20);
          typeAlign = LINE_ALIGN_SCALE;
       }
       ///
@@ -115,8 +116,11 @@ class Line : public ProtoNode
             //Последний элемент занимает все оставшееся место
             long cwidth = 0;
             //Кнопки всегда квадратные, независимо от ширины окна.
-            if(node.ConstWidth())
+            if(node.ConstWidth()){
                cwidth = node.OptimalWidth();
+               string n = node.NameID();
+               int ff = 5;
+            }
             else
                cwidth = i == total-1 ? cwidth = Width() - xdist : (long)MathRound((double)node.OptimalWidth() * kScale);
             EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), xdist, 0, cwidth, High());
@@ -412,6 +416,7 @@ class TableOpenPos : public Table
          ow_profit = 90;
          ow_comment = 150;
          
+         name_collapse_pos = "CollapsePos.";
          name_magic = "Magic";
          name_symbol = "Symbol";
          name_order_id = "Order ID";
@@ -431,6 +436,16 @@ class TableOpenPos : public Table
          // Первая линия содержит заголовок таблицы (Она есть всегда).
          lineHeader = new Line("LineHeader", GetPointer(this));
          Button* hmagic;
+         // Раскрытие позиции
+         if(true)
+         {
+            TreeViewBox* hCollapse = new TreeViewBox(name_collapse_pos, GetPointer(lineHeader), BOX_TREE_GENERAL);
+            hCollapse.Text("+");
+            hCollapse.OptimalWidth(20);
+            hCollapse.ConstWidth(true);
+            lineHeader.Add(hCollapse);
+            count++;
+         }
          if(true)
          {
             // Магический номер
@@ -512,10 +527,13 @@ class TableOpenPos : public Table
          //Флаг управления тралом
          if(true)
          {
-            Button* hTralProfit = new Button(name_tralSl, GetPointer(lineHeader));
-            hTralProfit.OptimalWidth(lineHeader.High());
-            hTralProfit.ConstWidth(true);
-            lineHeader.Add(hTralProfit);
+            Button* hTralSL = new Button(name_tralSl, GetPointer(lineHeader));
+            hTralSL.Font("Wingdings");
+            //hTralSL.FontColor(clrRed);
+            hTralSL.Text(CharToString(79));
+            hTralSL.OptimalWidth(lineHeader.OptimalHigh());
+            hTralSL.ConstWidth(true);
+            lineHeader.Add(hTralSL);
             count++;
          }
          if(true)
@@ -627,20 +645,27 @@ class TableOpenPos : public Table
       ///
       void AddPosition(EventCreatePos* event)
       {
+         lines++;
          Position* pos = event.GetPosition();
          //Добавляем только активные позиции.
          //if(pos.Status == POSITION_STATUS_CLOSED)return;
          Line* nline = new Line("pos.", GetPointer(this));
          int total = lineHeader.ChildsTotal();
          Label* cell = NULL;
-         //Кнопка трала Stop-Loss
-         Button* btnTralSL = NULL;
-         //Комбинированный элемент
-         Line* comby = NULL;
          for(int i = 0; i < total; i++)
          {
             bool isReadOnly = true;
             ProtoNode* node = lineHeader.ChildElementAt(i);
+            if(node.ShortName() == name_collapse_pos)
+            {
+               TreeViewBox* twb = new TreeViewBox(name_collapse_pos, GetPointer(nline), BOX_TREE_GENERAL);
+               twb.OptimalWidth(20);
+               twb.ConstWidth(true);
+               twb.BackgroundColor(clrWhite);
+               twb.BorderColor(clrWhiteSmoke);
+               nline.Add(twb);
+               continue;
+            }
             if(node.ShortName() == name_magic)
             {
                cell = new Label(name_magic, GetPointer(nline));
@@ -705,9 +730,14 @@ class TableOpenPos : public Table
             }
             else if(node.ShortName() == name_tralSl)
             {
-               btnTralSL = new Button("Tral SL", GetPointer(nline));
-               btnTralSL.OptimalWidth(nline.Width());
+               CheckBox* btnTralSL = new CheckBox("Check SL", GetPointer(nline));
+               btnTralSL.BorderColor(clrWhite);
+               btnTralSL.FontSize(14);
+               //btnTralSL.Text(CharToString(168));
+               btnTralSL.OptimalWidth(nline.OptimalHigh());
                btnTralSL.ConstWidth(true);
+               nline.Add(btnTralSL);
+               continue;
             }
             else if(node.ShortName() == name_currprice)
             {
@@ -719,7 +749,7 @@ class TableOpenPos : public Table
             
             else if(node.ShortName() == name_profit)
             {
-               comby = new Line(name_profit, GetPointer(nline));
+               Line* comby = new Line(name_profit, GetPointer(nline));
                comby.BindOptWidth(node);
                comby.AlignType(LINE_ALIGN_CELLBUTTON);
                cell = new Label(name_profit, comby);
@@ -739,6 +769,8 @@ class TableOpenPos : public Table
                   btnClose.BackgroundColor(clrLavenderBlush);
                comby.Add(cell);
                comby.Add(btnClose);
+               nline.Add(comby);
+               continue;
             }
             else if(node.ShortName() == name_comment)
             {
@@ -747,26 +779,19 @@ class TableOpenPos : public Table
             }
             else
                cell = new Label("edit", GetPointer(nline));
-            if(comby != NULL)
-            {
-               nline.Add(comby);
-               comby = NULL;
-            }
-            else if(cell != NULL)
+            if(cell != NULL)
             {
                cell.BindOptWidth(node);
-               //cell.OptimalWidth(node.OptimalWidth());
                cell.BackgroundColor(clrWhite);
                cell.BorderColor(clrWhiteSmoke);
                cell.Edit(isReadOnly);
                nline.Add(cell);
-            }
-            else if(node.ShortName() == name_tralSl)
-            {
-               nline.Add(btnTralSL);
-               btnTralSL = NULL;
+               cell = NULL;
             }
          }
+         // Подкрашиваем каждую вторую строку
+         InterlacingColor(nline);
+         
          Add(nline);
 
          GPosition* gposition = new GPosition();
@@ -778,6 +803,47 @@ class TableOpenPos : public Table
          EventRefresh* er = new EventRefresh(EVENT_FROM_DOWN, NameID());
          EventSend(er);
          delete er;
+      }
+      ///
+      /// Установка общих настроек для ячейки таблицы
+      ///
+      /*void CellSettings(const Label* cell)
+      {
+         cell.BindOptWidth(node);
+         cell.BackgroundColor(clrWhite);
+         cell.BorderColor(clrWhiteSmoke);
+         
+      }*/
+      ///
+      /// Нечетные строки подкрашиваются в более темный оттенок.
+      ///
+      void InterlacingColor(ProtoNode* nline)
+      {
+         if(lines % 2 == 0)
+         {
+            for(int i = 0; i < nline.ChildsTotal(); i++)
+            {
+               color clrBack = clrWhiteSmoke;
+               ProtoNode* node = nline.ChildElementAt(i);
+               //Вложенные элементы обрабатываем рекурсивно
+               if(node.TypeElement() == ELEMENT_TYPE_GCONTAINER)
+               {
+                  Line* line = node;
+                  for(int k = 0; k < line.ChildsTotal(); k++)
+                  {
+                     ProtoNode* rnode = line.ChildElementAt(k);
+                     //if(rnode.TypeElement() != ELEMENT_TYPE_BOTTON)
+                        rnode.BackgroundColor(clrBack);
+                     rnode.BorderColor(clrBack);
+                  }
+               }
+               else
+               {
+                  node.BackgroundColor(clrBack);
+                  node.BorderColor(clrBack);
+               }
+            }
+         }
       }
       ///
       /// Графическое представление позиции.
@@ -810,6 +876,7 @@ class TableOpenPos : public Table
       long ow_profit;
       long ow_comment;
       /*Названия колонок*/
+      string name_collapse_pos;
       string name_magic;
       string name_symbol;
       string name_order_id;
@@ -832,6 +899,10 @@ class TableOpenPos : public Table
       /// по которому открыта позиция.
       ///
       int nLastPrice;
+      ///
+      /// Количество строк в таблице.
+      ///
+      int lines;
 };
 
 ///
@@ -910,6 +981,79 @@ class Button : public TextNode
          EventSend(ev);
          delete ev;
       }
+};
+
+class CheckBox : public Button
+{
+   public:
+      CheckBox(string nameCheck, ProtoNode* parNode) : Button(nameCheck, parNode)
+      {
+         Font("Wingdings");
+         checked = false;
+         Text(CharToString(168));
+      }
+      bool Checked(){return checked;}
+   private:
+      virtual void OnPush()
+      {
+         if(State() == BUTTON_STATE_OFF)
+         {
+            checked = false;
+            Text(CharToString(168));
+         }
+         else
+         {
+            checked = true;
+            Text(CharToString(254));
+         }
+      }
+      bool checked;
+};
+
+///
+/// Тип метки раскрывающегося списка
+///
+enum ENUM_BOX_TREE_TYPE
+{
+   BOX_TREE_GENERAL,
+   BOX_TREE_SLAVE,
+   BOX_TREE_ENDSLAVE
+};
+
+class TreeViewBox : public Button
+{
+   public:
+      TreeViewBox(string nameCheck, ProtoNode* parNode, ENUM_BOX_TREE_TYPE treeType) : Button(nameCheck, parNode)
+      {
+         boxTreeType = treeType;
+         Font("Arial");
+         opened = false;
+         if(boxTreeType == BOX_TREE_GENERAL)
+            Text("+");
+         else
+            Text("-");
+      }
+      bool Opened(){return opened;}
+   private:
+      virtual void OnPush()
+      {
+         if(boxTreeType == BOX_TREE_GENERAL)
+         {
+            if(State() == BUTTON_STATE_OFF)
+            {
+               opened = false;
+               Text("+");
+            }
+            else
+            {
+               opened = true;
+               Text("-");
+            }
+         }
+         
+      }
+      bool opened;
+      ENUM_BOX_TREE_TYPE boxTreeType;
 };
 
 ///
@@ -1134,6 +1278,7 @@ class MainForm : public ProtoNode
          status.Text(CharToString(76));
          status.FontSize(14);
          status.FontColor(clrRed);
+         childNodes.Add(status);
          
          mailStatus = new Label("MailStatus", GetPointer(this));
          mailStatus.Edit(true);
@@ -1153,7 +1298,7 @@ class MainForm : public ProtoNode
          connected.Text(CharToString(40));
          connected.FontSize(12);
          connected.FontColor(clrRed);
-         childNodes.Add(mailStatus);
+         childNodes.Add(connected);
          
       }
    private:
