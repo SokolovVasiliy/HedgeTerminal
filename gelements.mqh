@@ -1,5 +1,6 @@
 
 #include "gnode.mqh"
+#include "events.mqh"
 ///
 /// Состояние кнопки
 ///
@@ -76,6 +77,7 @@ class Line : public ProtoNode
       {
          Visible(isVisible);
       }
+      
    private:
       ///
       /// Положение и размер контейнера изменились.
@@ -587,12 +589,29 @@ class TableOpenPos : public Table
             case EVENT_REFRESH:
                RefreshPos();
                break;
+            case EVENT_COLLAPSE_TREE:
+               OnCollapse(event);
+               break;
             default:
                EventSend(event);
                break;
          }
       }
    private:
+      void OnCollapse(EventCollapseTree* event)
+      {
+         // Сворачиваем
+         if(event.IsCollapse())
+         {
+            printf("Список закрыт");
+         }
+         // Разворачиваем
+         else
+         {
+            printf("Список раскрыт");
+            
+         }
+      }
       ///
       /// Деинициализируем дополнительные динамические объекты
       ///
@@ -645,11 +664,12 @@ class TableOpenPos : public Table
       ///
       void AddPosition(EventCreatePos* event)
       {
-         lines++;
          Position* pos = event.GetPosition();
          //Добавляем только активные позиции.
          //if(pos.Status == POSITION_STATUS_CLOSED)return;
          Line* nline = new Line("pos.", GetPointer(this));
+         nline.NLine(lines);
+         lines++;
          int total = lineHeader.ChildsTotal();
          Label* cell = NULL;
          for(int i = 0; i < total; i++)
@@ -1043,11 +1063,20 @@ class TreeViewBox : public Button
             {
                opened = false;
                Text("+");
+               //Создаем событие "Список закрыт".
+               EventCollapseTree* ctree = new EventCollapseTree(EVENT_FROM_DOWN, parentNode, true);
+               EventSend(ctree);
+               delete ctree;
             }
             else
             {
                opened = true;
                Text("-");
+               //Создаем событие "Список раскрыт".
+               string name = parentNode.NameID();
+               EventCollapseTree* ctree = new EventCollapseTree(EVENT_FROM_DOWN, parentNode, false);
+               EventSend(ctree);
+               delete ctree;
             }
          }
          

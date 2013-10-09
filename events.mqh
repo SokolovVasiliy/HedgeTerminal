@@ -1,5 +1,6 @@
 #include "defines.mqh"
-#include  "gelements.mqh"
+//#include "gnode.mqh"
+//#include  "gelements.mqh"
 #include <Arrays\ArrayObj.mqh>
 /*
   Идентификаторы событий и их параметры
@@ -74,7 +75,11 @@ enum ENUM_EVENT
    ///
    /// Идентификатор события "кнопка нажата".
    ///
-   EVENT_BUTTON_PUSH
+   EVENT_BUTTON_PUSH,
+   ///
+   /// Идентификатор события "дерево Раскрыто/Закрыто".
+   ///
+   EVENT_COLLAPSE_TREE
 };
 
 
@@ -396,11 +401,47 @@ class EventDelPos : public Event
       {
          positionId = posId;
       }
-      Event* Clone()
+      virtual Event* Clone()
       {
          return new EventDelPos(positionId, NameNodeId());
       }
    private:
       ulong positionId;
+};
+class ProtoNode;
+#include "gnode.mqh"
+class EventCollapseTree : public Event
+{
+   public:
+      EventCollapseTree(ENUM_EVENT_DIRECTION myDir, ProtoNode* myNode, bool isCollapse) : Event(myDir, EVENT_COLLAPSE_TREE, myNode.NameID())
+      {
+         node = myNode;
+         n_line = node.NLine();
+         status = isCollapse;
+         
+      }
+      ///
+      /// Возвращает состояние списка.
+      /// \return Истина, если список закрыт и ложь в противном случае.
+      ///
+      bool IsCollapse()
+      {
+         return status;
+      }
+      int NLine(){return n_line;}
+      virtual Event* Clone()
+      {
+         return new EventCollapseTree(Direction(), node, status);
+      } 
+   private:
+      ///
+      /// Содержит состояние списка. Истина, если список закрыт и ложь в противном случае.
+      ///
+      bool status;
+      ///
+      /// Номер строки в списке дочерних элементов, которая была свернута/развернута
+      ///
+      int n_line;
+      ProtoNode* node;
 };
 

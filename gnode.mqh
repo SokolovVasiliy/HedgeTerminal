@@ -1,4 +1,3 @@
-#include <Object.mqh>
 #include <Arrays\ArrayObj.mqh>
 #include "events.mqh"
 #include "log.mqh"
@@ -371,7 +370,46 @@ class ProtoNode : public CObject
          if(visible && typeObject == OBJ_RECTANGLE_LABEL)
             ObjectSetInteger(MAIN_WINDOW, nameId, OBJPROP_BORDER_TYPE, borderType);
       }
-      
+      ///
+      /// Возвращает номер строки в списке дочерних элементов.
+      ///
+      int NLine()
+      {
+         //Если n-line не заполнен узнаем номер строки через перебор
+         if(n_line == -1)
+         {
+            if(parentNode == NULL)
+            {
+               n_line = 0;
+               return n_line;
+            }
+            else
+            {
+               int total = parentNode.ChildsTotal();
+               for(int i = 0; i < total; i++)
+               {
+                  ProtoNode* node = parentNode.ChildElementAt(i);
+                  // Идентификация узла по уникальному имени.
+                  if(this.NameID() == node.NameID())
+                  {
+                     n_line = i;
+                     return n_line;
+                  }
+               }
+            }
+         }
+         return n_line;
+      }
+      ///
+      /// Устанавливает номер строки в списке дочерних элементов
+      ///
+      void NLine(int n)
+      {
+         if(n < 0)
+            n_line = -1;
+         else
+            n_line = n;
+      }
    protected:
       ///
       /// Переопределяемый прием событий.
@@ -776,6 +814,10 @@ class ProtoNode : public CObject
       ///
       color borderColor;
       ///
+      /// Номер строки в списке дочерних элементов.
+      ///
+      int n_line;
+      ///
       /// Тип рамки для объекта "Прямоугольная рамка".
       ///
       ENUM_BORDER_TYPE borderType;
@@ -807,9 +849,9 @@ class ProtoNode : public CObject
       ///
       void Init(ENUM_OBJECT mytype, ENUM_ELEMENT_TYPE myElementType, string myname, ProtoNode* parNode)
       {
-         if(parNode != NULL)
-            name = parNode.Name() + "-->" + myname;
-         else
+         //if(parNode != NULL)
+         //   name = parNode.Name() + "-->" + myname;
+         //else
             name = myname;
          constHigh = false;
          constWidth = false;

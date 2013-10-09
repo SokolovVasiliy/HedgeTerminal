@@ -10,6 +10,8 @@
 string B1 = "button1";
 string B2 = "button2";
 
+#include <Arrays\ArrayObj.mqh>
+
 int OnInit()
 {
    bool res = false;
@@ -24,6 +26,21 @@ int OnInit()
    res = ObjectSetInteger(0, B2, OBJPROP_YDISTANCE, 100);
    res = ObjectSetInteger(0, B2, OBJPROP_XSIZE, 70);
    res = ObjectSetInteger(0, B2, OBJPROP_YSIZE, 30);
+   
+   res = ObjectCreate(0, "label", OBJ_EDIT, 0, 0, 0);
+   res = ObjectSetInteger(0, "label", OBJPROP_XSIZE, 1200);
+   res = ObjectSetInteger(0, "label", OBJPROP_YSIZE, 70);
+   string concat = "";
+   for(int i = 0; i < 255; i++)
+   {
+      if(i == 20)continue;
+      string s = /*" " +(string)i + */CharToString((uchar)i);
+      concat += s;
+   }
+   //3,25
+   ObjectSetString(0, "label", OBJPROP_TEXT, concat);
+   printf(concat);
+   ChartRedraw(0);
    return(INIT_SUCCEEDED);
 }
 void OnDeinit(const int reason)

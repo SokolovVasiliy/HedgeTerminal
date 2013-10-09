@@ -1,4 +1,4 @@
-#include "gnode.mqh"
+//#include "gnode.mqh"
 #include "position.mqh"
 ///
 /// Контекст передваемых координат для функции Move().

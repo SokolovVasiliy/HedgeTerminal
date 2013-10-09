@@ -5,23 +5,24 @@
 //|                              https://login.mql5.com/ru/users/c-4 |
 //+------------------------------------------------------------------+
 
-#property copyright   "2013, , Vasiliy Sokolov, St.Petersburg, Russia."
+#property copyright  "2013, , Vasiliy Sokolov, St.Petersburg, Russia."
 #property link      "https://login.mql5.com/ru/users/c-4"
-#property version   "1.001"
+#property version   "1.100"
 
+//#include  "Globals.mqh"
 
-#include "Log.mqh"
-#include "gelements.mqh"
-#include "hpapi.mqh"
-#include "exchenger.mqh"
+//#include "Log.mqh"
+//#include "gelements.mqh"
+//#include "hpapi.mqh"
+//#include "exchenger.mqh"
 
 ///
 /// Скорость обновления панели
 ///
 input int RefreshRate = 5;
 
-CHedge* api;
-MainForm* HedgePanel;
+//CHedge* api;
+//MainForm* HedgePanel;
 
 
 ///
@@ -29,23 +30,23 @@ MainForm* HedgePanel;
 ///
 void OnInit(void)
 {  
-   Print("Инициализация советника");
+   /*Print("Инициализация советника");
    EventSetTimer(RefreshRate);
    HedgePanel = new MainForm();
    api = new CHedge();
    EventExchange::Add(HedgePanel);
    EventExchange::Add(api);
-   api.Init();
+   api.Init();*/
 }
 void OnDeinit(const int reason)
 {
-   EventDeinit* ed = new EventDeinit();
+   /*EventDeinit* ed = new EventDeinit();
    HedgePanel.Event(ed);
    api.Event(ed);
    delete ed;
    delete HedgePanel;
    delete api;
-   EventKillTimer();
+   EventKillTimer();*/
 }
 
 ///
@@ -53,9 +54,9 @@ void OnDeinit(const int reason)
 ///
 void OnTimer(void)
 {
-   EventRefresh* refresh = new EventRefresh(EVENT_FROM_UP, "TERMINAL REFRESH");
+   /*EventRefresh* refresh = new EventRefresh(EVENT_FROM_UP, "TERMINAL REFRESH");
    EventExchange::PushEvent(refresh);
-   delete refresh;
+   delete refresh;*/
 }
 ///
 /// Подстраиваем размер главной формы панели под размер текущего окна
@@ -68,14 +69,14 @@ void OnChartEvent(const int id,
    //Размеры базового окна изменились.
    if(id == CHARTEVENT_CHART_CHANGE)
    {
-      long X = ChartGetInteger(MAIN_WINDOW, CHART_WIDTH_IN_PIXELS, MAIN_SUBWINDOW);
+      /*long X = ChartGetInteger(MAIN_WINDOW, CHART_WIDTH_IN_PIXELS, MAIN_SUBWINDOW);
       long Y = ChartGetInteger(MAIN_WINDOW, CHART_HEIGHT_IN_PIXELS, MAIN_SUBWINDOW);
       string str = "X: " + (string)X + " Y:" + (string)Y;
       //Print("Получены новые размеры окна X:" + (string)X + " Y:" + (string)Y);
       EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, "TERMINAL WINDOW", true, 0, 0, X, Y);
       HedgePanel.Event(command);
       
-      delete command;
+      delete command;*/
       /*Position* pos = new Position(POSITION_STATUS_OPEN,
                                    POSITION_TYPE_BUY,
                                    12345,
@@ -92,7 +93,7 @@ void OnChartEvent(const int id,
       */
    }
    //Определяем, является ли событие нажатием на одну из кнопок HP
-   else if (id == CHARTEVENT_OBJECT_CLICK)
+   /*else if (id == CHARTEVENT_OBJECT_CLICK)
    {
       //Объект на который нажали - кнопка?
       ENUM_OBJECT type = (ENUM_OBJECT)ObjectGetInteger(MAIN_WINDOW, sparam, OBJPROP_TYPE);
@@ -103,6 +104,6 @@ void OnChartEvent(const int id,
          HedgePanel.Event(pushButton);
          delete pushButton;
       }
-   }
+   }*/
 }
 

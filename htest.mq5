@@ -28,9 +28,11 @@ void OnStart()
    printf("CHARTEVENT_MOUSE_MOVE: " + CHARTEVENT_MOUSE_MOVE);
    printf("CHARTEVENT_CLICK: " + CHARTEVENT_CLICK);
    bool res = false;
-   res = ObjectCreate(0, "button", OBJ_BUTTON, 0, 0, 0);
-   res = ObjectSetInteger(0, "button", OBJPROP_STATE, true);
-   res = ObjectSetInteger(0, "button", OBJPROP_BGCOLOR, clrBlack);
+   //res = ObjectCreate(0, "button", OBJ_BUTTON, 0, 0, 0);
+   //res = ObjectSetInteger(0, "button", OBJPROP_STATE, true);
+   //res = ObjectSetInteger(0, "button", OBJPROP_BGCOLOR, clrBlack);
+   res = ObjectCreate(0, "label", OBJ_EDIT, 0, 0, 0);
+   res = ObjectSetInteger(0, "label", OBJPROP_XDISTANCE, 400);
    int d = 5;
    //for(char ch = 0; ch < CHAR_MAX; ch++)
    //   printf(CharToString(ch));
