@@ -1,12 +1,46 @@
-#include "defines.mqh"
-//#include "gnode.mqh"
-//#include  "gelements.mqh"
 #include <Arrays\ArrayObj.mqh>
 /*
   Идентификаторы событий и их параметры
 */
+///
+/// Класс-адаптер позволяющий обмениваться событиями двум независимым классам.
+///
+class EventExchange
+{
+   public:
+      static void PushEvent(Event* myEvent)
+      {
+         if(api != NULL)
+            api.Event(myEvent);
+         if(panel != NULL)
+            panel.Event(myEvent);
+      }
+      static Event* PopEvent()
+      {
+         return event;
+      }
+      static void DeleteEvent()
+      {
+         event = NULL;
+      }
+      static void Add(CHedge* myHedge)
+      {
+         api = myHedge;
+      }
+      static void Add(ProtoNode* node)
+      {
+         panel = node;
+      }
+   private:
+      void ExecuteEvent()
+      {
+         ;
+      }
+      static Event* event;
+      static CHedge* api;
+      static ProtoNode* panel;
+};
 
-//#define TERMINAL_IDNAME "dddd"
 enum ENUM_EVENT_DIRECTION
 {
    ///
@@ -408,17 +442,14 @@ class EventDelPos : public Event
    private:
       ulong positionId;
 };
-class ProtoNode;
-#include "gnode.mqh"
+
 class EventCollapseTree : public Event
 {
    public:
-      EventCollapseTree(ENUM_EVENT_DIRECTION myDir, ProtoNode* myNode, bool isCollapse) : Event(myDir, EVENT_COLLAPSE_TREE, myNode.NameID())
+      EventCollapseTree(ENUM_EVENT_DIRECTION myDir, ProtoNode* node, bool isCollapse) : Event(EVENT_FROM_DOWN, EVENT_COLLAPSE_TREE, node.NameID())
       {
-         node = myNode;
          n_line = node.NLine();
          status = isCollapse;
-         
       }
       ///
       /// Возвращает состояние списка.
@@ -431,7 +462,7 @@ class EventCollapseTree : public Event
       int NLine(){return n_line;}
       virtual Event* Clone()
       {
-         return new EventCollapseTree(Direction(), node, status);
+         return new EventCollapseTree(Direction(), pNode, status);
       } 
    private:
       ///
@@ -442,6 +473,7 @@ class EventCollapseTree : public Event
       /// Номер строки в списке дочерних элементов, которая была свернута/развернута
       ///
       int n_line;
-      ProtoNode* node;
+      
+      ProtoNode* pNode;
 };
 

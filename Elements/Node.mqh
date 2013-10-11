@@ -1,9 +1,5 @@
+
 #include <Arrays\ArrayObj.mqh>
-#include "events.mqh"
-#include "log.mqh"
-#include "defines.mqh"
-
-
 ///
 /// Тип элемента графического интерфейса.
 ///
@@ -58,6 +54,7 @@ enum ENUM_ELEMENT_TYPE
    ///
    ELEMENT_TYPE_CELL
 };
+
 
 class ProtoNode : public CObject
 {
@@ -849,9 +846,9 @@ class ProtoNode : public CObject
       ///
       void Init(ENUM_OBJECT mytype, ENUM_ELEMENT_TYPE myElementType, string myname, ProtoNode* parNode)
       {
-         //if(parNode != NULL)
-         //   name = parNode.Name() + "-->" + myname;
-         //else
+         if(parNode != NULL)
+            name = parNode.Name() + "-->" + myname;
+         else
             name = myname;
          constHigh = false;
          constWidth = false;

@@ -1,6 +1,7 @@
 
-#include "gnode.mqh"
-#include "events.mqh"
+#include "Globals.mqh"
+
+//#include "Node.mqh"
 ///
 /// Состояние кнопки
 ///
@@ -15,7 +16,28 @@ enum ENUM_BUTTON_STATE
    ///
    BUTTON_STATE_ON
 };
-
+///
+/// Идентификатор указывающий на алгоритм выравнивания элементов в горизонтальном или вертикальном контейнере.
+///
+enum ENUM_LINE_ALIGN_TYPE
+{
+   ///
+   /// Масштабирование на основе рекомендованной ширины/высоты элемента.
+   ///
+   LINE_ALIGN_SCALE,
+   ///
+   /// Масштабирование обычной ячейки.
+   ///
+   LINE_ALIGN_CELL,
+   ///
+   /// Мастшабирование ячейки таблицы содержащую кнопки.
+   ///
+   LINE_ALIGN_CELLBUTTON,
+   ///
+   /// Равномерное распределение общей ширины/высоты контейнера между всеми элементами.
+   ///
+   LINE_ALIGN_EVENNESS
+};
 ///
 /// Горизонтальный вектор.
 ///
@@ -589,29 +611,28 @@ class TableOpenPos : public Table
             case EVENT_REFRESH:
                RefreshPos();
                break;
-            case EVENT_COLLAPSE_TREE:
+            /*case EVENT_COLLAPSE_TREE:
                OnCollapse(event);
-               break;
+               break;*/
             default:
                EventSend(event);
                break;
          }
       }
    private:
-      void OnCollapse(EventCollapseTree* event)
+      /*void OnCollapse(EventCollapseTree* event)
       {
          // Сворачиваем
          if(event.IsCollapse())
          {
-            printf("Список закрыт");
+            ;
          }
          // Разворачиваем
          else
          {
-            printf("Список раскрыт");
-            
+            ;
          }
-      }
+      }*/
       ///
       /// Деинициализируем дополнительные динамические объекты
       ///
@@ -1064,19 +1085,18 @@ class TreeViewBox : public Button
                opened = false;
                Text("+");
                //Создаем событие "Список закрыт".
-               EventCollapseTree* ctree = new EventCollapseTree(EVENT_FROM_DOWN, parentNode, true);
-               EventSend(ctree);
-               delete ctree;
+               //EventCollapseTree* ctree = new EventCollapseTree(EVENT_FROM_DOWN, parentNode, true);
+               //EventSend(ctree);
+               //delete ctree;
             }
             else
             {
                opened = true;
                Text("-");
                //Создаем событие "Список раскрыт".
-               string name = parentNode.NameID();
-               EventCollapseTree* ctree = new EventCollapseTree(EVENT_FROM_DOWN, parentNode, false);
-               EventSend(ctree);
-               delete ctree;
+               //EventCollapseTree* ctree = new EventCollapseTree(EVENT_FROM_DOWN, parentNode, false);
+               //EventSend(ctree);
+               //delete ctree;
             }
          }
          

@@ -1,8 +1,5 @@
 #include <Arrays\ArrayLong.mqh>
 #include <Arrays\ArrayObj.mqh>
-#include "position.mqh"
-#include "events.mqh"
-#include "Order.mqh"
 ///
 /// Класс позиции
 ///

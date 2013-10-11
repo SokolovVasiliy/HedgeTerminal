@@ -1,0 +1,174 @@
+///
+/// Идентификатор указывающий на алгоритм выравнивания элементов в горизонтальном или вертикальном контейнере.
+///
+enum ENUM_LINE_ALIGN_TYPE
+{
+   ///
+   /// Масштабирование на основе рекомендованной ширины/высоты элемента.
+   ///
+   LINE_ALIGN_SCALE,
+   ///
+   /// Масштабирование обычной ячейки.
+   ///
+   LINE_ALIGN_CELL,
+   ///
+   /// Мастшабирование ячейки таблицы содержащую кнопки.
+   ///
+   LINE_ALIGN_CELLBUTTON,
+   ///
+   /// Равномерное распределение общей ширины/высоты контейнера между всеми элементами.
+   ///
+   LINE_ALIGN_EVENNESS
+};
+///
+/// Горизонтальный вектор.
+///
+class Line : public ProtoNode
+{
+   public:
+      Line(string myName, ProtoNode* parNode):ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_GCONTAINER, myName, parNode)
+      {
+         OptimalHigh(20);
+         typeAlign = LINE_ALIGN_SCALE;
+      }
+      ///
+      /// Устанавливает алгоритм выравнивания для элементов внутри линии.
+      ///
+      void AlignType(ENUM_LINE_ALIGN_TYPE align)
+      {
+         typeAlign = align;
+      }
+      ///
+      /// Возвращает идентификатор алгоритма выравнивания элементов внутри линии.
+      ///
+      ENUM_LINE_ALIGN_TYPE AlignType()
+      {
+         return typeAlign;
+      }
+      ///
+      /// Добавляет узел в строковый контейнер.
+      ///
+      void Add(ProtoNode* node)
+      {  
+         childNodes.Add(node);
+      }
+      ///
+      /// Устанавливает высоту текущей линии.
+      ///
+      void HighLine(long curHigh)
+      {
+         Resize(Width(), curHigh);
+         //EventResize* er = new EventResize(EVENT_FROM_UP, NameID(), Width(), High());
+      }
+      ///
+      /// Устанавливает ширину текущей линии.
+      ///
+      void WidthLine(long curWidth)
+      {
+         Resize(curWidth, High());
+      }
+      ///
+      /// Передвигает линию на новые координаты.
+      ///
+      void MoveLine(long xdist, long ydist, ENUM_COOR_CONTEXT context = COOR_LOCAL)
+      {
+         Move(xdist, ydist, context);
+      }
+      ///
+      /// Устанавливает видимость линии.
+      ///
+      void VisibleLine(bool isVisible)
+      {
+         Visible(isVisible);
+      }
+      
+   private:
+      ///
+      /// Положение и размер контейнера изменились.
+      ///
+      virtual void OnCommand(EventNodeCommand* newEvent)
+      {
+         if(!Visible() || newEvent.Direction() == EVENT_FROM_DOWN)return;
+         string cname = ShortName();
+         switch(typeAlign)
+         {
+            case LINE_ALIGN_CELL:
+            case LINE_ALIGN_CELLBUTTON:
+               AlgoCellButton();
+               break;
+            default:
+               AlgoScale();
+               break;
+         }
+      }
+      ///
+      /// Алгоритм масштабирования на основе рекомендованной ширины/высоты элемента.
+      ///
+      void AlgoScale()
+      {
+         //Положение подузла по горизонтали, относительно текущего узла.
+         int total = childNodes.Total();
+         long xdist = 0;
+         ProtoNode* prevColumn = NULL;
+         ProtoNode* node = NULL;
+         long kBase = 1250;
+         //Коэффициент масштабируемости.
+         double kScale = (double)Width()/(double)kBase;
+         for(int i = 0; i < total; i++)
+         {
+            node = childNodes.At(i);
+            //рассчитываем текущую привязку по горизонтали.
+            xdist = i > 0 ? prevColumn.XLocalDistance() + prevColumn.Width() : 0;
+            //Последний элемент занимает все оставшееся место
+            long cwidth = 0;
+            //Кнопки всегда квадратные, независимо от ширины окна.
+            if(node.ConstWidth()){
+               cwidth = node.OptimalWidth();
+               string n = node.NameID();
+               int ff = 5;
+            }
+            else
+               cwidth = i == total-1 ? cwidth = Width() - xdist : (long)MathRound((double)node.OptimalWidth() * kScale);
+            EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), xdist, 0, cwidth, High());
+            node.Event(command);
+            delete command;
+            prevColumn = node;
+         }
+      }
+      ///
+      /// Алгоритм позиционирования элементов "ячейка с кнопками"
+      ///
+      void AlgoCellButton()
+      {
+         //В этом режиме подразумевается, что содержимое состоит из узлов, часть из которых - квадратные кнопки.
+         int total = childNodes.Total()-1;
+         long xdist = Width();
+         long chigh = High();
+         //Перебираем элементы в обратном порядке, т.к. кнопки идут самыми последними
+         for(int i = total; i >= 0; i--)
+         {
+            ProtoNode* node = childNodes.At(i);
+            ENUM_ELEMENT_TYPE type = node.TypeElement();
+            if(node.TypeElement() == ELEMENT_TYPE_BOTTON)
+            {
+               xdist -= chigh;
+               EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), xdist, 0, chigh, chigh);
+               node.Event(command);
+               delete command;
+            }
+            else
+            {
+               //Средняя ширина элемента
+               long avrg = (long)MathRound((double)xdist/(double)(total));
+               xdist -= avrg;
+               EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), xdist, 0, avrg, chigh);
+               node.Event(command);
+               delete command;
+            }
+         }
+      }
+      ///
+      /// Идентификатор алгоритма выравнивания в линии.
+      ///
+      ENUM_LINE_ALIGN_TYPE typeAlign;
+};

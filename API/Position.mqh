@@ -1,7 +1,6 @@
+#include <Object.mqh>
 #include <Arrays\ArrayLong.mqh>
 #include <Arrays\ArrayObj.mqh>
-#include "Log.mqh"
-#include "time.mqh"
 ///
 /// Статус позиции/Сделки.
 ///
