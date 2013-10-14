@@ -1,3 +1,4 @@
+#include "Node.mqh"
 ///
 /// Класс вкладки.
 ///
@@ -49,6 +50,8 @@ class Tab : public ProtoNode
          
          //Внедряем таблицу открытых позиций в окно вкладок.
          openPos = new TableOpenPos(GetPointer(this));
+         openPos.BorderType(BORDER_FLAT);
+         openPos.BackgroundColor(clrWhite);
          openPos.BorderType(BORDER_FLAT);
          childNodes.Add(openPos);
       }

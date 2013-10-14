@@ -1,3 +1,4 @@
+#include "TextNode.mqh"
 ///
 /// “екстова€ метка
 ///
@@ -15,15 +16,6 @@ class Label : public TextNode
       /// ¬озвращает режим редактировани€ текстовой метки.
       ///
       bool Edit(){return isEdit;}
-      ///
-      /// ”станавливает текст, который будет отображатьс€ в текстовой метке.
-      ///
-      /*void Text(string myText)
-      {
-         text = myText;
-         if(Visible())
-            ObjectSetString(MAIN_WINDOW, NameID(), OBJPROP_TEXT, text);
-      }*/
       ///
       /// ¬озвращает текст метки.
       ///

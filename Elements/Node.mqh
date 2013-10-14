@@ -190,6 +190,22 @@ class ProtoNode : public CObject
          return node;
       }
       ///
+      /// Вставляет графический узел на позицию pos в списке графических элементов
+      ///
+      void InsertElement(ProtoNode* node, int pos)
+      {         
+         //node
+         childNodes.Insert(node, pos);
+      }
+      ///
+      /// Удаляет графический элемент из списка элементов, находящийся под
+      /// на позиции index.
+      ///
+      void DeleteElement(int index)
+      {
+         childNodes.Delete(index);
+      }
+      ///
       /// Возвращает статус видимости графического узла.
       /// \return Истина, если графический узел отображается в окне терминала,
       /// ложь - в противном случае.
@@ -604,8 +620,12 @@ class ProtoNode : public CObject
          //Переводим относительные координаты в абсолютные.
          if(context == COOR_LOCAL)
          {
-            xCoordinate = xCoordinate + XAbsParDistance();
-            yCoordinate = yCoordinate + YAbsParDistance();
+            long xAbsPar = XAbsParDistance();
+            long yAbsPar = YAbsParDistance();
+            long xLocal = XLocalDistance();
+            long yLocal = YLocalDistance();
+            xCoordinate = xCoordinate + xAbsPar/* + (XLocalDistance() - xAbsPar)*/;
+            yCoordinate = yCoordinate + yAbsPar/* + (YLocalDistance() - yAbsPar)*/;
          }
          // 1. Узел не может располагаться выше верхней границы родительского узла.
          if (yCoordinate < YAbsParDistance())
@@ -714,7 +734,7 @@ class ProtoNode : public CObject
       }
       ///
       /// Перемещает текущий элемент на новые координаты и изменяет его размеры
-      /// в соответствии с коммандой-событием.
+      /// в соответствии с командой-событием.
       ///
       void ExecuteCommand(EventNodeCommand* newEvent)
       {

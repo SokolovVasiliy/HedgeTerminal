@@ -1,63 +1,194 @@
+#include "..\API\Position.mqh"
+#include "..\Events.mqh"
+#include "Node.mqh"
+#include "Button.mqh"
+#include "TreeViewBox.mqh"
+#include "Line.mqh"
+#include "Label.mqh"
+#include "Scroll.mqh"
 ///
-/// Класс "Таблица". Внутри таблицы могут находится любые графические элементы, но
-/// поведение определено лишь для скрола, линий и контейнеров линий.
-/// За конкретное наполнение таблицы колонками отвечает переопределяемая функция MyInit().
+/// Класс "Таблица" представляет из себя универсальный контейнер, состоящий из трех элементов:
+/// 1. Заголовок таблицы;
+/// 2. Вертикальный контейнер строк;
+/// 3. Скролл прокрутки вертикального контейнера строк.
+/// Каждый из трех элементов имеет свой персональный указатель.
 ///
 class Table : public ProtoNode
 {
    public:
       Table(string myName, ProtoNode* parNode):ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_UCONTAINER, myName, parNode)
       {
-         //BorderType(BORDER_FLAT);
-         if(parentNode != NULL)
-            backgroundColor = parentNode.BackgroundColor();
-         else
-            backgroundColor = clrDimGray;
-      }
-      void Add(ProtoNode* lineNode)
-      {
-         childNodes.Add(lineNode);
+         
+         highLine = 20;
+         lineHeader = new Line("Header", GetPointer(this));
+         workArea = new CWorkArea(GetPointer(this));
+         workArea.Edit(true);
+         workArea.Text("");
+         workArea.BorderColor(BackgroundColor());
+         scroll = new Scroll("Scroll", GetPointer(this));
+         childNodes.Add(lineHeader);
+         childNodes.Add(workArea);
+         childNodes.Add(scroll);
       }
    protected:
-      virtual void MyInit(){;}
-      //Цвет подложки таблицы.
-      color backgroundColor;
-   private:
-      virtual void OnVisible(EventVisible* event)
+      class CWorkArea : public Label
       {
-         // Устанавливаем дополнительные свойства
-         if(event.Visible())
-            ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_BGCOLOR, backgroundColor);
-      }
+         public:
+            CWorkArea(ProtoNode* parNode) : Label("WorkArea", parNode)
+            {
+               highLine = 20;
+               Text("");
+               Edit(true);
+               BorderColor(parNode.BackgroundColor());
+            }
+            ///
+            /// Добавляет новую строку в конец таблицы и автоматически определяет ее размер и положение
+            ///
+            void Add(ProtoNode* lineNode)
+            {
+               Add(lineNode, ChildsTotal());
+            }
+            ///
+            /// Добавляет новую строку таблицы по индексу pos
+            ///
+            void Add(ProtoNode* lineNode, int pos)
+            {
+               lineNode.NLine(pos);
+               InsertElement(lineNode, pos);
+               //после вставки элемента, все последующие элементы изменили свои координаты.
+               int total = ChildsTotal();
+               for(int i = pos; i < total; i++)
+               {
+                  RefreshLine(i);
+               }
+            }
+            ///
+            /// Обновляет координаты и размер линии по индексу index
+            ///
+            void RefreshLine(int index)
+            {
+               int total = ChildsTotal();
+               if(index < 0 || index >= total)return;
+               ProtoNode* node = ChildElementAt(index);
+               node.NLine(index);
+               if(index == 0)
+               {
+                  EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 0, 0, Width(), highLine);
+                  node.Event(command);
+                  node.NLine(0);
+                  delete command;
+               }
+               else
+               {
+                  ProtoNode* prevNode = ChildElementAt(index-1);
+                  long y_dist = prevNode.YLocalDistance() + prevNode.High();
+                  EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 0, y_dist, Width(), highLine);
+                  node.Event(command);
+                  //node.NLine(prevNode.NLine()+1);
+                  delete command;
+               }
+               InterlacingColor(node);
+            }
+         private:
+            virtual void OnCommand(EventNodeCommand* event)
+            {
+               //Команды снизу не принимаются.
+               if(!Visible() || event.Direction() == EVENT_FROM_DOWN)return;
+               
+               //Размещаем строки рабочей области
+               long ydist = 0;
+               int total = ChildsTotal();
+               for(int i = 0; i < total; i++)
+               {
+                  RefreshLine(i);
+               }
+            }
+            ///
+            /// Нечетные строки подкрашиваются в более темный оттенок.
+            ///
+            void InterlacingColor(ProtoNode* nline)
+            {
+               if((nline.NLine()+1) % 2 == 0)
+               {
+                  for(int i = 0; i < nline.ChildsTotal(); i++)
+                  {
+                     color clrBack = clrWhiteSmoke;
+                     ProtoNode* node = nline.ChildElementAt(i);
+                     //Вложенные элементы обрабатываем рекурсивно
+                     if(node.TypeElement() == ELEMENT_TYPE_GCONTAINER)
+                     {
+                        Line* line = node;
+                        for(int k = 0; k < line.ChildsTotal(); k++)
+                        {
+                           ProtoNode* rnode = line.ChildElementAt(k);
+                           //if(rnode.TypeElement() != ELEMENT_TYPE_BOTTON)
+                              rnode.BackgroundColor(clrBack);
+                           rnode.BorderColor(clrBack);
+                        }
+                     }
+                     else
+                     {
+                        node.BackgroundColor(clrBack);
+                        node.BorderColor(clrBack);
+                     }
+                  }
+               }
+            }
+            int highLine;
+      };
+      ///
+      /// Заголовок таблицы.
+      ///
+      Line* lineHeader;
+      ///
+      /// Рабочая область таблицы
+      ///
+      CWorkArea* workArea;
+      ///
+      /// Скролл.
+      ///
+      Scroll* scroll;
+   private:
+      
       virtual void OnCommand(EventNodeCommand* event)
       {
          //Команды снизу не принимаются.
          if(!Visible() || event.Direction() == EVENT_FROM_DOWN)return;
-         //Теперь, в зависимости от элемента, определяем его положение
-         long ydist = 2;
-         //ProtoNode* prevNode
-         int total = childNodes.Total();
+         
+         //Размещаем заголовок таблицы.
+         EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 2, 2, Width()-24, 20);
+         lineHeader.Event(command);
+         delete command;
+         
+         //Размещаем строки рабочей области
+         int dbg = 4;
+         if(Visible())
+            dbg = 6;
+            
+         //Размещаем рабочую область.
+         command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 2, 22, Width()-24, High()-24);
+         workArea.Event(command);
+         delete command;
+         
+         //Размещаем скролл.
+         command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(),Width()-22, 2, 20, High()-4);
+         scroll.Event(command);
+         delete command;
+         
+         
+         //workArea.Event(event);
+         /*long ydist = 0;
+         int total = workArea.ChildsTotal();
          for(int i = 0; i < total; i++)
          {
-            ProtoNode* node = childNodes.At(i);
-            if(node.TypeElement() == ELEMENT_TYPE_GCONTAINER)
-            {
-               EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 2, ydist, Width()-24, 20);
-               node.Event(command);
-               delete command;
-               ydist += node.High();
-            }
-            //
-            if(node.TypeElement() == ELEMENT_TYPE_SCROLL)
-            {
-               bool v = Visible();
-               //EventNodeStatus* ch = new EventNodeStatus(EVENT_FROM_UP, NameID(), Visible(), XAbsDistance(), YAbsDistance(), Width(), High());
-               EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(),Width()-22, 2, 20, High()-4);
-               node.Event(command);
-               delete command;
-            }
-         } 
+            workArea.RefreshLine(i);
+         }*/
       }
+      ///
+      /// Ширина линии.
+      ///
+      int highLine;
+      
 };
 
 ///
@@ -70,7 +201,7 @@ class TableOpenPos : public Table
       {
          nProfit = -1;
          nLastPrice = -1;
-         
+         ow_twb = 20;
          ow_magic = 100;
          ow_symbol = 70;
          ow_order_id = 100;
@@ -102,14 +233,14 @@ class TableOpenPos : public Table
          int count = 0;
          
          // Первая линия содержит заголовок таблицы (Она есть всегда).
-         lineHeader = new Line("LineHeader", GetPointer(this));
+         //lineHeader = new Line("LineHeader", GetPointer(this));
          Button* hmagic;
          // Раскрытие позиции
          if(true)
          {
             TreeViewBox* hCollapse = new TreeViewBox(name_collapse_pos, GetPointer(lineHeader), BOX_TREE_GENERAL);
             hCollapse.Text("+");
-            hCollapse.OptimalWidth(20);
+            hCollapse.OptimalWidth(ow_twb);
             hCollapse.ConstWidth(true);
             lineHeader.Add(hCollapse);
             count++;
@@ -238,11 +369,6 @@ class TableOpenPos : public Table
             node.BorderColor(clrBlack);
             node.BackgroundColor(clrWhiteSmoke);
          }
-         //Скрол
-         Scroll* myscroll = new Scroll("Scroll", GetPointer(this));
-         Add(myscroll);
-         
-         Add(lineHeader);
       }
       
       virtual void OnEvent(Event* event)
@@ -269,13 +395,13 @@ class TableOpenPos : public Table
          // Сворачиваем
          if(event.IsCollapse())
          {
-            printf("Список закрыт");
+            //printf("Сделка № " + event.NLine() + " закрыта.");
          }
          // Разворачиваем
          else
          {
-            printf("Список раскрыт");
-            
+            //printf("Сделка № " + event.NLine() + " раскрыта.");
+            AddDeals(event);
          }
       }
       ///
@@ -333,14 +459,11 @@ class TableOpenPos : public Table
          Position* pos = event.GetPosition();
          //Добавляем только активные позиции.
          //if(pos.Status == POSITION_STATUS_CLOSED)return;
-         Line* nline = new Line("pos.", GetPointer(this));
+         Line* nline = new Line("pos.", GetPointer(workArea));
          
          int total = lineHeader.ChildsTotal();
          Label* cell = NULL;
          CArrayObj* deals = pos.EntryDeals();
-         
-         nline.NLine(lines);
-         lines++;
          for(int i = 0; i < total; i++)
          {
             bool isReadOnly = true;
@@ -479,11 +602,8 @@ class TableOpenPos : public Table
                cell = NULL;
             }
          }
-         // Подкрашиваем каждую вторую строку
-         InterlacingColor(nline);
-         
-         Add(nline);
-
+         workArea.Add(nline);
+         //Add(nline);
          GPosition* gposition = new GPosition();
          gposition.pos = pos;
          gposition.gpos = nline;
@@ -495,47 +615,6 @@ class TableOpenPos : public Table
          delete er;
       }
       
-      ///
-      /// Установка общих настроек для ячейки таблицы
-      ///
-      /*void CellSettings(const Label* cell)
-      {
-         cell.BindOptWidth(node);
-         cell.BackgroundColor(clrWhite);
-         cell.BorderColor(clrWhiteSmoke);
-         
-      }*/
-      ///
-      /// Нечетные строки подкрашиваются в более темный оттенок.
-      ///
-      void InterlacingColor(ProtoNode* nline)
-      {
-         if(lines % 2 == 0)
-         {
-            for(int i = 0; i < nline.ChildsTotal(); i++)
-            {
-               color clrBack = clrWhiteSmoke;
-               ProtoNode* node = nline.ChildElementAt(i);
-               //Вложенные элементы обрабатываем рекурсивно
-               if(node.TypeElement() == ELEMENT_TYPE_GCONTAINER)
-               {
-                  Line* line = node;
-                  for(int k = 0; k < line.ChildsTotal(); k++)
-                  {
-                     ProtoNode* rnode = line.ChildElementAt(k);
-                     //if(rnode.TypeElement() != ELEMENT_TYPE_BOTTON)
-                        rnode.BackgroundColor(clrBack);
-                     rnode.BorderColor(clrBack);
-                  }
-               }
-               else
-               {
-                  node.BackgroundColor(clrBack);
-                  node.BorderColor(clrBack);
-               }
-            }
-         }
-      }
       ///
       /// Графическое представление позиции.
       ///
@@ -555,8 +634,9 @@ class TableOpenPos : public Table
       ///
       /// Добавляет визуализацию сделок для позиции
       ///
-      void AddDeals(GPosition* gpos)
+      void AddDeals(EventCollapseTree* event)
       {
+         GPosition* gpos = ListPos.At(event.NLine());
          CArrayObj* entryDeals = gpos.pos.EntryDeals();
          CArrayObj* exitDeals = gpos.pos.ExitDeals();
          // Количество дополнительных строк будет равно максимальном
@@ -569,18 +649,18 @@ class TableOpenPos : public Table
          else if(exitTotal > 0 && exitTotal > exitTotal)
             total = exitTotal;
          else return;
-         //Общая высота внедренных строк
-         int total_y;
-         CArrayObj* alines = new CArrayObj();
          //Перебираем сделки
          for(int i = 0; i < total; i++)
          {
-            Line* nline = new Line("deal", GetPointer(this));
+            Line* nline = new Line("deal", GetPointer(workArea));
+            nline.BorderType(BORDER_FLAT);
+            nline.BorderColor(BackgroundColor());
             //Перебираем колонки
             int tColumns = gpos.gpos.ChildsTotal();
             for(int c = 0; c < tColumns; c++)
             {
                ProtoNode* cell = gpos.gpos.ChildElementAt(c);
+               //Отображение дерева позиции.
                if(cell.ShortName() == name_collapse_pos)
                {
                   TreeViewBox* twb; 
@@ -591,35 +671,226 @@ class TableOpenPos : public Table
                      twb = new TreeViewBox("TreeEndSlave", nline, BOX_TREE_SLAVE);
                   twb.BackgroundColor(cell.BackgroundColor());
                   twb.BorderColor(cell.BorderColor());
+                  twb.OptimalWidth(ow_twb);
+                  twb.ConstWidth(true);
                   nline.Add(twb);
                   continue;
                }
+               //Magic номер сделки
+               if(cell.ShortName() == name_magic)
+               {
+                  Label* magic = new Label("deal magic", nline);
+                  Label* lcell = cell;
+                  magic.Edit(true);
+                  magic.OptimalWidth(ow_magic);
+                  magic.Text(lcell.Text());
+                  magic.BackgroundColor(cell.BackgroundColor());
+                  magic.BorderColor(cell.BorderColor());
+                  magic.BorderColor(clrBlack);
+                  nline.Add(magic);
+                  continue;
+               }
+               //Инструмент, по которому совершена сделка.
+               if(cell.ShortName() == name_symbol)
+               {
+                  Label* symbol = new Label("deal symbol", nline);
+                  Label* lcell = cell;
+                  symbol.Edit(true);
+                  symbol.OptimalWidth(ow_symbol);
+                  symbol.Text(lcell.Text());
+                  symbol.BackgroundColor(cell.BackgroundColor());
+                  symbol.BorderColor(cell.BorderColor());
+                  symbol.BorderColor(clrBlack);
+                  nline.Add(symbol);
+                  continue;
+               }
+               //Идентификатор сделки.
+               if(cell.ShortName() == name_order_id)
+               {
+                  Label* entry_id = new Label("EntryDealsID", nline);
+                  Label* lcell = cell;
+                  entry_id.Edit(true);
+                  entry_id.OptimalWidth(ow_order_id);
+                  CArrayObj* deals = gpos.pos.EntryDeals();
+                  if(deals != NULL && i < deals.Total())
+                  {
+                     Deal* deal = deals.At(i);
+                     entry_id.Text((string)deal.Ticket());
+                  }
+                  else
+                     entry_id.Text("");
+                  entry_id.BackgroundColor(cell.BackgroundColor());
+                  entry_id.BorderColor(cell.BorderColor());
+                  entry_id.BorderColor(clrBlack);
+                  nline.Add(entry_id);
+                  continue;
+               }
+               //Время входа в сделку
+               if(cell.ShortName() == name_entry_date)
+               {
+                  Label* entryDate = new Label("EntryDealsTime", nline);
+                  entryDate.Edit(true);
+                  entryDate.OptimalWidth(ow_entry_date);
+                  CArrayObj* deals = gpos.pos.EntryDeals();
+                  if(deals != NULL && i < deals.Total())
+                  {
+                     Deal* deal = deals.At(i);
+                     CTime time = deal.Date();
+                     entryDate.Text(time.TimeToString(TIME_DATE|TIME_MINUTES|TIME_SECONDS));
+                  }
+                  else
+                     entryDate.Text("");
+                  entryDate.BackgroundColor(cell.BackgroundColor());
+                  entryDate.BorderColor(cell.BorderColor());
+                  entryDate.BorderColor(clrBlack);
+                  nline.Add(entryDate);
+                  continue;
+               }
+               //Тип сделки
+               if(cell.ShortName() == name_type)
+               {
+                  Label* entryType = new Label("EntryDealsType", nline);
+                  entryType.Edit(true);
+                  entryType.OptimalWidth(ow_type);
+                  CArrayObj* deals = gpos.pos.EntryDeals();
+                  if(deals != NULL && i < deals.Total())
+                  {
+                     Deal* deal = deals.At(i);
+                     ENUM_DEAL_TYPE type = deal.DealType();
+                     string stype = EnumToString(type);
+                     stype = StringSubstr(stype, 10);
+                     StringReplace(stype, "_", " ");
+                     entryType.Text(stype);
+                  }
+                  else
+                     entryType.Text("");
+                  entryType.BackgroundColor(cell.BackgroundColor());
+                  entryType.BorderColor(cell.BorderColor());
+                  entryType.BorderColor(clrBlack);
+                  nline.Add(entryType);
+                  continue;
+               }
+               //Тип сделки
+               if(cell.ShortName() == name_vol)
+               {
+                  Label* dealVol = new Label("EntryDealsVol", nline);
+                  dealVol.Edit(true);
+                  dealVol.OptimalWidth(ow_vol);
+                  CArrayObj* deals = gpos.pos.EntryDeals();
+                  if(deals != NULL && i < deals.Total())
+                  {
+                     double step = SymbolInfoDouble(gpos.pos.Symbol(), SYMBOL_VOLUME_STEP);
+                     double mylog = MathLog10(step);
+                     Deal* deal = deals.At(i);
+                     string vol = mylog < 0 ? DoubleToString(deal.Volume(),(int)(mylog*(-1.0))) : DoubleToString(deal.Volume(), 0);
+                     dealVol.Text(vol);
+                  }
+                  else
+                     dealVol.Text("");
+                  dealVol.BackgroundColor(cell.BackgroundColor());
+                  dealVol.BorderColor(cell.BorderColor());
+                  dealVol.BorderColor(clrBlack);
+                  nline.Add(dealVol);
+                  continue;
+               }
+               //Стоп-Лосс.
+               if(cell.ShortName() == name_sl)
+               {
+                  Label* sl = new Label("DealStopLoss", nline);
+                  Label* lcell = cell;
+                  sl.Edit(true);
+                  sl.OptimalWidth(ow_tp);
+                  sl.Text(lcell.Text());
+                  sl.BackgroundColor(cell.BackgroundColor());
+                  sl.BorderColor(cell.BorderColor());
+                  sl.BorderColor(clrBlack);
+                  nline.Add(sl);
+                  continue;
+               }
+               //Тейк-Профит.
+               if(cell.ShortName() == name_tp)
+               {
+                  Label* tp = new Label("DealTakeProfit", nline);
+                  Label* lcell = cell;
+                  tp.Edit(true);
+                  tp.OptimalWidth(ow_tp);
+                  tp.Text(lcell.Text());
+                  tp.BackgroundColor(cell.BackgroundColor());
+                  tp.BorderColor(cell.BorderColor());
+                  tp.BorderColor(clrBlack);
+                  nline.Add(tp);
+                  continue;
+               }
+               //Трал
+               if(cell.ShortName() == name_tralSl)
+               {
+                  Label* tral = new Label("DealTralSL", nline);
+                  Label* lcell = cell;
+                  tral.Edit(true);
+                  tral.OptimalWidth(20);
+                  tral.ConstWidth(true);
+                  tral.Text("");
+                  tral.BackgroundColor(cell.BackgroundColor());
+                  tral.BorderColor(cell.BorderColor());
+                  tral.BorderColor(clrBlack);
+                  nline.Add(tral);
+                  continue;
+               }
+               //Последняя цена
+               if(cell.ShortName() == name_currprice)
+               {
+                  Label* cprice = new Label("DealLastPrice", nline);
+                  cprice.OptimalWidth(ow_currprice);
+                  int digits = (int)SymbolInfoInteger(gpos.pos.Symbol(), SYMBOL_DIGITS);
+                  string price = DoubleToString(gpos.pos.CurrentPrice(), digits);
+                  cprice.Text(price);
+                  cprice.BackgroundColor(cell.BackgroundColor());
+                  cprice.BorderColor(cell.BorderColor());
+                  cprice.BorderColor(clrBlack);
+                  nline.Add(cprice);
+                  continue;
+               }
+               //Профит
+               if(cell.ShortName() == name_profit)
+               {
+                  Label* profit = new Label("DealProfit", nline);
+                  profit.OptimalWidth(ow_profit);
+                  profit.Edit(true);
+                  profit.Text("");
+                  profit.BackgroundColor(clrWhite);
+                  profit.BorderColor(cell.BorderColor());
+                  profit.BorderColor(clrBlack);
+                  nline.Add(profit);
+                  continue;
+               }
+               //Профит
+               if(cell.ShortName() == name_comment)
+               {
+                  Label* comment = new Label("DealComment", nline);
+                  comment.OptimalWidth(ow_profit);
+                  comment.Edit(true);
+                  comment.Text("");
+                  comment.BackgroundColor(cell.BackgroundColor());
+                  comment.BorderColor(cell.BorderColor());
+                  comment.BorderColor(clrBlack);
+                  nline.Add(comment);
+                  continue;
+               }
+               
             }
-            nline.NLine(gpos.gpos.NLine() + i);
-            alines.Add(nline);
-         }
-         //Меняем индексацию узлов следующих за строкой позиции.
-         int nsum = alines.Total();
-         for(int i = gpos.gpos.NLine()+1; i < childNodes.Total(); i++)
-         {
-            ProtoNode* node = childNodes.At(i);
-            node.NLine(node.NLine()+nsum);
-         }
-         //Вставляем сделки
-         childNodes.InsertArray(alines, gpos.gpos.NLine()+1);
-         //Теперь пытаемся визуализировать строки сделок
-         for(int i = 0; i < alines.Total(); i++)
-         {
-            Label* deal = alines.At(i);
-            EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 0, 0, 0, 0);
-            deal.Event(command);
-            delete command;
+            for(int el = 0; el < nline.ChildsTotal(); el++)
+            {
+               ProtoNode* node = nline.ChildElementAt(el);
+               node.BackgroundColor();
+            }
+            int n = event.NLine();
+            workArea.Add(nline, event.NLine()+1);
          }
       }
       
       CArrayObj* ListPos;
-      Line* lineHeader;
       /*Рекомендованные размеры*/
+      long ow_twb;
       long ow_magic;
       long ow_symbol;
       long ow_order_id;

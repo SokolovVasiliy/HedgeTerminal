@@ -1,7 +1,7 @@
 ///
 /// Прокрутка списка.
 ///
-class Scroll : ProtoNode
+class Scroll : public ProtoNode
 {
    public:
       Scroll(string myName, ProtoNode* parNode) : ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_SCROLL, myName, parNode)

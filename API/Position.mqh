@@ -1,4 +1,5 @@
 #include <Object.mqh>
+#include "..\Time.mqh"
 #include <Arrays\ArrayLong.mqh>
 #include <Arrays\ArrayObj.mqh>
 ///
@@ -67,6 +68,7 @@ class Deal : CObject
          date = HistoryDealGetInteger(dticket, DEAL_TIME_MSC);
          price = HistoryDealGetDouble(dticket, DEAL_PRICE);
          commission = HistoryDealGetDouble(dticket, DEAL_COMMISSION);
+         type = (ENUM_DEAL_TYPE)HistoryDealGetInteger(dticket, DEAL_TYPE);
       }
       ~Deal()
       {
@@ -77,6 +79,7 @@ class Deal : CObject
       double Volume(){return volume;}
       double Comission(){return commission;}
       double Price(){return price;}
+      ENUM_DEAL_TYPE DealType(){return type;}
    private:
       ///
       /// Уникальный идентификатор сделки.
@@ -98,6 +101,10 @@ class Deal : CObject
       /// Комиссия по сделки.
       ///
       double commission;
+      ///
+      /// Тип сделки.
+      ///
+      ENUM_DEAL_TYPE type;
 };
 ///
 /// Позиция.
