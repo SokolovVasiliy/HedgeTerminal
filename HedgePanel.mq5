@@ -90,15 +90,9 @@ void OnChartEvent(const int id,
    //Определяем, является ли событие нажатием на одну из кнопок HP
    else if (id == CHARTEVENT_OBJECT_CLICK)
    {
-      //Объект на который нажали - кнопка?
-      ENUM_OBJECT type = (ENUM_OBJECT)ObjectGetInteger(MAIN_WINDOW, sparam, OBJPROP_TYPE);
-      //Создаем событие: "кнопка нажата"
-      if(type == OBJ_BUTTON)
-      {
-         EventButtonPush* pushButton = new EventButtonPush(sparam);
-         HedgePanel.Event(pushButton);
-         delete pushButton;
-      }
+      EventPush* pushObj = new EventPush(sparam);
+      HedgePanel.Event(pushObj);
+      delete pushObj;
    }
 }
 

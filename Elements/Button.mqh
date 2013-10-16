@@ -53,30 +53,6 @@ class Button : public TextNode
       }
    protected:
       ///
-      ///  аждый потомок должен самосто€тельно определить свои действи€,
-      /// при нажатии кнопки.
-      ///
-      virtual void OnPush(){;}
-      //
-      virtual void OnEvent(Event* event)
-      {
-         int id = event.EventId();
-         if(id == EVENT_BUTTON_PUSH)
-         {
-            EventButtonPush* push = event;
-            if(push.ButtonName() == NameID())
-            {
-               OnPush();
-               //ѕосле каждого нажати€ кнопки принудительно обновл€ем окно
-               ChartRedraw(MAIN_WINDOW);
-            }
-            
-         }
-         else
-            EventSend(event);
-      }
-      
-      ///
       /// ќбработчик событи€ статус 'видимости внешнего узла изменен'.
       /// \param event - —обытие типа 'видимость внешнего узла изменена'.
       ///

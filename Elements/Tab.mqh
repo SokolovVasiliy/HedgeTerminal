@@ -62,11 +62,11 @@ class Tab : public ProtoNode
          if(event.Direction() == EVENT_FROM_UP)
          {
             // Ловим событие нажатия одной из кнопок панели
-            if(event.EventId() == EVENT_BUTTON_PUSH)
+            if(event.EventId() == EVENT_PUSH)
             {
                ENUM_BUTTON_STATE myState = btnHistoryPos.State();
-               EventButtonPush* push = event;
-               string btnName = push.ButtonName();
+               EventPush* push = event;
+               string btnName = push.PushObjName();
                bool sendEvent = true;
                for(int i = 0; i < btnArray.Total(); i++)
                {

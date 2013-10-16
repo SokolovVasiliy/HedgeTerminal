@@ -118,16 +118,18 @@ class Line : public ProtoNode
          for(int i = 0; i < total; i++)
          {
             node = childNodes.At(i);
+            string sname = node.ShortName();
             //рассчитываем текущую привязку по горизонтали.
             xdist = i > 0 ? prevColumn.XLocalDistance() + prevColumn.Width() : 0;
             //Последний элемент занимает все оставшееся место
             long cwidth = 0;
-            //Кнопки всегда квадратные, независимо от ширины окна.
-            if(node.ConstWidth()){
+            ProtoNode* bindWidth = node.BindingWidth();
+            //Если ширина привязана к другому узлу - берем ее с того узла.
+            if(bindWidth != NULL)
+               cwidth = bindWidth.Width();
+            //Если ширина является константой - не изменяем ее.
+            else if(node.ConstWidth())
                cwidth = node.OptimalWidth();
-               string n = node.NameID();
-               int ff = 5;
-            }
             else
                cwidth = i == total-1 ? cwidth = Width() - xdist : (long)MathRound((double)node.OptimalWidth() * kScale);
             EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), xdist, 0, cwidth, High());
@@ -150,6 +152,11 @@ class Line : public ProtoNode
          {
             ProtoNode* node = childNodes.At(i);
             ENUM_ELEMENT_TYPE type = node.TypeElement();
+            /*bindWidth = node.BindingWidth();
+            if(bindWidth != NULL)
+            {
+               ;
+            }*/
             if(node.TypeElement() == ELEMENT_TYPE_BOTTON)
             {
                xdist -= chigh;
@@ -172,4 +179,12 @@ class Line : public ProtoNode
       /// Идентификатор алгоритма выравнивания в линии.
       ///
       ENUM_LINE_ALIGN_TYPE typeAlign;
+      ///
+      /// Элемент, к чьей ширене необходимо привязать ширину текущего элемента.
+      ///
+      ProtoNode* bindingWidth;
+      ///
+      /// Элемент, к чьей высоте необходимо привязать высоту текущего элемента.
+      ///
+      ProtoNode* bindingHigh;
 };

@@ -52,7 +52,11 @@ enum ENUM_ELEMENT_TYPE
    ///
    /// Элемент графического интерфейса "Ячейка таблицы".
    ///
-   ELEMENT_TYPE_CELL
+   ELEMENT_TYPE_CELL,
+   ///
+   /// Элемент графического интерфейса "Раскрывающаяся таблица".
+   ///
+   ELEMENT_TYPE_TREE_VIEW
 };
 
 
@@ -82,6 +86,10 @@ class ProtoNode : public CObject
                case EVENT_NODE_COMMAND:
                   ExecuteCommand(event);
                   break;
+               //Нажатие на объект
+               case EVENT_PUSH:
+                  Push(event);
+                  break;
                case EVENT_DEINIT:
                   OnDeinit(event);
                   Deinit(event);
@@ -110,32 +118,34 @@ class ProtoNode : public CObject
       ///
       long OptimalWidth()
       {
-         if(CheckPointer(bindOptWidth) != POINTER_INVALID)
-            return bindOptWidth.OptimalWidth();
+         if(CheckPointer(bindingWidth) != POINTER_INVALID)
+            return bindingWidth.OptimalWidth();
          return optimalWidth;
       }
       ///
-      /// 
+      /// Возвращает оптимальную высоту графического элемента.
       ///
       long OptimalHigh()
       {
-         if(CheckPointer(bindOptHigh) != POINTER_INVALID)
-            return bindOptHigh.OptimalHigh();
+         if(CheckPointer(bindingHigh) != POINTER_INVALID)
+            return bindingHigh.OptimalHigh();
          return optimalHigh;
       }
        
       void OptimalWidth(long optWidth)
       {
-         if(bindOptWidth != NULL)
-            bindOptWidth.OptimalWidth(optWidth);
-         optimalWidth = optWidth;
+         //if(bindingWidth != NULL)
+         //   bindingWidth.OptimalWidth(optWidth);
+         if(bindingWidth == NULL)
+            optimalWidth = optWidth;
       }
       
       void OptimalHigh(long optHigh)
       {
-         if(bindOptHigh != NULL)
-            bindOptHigh.OptimalHigh(optHigh);
-         optimalHigh = optHigh;
+         //if(bindOptHigh != NULL)
+         //   bindOptHigh.OptimalHigh(optHigh);
+         if(bindingHigh == NULL)
+            optimalHigh = optHigh;
       }
       void ConstWidth(bool status)
       {
@@ -151,29 +161,51 @@ class ProtoNode : public CObject
       }
       bool ConstHigh(){return constHigh;}
       ///
-      /// Привязывает свою оптимальную ширину к оптимальной ширене другого узла.
+      /// Привязать ширину элемента к ширене другого элемента.
       ///
-      void BindOptWidth(ProtoNode* node)
+      void BindingWidth(ProtoNode* node)
       {
-         bindOptWidth = node;
-         optimalWidth = node.OptimalWidth();
+         if(CheckPointer(node) != POINTER_INVALID)
+            bindingWidth = node;
       }
       ///
-      /// Привязывает свою оптимальную высоту к оптимальной высоте другого узла.
+      /// Возвращает узел, к чьей ширине привязан текущий узел. Возвращает NULL,
+      /// если ширина текущего узла не привяна к ширине другого узла.
       ///
-      void BindOptHigh(ProtoNode* node)
+      ProtoNode* BindingWidth()
       {
-         bindOptHigh = node;
-         optimalHigh = node.OptimalHigh();
+         return bindingWidth;
       }
       ///
-      /// Отвязывает оптималную ширину от другого узла.
+      /// Привязать высоту элемента к высоте другого элемента.
       ///
-      void UnbindOptWidth(){bindOptWidth = NULL;}
+      void BindingHigh(ProtoNode* node)
+      {
+         if(CheckPointer(node) != POINTER_INVALID)
+            bindingHigh = node;
+      }
       ///
-      /// Отвязывает оптимальную высоту от другого узла.
+      /// Возвращает узел, к чьей высоте привязан текущий узел. Возвращает NULL,
+      /// если высота текущего узла не привяна к высоте другого узла.
       ///
-      void UnbindOptHigh(){bindOptHigh = NULL;}
+      ProtoNode* BindingHigh()
+      {
+         return bindingHigh;
+      }
+      ///
+      /// Отвязывает ширину текущего элемента от ширины другого элемента 
+      ///
+      void UnbindingWidth()
+      {  
+         bindingWidth = NULL;
+      }
+      ///
+      /// Отвязывает высоту текущего элемента от высоты другого элемента
+      ///
+      void UnbindingHigh()
+      {
+         bindingHigh = NULL;
+      }
       ///
       /// Возвращает количество подузлов, входящее в графический элемент.
       ///
@@ -452,7 +484,11 @@ class ProtoNode : public CObject
          }   
       }
       virtual void OnCommand(EventNodeCommand* event){;}
-      
+      ///
+      /// Каждый потомок должен самостоятельно определить свои действия,
+      /// при нажатии на свой объект.
+      ///
+      virtual void OnPush(){;}
       void Resize(EventResize* event)
       {
          Resize(event.NewWidth(), event.NewHigh());
@@ -743,6 +779,16 @@ class ProtoNode : public CObject
          Visible(newEvent.Visible());
          OnCommand(newEvent);
       }
+      void Push(EventPush* push)
+      {
+         if(push.PushObjName() == NameID())
+         {
+            OnPush();
+            ChartRedraw();
+         }
+         else
+            EventSend(push);
+      }
       ///
       /// Указатель на родительский графический узел.
       ///
@@ -764,11 +810,11 @@ class ProtoNode : public CObject
       ///
       /// Указатель на другой узел, чью оптимальную ширину надо получить.
       ///
-      ProtoNode* bindOptWidth;
+      ProtoNode* bindingWidth;
       ///
       /// Указатель на другой узел, чью оптимальную высоту надо получить.
       ///
-      ProtoNode* bindOptHigh;
+      ProtoNode* bindingHigh;
       ///
       /// Полное имя графического узла, состоящее из последовательности имен предыдущих узлов и текущего имени узла.
       ///

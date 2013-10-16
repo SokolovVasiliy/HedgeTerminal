@@ -109,7 +109,7 @@ enum ENUM_EVENT
    ///
    /// Идентификатор события "кнопка нажата".
    ///
-   EVENT_BUTTON_PUSH,
+   EVENT_PUSH,
    ///
    /// Идентификатор события "дерево Раскрыто/Закрыто".
    ///
@@ -403,26 +403,26 @@ class EventRefresh : public Event
       Event(Dir, EVENT_REFRESH, nodeId){;}
 };
 
-class EventButtonPush : public Event
+class EventPush : public Event
 {
    public:
-      EventButtonPush(string btnName): Event(EVENT_FROM_UP, EVENT_BUTTON_PUSH, "TERMINAL WINDOW")
+      EventPush(string pushName): Event(EVENT_FROM_UP, EVENT_PUSH, "TERMINAL WINDOW")
       {
-         buttonName = btnName;
+         pushObjName = pushName;
       }
       ///
-      /// Возвращает название кноки.
+      /// Возвращает название объекта, по которому было произведено нажатие.
       ///
-      string ButtonName(){return buttonName;}
+      string PushObjName(){return pushObjName;}
       virtual Event* Clone()
       {
-         return new EventButtonPush(buttonName);
+         return new EventPush(pushObjName);
       }
    private:
       ///
-      /// Хранит название кнопки, которая была нажата.
+      /// Хранит название узла, по которому было произведено нажатие.
       ///
-      string buttonName;
+      string pushObjName;
 };
 
 ///

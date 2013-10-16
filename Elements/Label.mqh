@@ -5,7 +5,14 @@
 class Label : public TextNode
 {
    public:
-      Label(string myName, ProtoNode* node) : TextNode(OBJ_EDIT, ELEMENT_TYPE_LABEL, myName, node){;}
+      Label(ENUM_ELEMENT_TYPE elType, string myName, ProtoNode* node) : TextNode(OBJ_EDIT, elType, myName, node)
+      {
+         alignMode = ALIGN_LEFT;
+      }
+      Label(string myName, ProtoNode* node) : TextNode(OBJ_EDIT, ELEMENT_TYPE_LABEL, myName, node)
+      {
+         alignMode = ALIGN_LEFT;
+      }
       void Edit(bool edit)
       {
          isEdit = edit;
@@ -16,6 +23,22 @@ class Label : public TextNode
       /// ¬озвращает режим редактировани€ текстовой метки.
       ///
       bool Edit(){return isEdit;}
+      ///
+      /// ”станавливает выравнивание текста в метке.
+      ///
+      void Align(ENUM_ALIGN_MODE mode)
+      {
+         alignMode = mode;
+         if(Visible())
+            ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_ALIGN, alignMode);
+      }
+      ///
+      /// ¬озвращает тип выравнивани€ текста в метке.
+      ///
+      ENUM_ALIGN_MODE Align()
+      {
+         return alignMode;
+      }
       ///
       /// ¬озвращает текст метки.
       ///
@@ -31,6 +54,7 @@ class Label : public TextNode
          FontSize(FontSize());
          FontColor(FontColor());
          Edit(Edit());
+         Align(alignMode);
          //ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_COLOR, clrBlack);
       }
       ///
@@ -41,5 +65,9 @@ class Label : public TextNode
       /// “екущий текст, который отображаетс€ в текстовой метке.
       ///
       string text;
+      ///
+      /// —одержит тип выравнивани€ текста.
+      ///
+      ENUM_ALIGN_MODE alignMode;
       
 };
