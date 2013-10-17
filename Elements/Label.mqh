@@ -46,16 +46,12 @@ class Label : public TextNode
    private:
       virtual void OnVisible(EventVisible* event)
       {
-         int d = 5;
-         if(Text() == CharToString(74))
-            d = 8;
          Text(Text());
          Font(Font());
          FontSize(FontSize());
          FontColor(FontColor());
          Edit(Edit());
          Align(alignMode);
-         //ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_COLOR, clrBlack);
       }
       ///
       /// »стина, если текстова€ метка может редактироватьс€ пользователем, ложь, в противном случае.

@@ -137,6 +137,7 @@ class CHedge
             // Ќаходим ордер, породивший сделку.
             LoadHistory();
             ulong ticket = HistoryDealGetTicket(i);
+            HistoryDealSelect(ticket);
             if(ticket == 0)continue;
             
             //«агружаем только торговые операции
@@ -166,6 +167,7 @@ class CHedge
          {
             Position* npos = NULL;
             COrder* order = listOrders.At(i);
+            ulong id = order.OrderId();
             // ≈сли ордер закрывающий, то он закрывает ордер с этим тикетом.
             ulong fticket = FaeryMagic(order.Magic(), MAGIC_TO_TICKET);
             int pos = -1;

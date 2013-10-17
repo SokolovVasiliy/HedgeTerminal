@@ -32,6 +32,11 @@ void OnInit(void)
    EventExchange::Add(HedgePanel);
    EventExchange::Add(api);
    api.Init();
+   long X = ChartGetInteger(MAIN_WINDOW, CHART_WIDTH_IN_PIXELS, MAIN_SUBWINDOW);
+   long Y = ChartGetInteger(MAIN_WINDOW, CHART_HEIGHT_IN_PIXELS, MAIN_SUBWINDOW);
+   EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, "TERMINAL WINDOW", true, 0, 0, X, Y);
+   HedgePanel.Event(command);   
+   delete command;
 }
 void OnDeinit(const int reason)
 {

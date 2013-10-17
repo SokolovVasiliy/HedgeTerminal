@@ -69,6 +69,8 @@ class Deal : CObject
          price = HistoryDealGetDouble(dticket, DEAL_PRICE);
          commission = HistoryDealGetDouble(dticket, DEAL_COMMISSION);
          type = (ENUM_DEAL_TYPE)HistoryDealGetInteger(dticket, DEAL_TYPE);
+         symbol = HistoryDealGetString(dticket, DEAL_SYMBOL);
+         comment = HistoryDealGetString(dticket, DEAL_COMMENT);
       }
       ~Deal()
       {
@@ -80,6 +82,49 @@ class Deal : CObject
       double Comission(){return commission;}
       double Price(){return price;}
       ENUM_DEAL_TYPE DealType(){return type;}
+      string Symbol(){return symbol;}
+      ///
+      /// Возвращает прибыль сделки.
+      ///
+      double Profit()
+      {
+         double profit;
+         switch(type)
+         {
+            case DEAL_TYPE_BUY:
+               return CurrentPrice() - Price();
+            case DEAL_TYPE_SELL:
+               return Price() - CurrentPrice();
+            default:
+                HistoryDealSelect(ticket);
+                profit = HistoryDealGetDouble(ticket, DEAL_PROFIT);
+                return profit;
+         }
+         return 0.0;
+      }
+      ///
+      /// Возвращает текущую цену инструмента, по которому открыта позиция
+      ///
+      double CurrentPrice()
+      {
+         double last_price;
+         //Четные значения - покупка, нечетные - продажа.
+         if(type == DEAL_TYPE_BUY)
+            last_price = SymbolInfoDouble(symbol, SYMBOL_BID);
+         else
+            last_price = SymbolInfoDouble(symbol, SYMBOL_ASK);
+         return last_price;
+      }
+      ///
+      /// Конвертирует профит позиции в строковое представление профита
+      ///
+      string ProfitAsString()
+      {
+         int digits = (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS);
+         double point = SymbolInfoDouble(symbol, SYMBOL_POINT);
+         string points = DoubleToString(Profit()/point, 0) + "p.";
+         return points;
+      }
    private:
       ///
       /// Уникальный идентификатор сделки.
@@ -94,7 +139,7 @@ class Deal : CObject
       ///
       double volume;
       ///
-      /// Цена совершенной сделки.
+      /// Цена, по которой была совершена сделка.
       ///
       double price;
       ///
@@ -105,6 +150,14 @@ class Deal : CObject
       /// Тип сделки.
       ///
       ENUM_DEAL_TYPE type;
+      ///
+      /// Имя символа, по кторому произведена сделка.
+      ///
+      string symbol;
+      ///
+      /// Комментарий к сделке.
+      ///
+      string comment;
 };
 ///
 /// Позиция.

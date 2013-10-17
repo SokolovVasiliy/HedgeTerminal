@@ -56,7 +56,19 @@ enum ENUM_ELEMENT_TYPE
    ///
    /// Элемент графического интерфейса "Раскрывающаяся таблица".
    ///
-   ELEMENT_TYPE_TREE_VIEW
+   ELEMENT_TYPE_TREE_VIEW,
+   ///
+   /// Оформление раскрывающегося списка.
+   ///
+   ELEMENT_TYPE_TREE_BORDER,
+   ///
+   /// Строковое представление позиции.
+   ///
+   ELEMENT_TYPE_POSITION,
+   ///
+   /// Строковое представление сделки.
+   ///
+   ELEMENT_TYPE_DEAL
 };
 
 
@@ -230,7 +242,7 @@ class ProtoNode : public CObject
          childNodes.Insert(node, pos);
       }
       ///
-      /// Удаляет графический элемент из списка элементов, находящийся под
+      /// Удаляет графический элемент из списка элементов, находящийся 
       /// на позиции index.
       ///
       void DeleteElement(int index)
@@ -622,7 +634,7 @@ class ProtoNode : public CObject
                EventVisible* ev = new EventVisible(EVENT_FROM_UP, NameID(), visible);
                OnVisible(ev);
                delete ev;
-               ChartRedraw();
+               //ChartRedraw();
             }
          }
          // Выключаем визуализацию.

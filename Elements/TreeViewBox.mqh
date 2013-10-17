@@ -24,6 +24,7 @@ enum ENUM_BOX_TREE_STATE
    ///
    BOX_TREE_RESTORE
 };
+
 class TreeViewBox : public Label
 {
    public:
@@ -54,7 +55,7 @@ class TreeViewBox : public Label
          else if(/*isGrafh && */boxTreeType == BOX_TREE_GENERAL && state == BOX_TREE_RESTORE)
             Text("-");
          else if(boxTreeType != BOX_TREE_GENERAL)
-            Text("=");
+            Text(CharToString(3));
          else
             Text("");
       }
@@ -111,4 +112,114 @@ class TreeViewBox : public Label
       ///
       bool isGrafh;
       TreeViewBox* twb;
+};
+
+class TreeViewBoxBorder : public Label
+{
+   public:
+      TreeViewBoxBorder(string nameCheck, ProtoNode* parNode, ENUM_BOX_TREE_TYPE TreeType) : Label(ELEMENT_TYPE_TREE_BORDER, nameCheck, parNode)
+      {
+         Edit(true);
+         treeType = TreeType;
+         if(treeType == BOX_TREE_GENERAL)
+         {
+            brdGeneral = new BorderGeneral(GetPointer(this));
+            childNodes.Add(brdGeneral);
+            Text("");
+         }
+         else if(treeType == BOX_TREE_SLAVE)
+            Text(CharToString(5));
+         else
+            Text(CharToString(3));
+      }
+      void OnEvent(Event* event)
+      {
+         if(event.Direction() == EVENT_FROM_DOWN)
+         {
+            if(event.EventId() == EVENT_PUSH)
+               OnPush();
+         }
+      }
+      ///
+      /// Вызывает действия срабатывающие при нажатии кнопки.
+      ///
+      void Pushed(){OnPush();}
+   private:
+      virtual void OnPush()
+      {
+         //Реагируем на нажатие, только если текущий элемент кнопка раскрывающая список
+         if(treeType == BOX_TREE_GENERAL)
+         {
+            //Список был свернут? - значит сейчас разворачивается.
+            if(state == BOX_TREE_COLLAPSE)
+            {
+               state = BOX_TREE_RESTORE;
+               if(brdGeneral != NULL){
+                  brdGeneral.Text("-");
+                  //brdGeneral.Align(ALIGN_CENTER);
+               }
+               EventCollapseTree* collapse = new EventCollapseTree(EVENT_FROM_DOWN, parentNode, false);
+               EventSend(collapse);
+               delete collapse;
+            }
+            //Список был развернут? - значит сейчас сворачивается.
+            else if(state == BOX_TREE_RESTORE)
+            {
+               state = BOX_TREE_COLLAPSE;
+               if(brdGeneral != NULL)
+                  brdGeneral.Text("+");
+               EventCollapseTree* collapse = new EventCollapseTree(EVENT_FROM_DOWN, parentNode, true);
+               EventSend(collapse);
+               delete collapse;
+            }
+         }
+      }
+      virtual void OnCommand(EventNodeCommand* event)
+      {
+         // Позиционируем плюсик в рамки
+         if(brdGeneral != NULL)
+         {
+            EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 2, 3, 14, 14);
+            brdGeneral.Event(command);
+            delete command;
+         }
+      }
+      
+      class BorderGeneral : public Label
+      {
+         public:
+            BorderGeneral(ProtoNode* twb) : Label(ELEMENT_TYPE_TREE_BORDER, "TreeBorder", twb)
+            {
+               if(twb == NULL || twb.TypeElement() != ELEMENT_TYPE_TREE_BORDER)return;
+               treeViewBox = twb;
+               Edit(true);
+               BorderColor(clrBlack);
+               BackgroundColor(parentNode.BackgroundColor());
+               Align(ALIGN_LEFT);
+               FontSize(8);
+               Text("+");
+            }
+         private:
+            //Передаем нажатие кнопки вышестоящему элементу
+            virtual void OnPush()
+            {
+               if(parentNode != NULL)
+               {
+                  treeViewBox.Pushed();
+               }
+            }
+            TreeViewBoxBorder* treeViewBox;
+      };
+      ///
+      /// Родительский элемент 
+      ///
+      BorderGeneral* brdGeneral;
+      ///
+      /// Состояние списка.
+      ///
+      ENUM_BOX_TREE_STATE state;
+      ///
+      /// Тип элемента.
+      ///
+      ENUM_BOX_TREE_TYPE treeType;
 };

@@ -450,7 +450,12 @@ class EventCollapseTree : public Event
       {
          n_line = node.NLine();
          status = isCollapse;
+         pNode = node;
       }
+      ///
+      /// Возвращает узел, по которому счелкнули.
+      ///
+      ProtoNode* Node(){return pNode;}
       ///
       /// Возвращает состояние списка.
       /// \return Истина, если список закрыт и ложь в противном случае.
@@ -473,7 +478,9 @@ class EventCollapseTree : public Event
       /// Номер строки в списке дочерних элементов, которая была свернута/развернута
       ///
       int n_line;
-      
+      ///
+      /// Графический объект.
+      ///
       ProtoNode* pNode;
 };
 

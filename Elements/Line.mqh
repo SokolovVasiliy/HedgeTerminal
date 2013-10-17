@@ -32,6 +32,11 @@ class Line : public ProtoNode
          OptimalHigh(20);
          typeAlign = LINE_ALIGN_SCALE;
       }
+      Line(string myName, ENUM_ELEMENT_TYPE elType, ProtoNode* parNode):ProtoNode(OBJ_RECTANGLE_LABEL, elType, myName, parNode)
+      {
+         OptimalHigh(20);
+         typeAlign = LINE_ALIGN_SCALE;
+      }
       ///
       /// Устанавливает алгоритм выравнивания для элементов внутри линии.
       ///

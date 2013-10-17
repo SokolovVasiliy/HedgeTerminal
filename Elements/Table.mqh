@@ -203,7 +203,7 @@ class TableOpenPos : public Table
          name_collapse_pos = "CollapsePos.";
          name_magic = "Magic";
          name_symbol = "Symbol";
-         name_order_id = "Order ID";
+         name_entryOrderId = "Order ID";
          name_entry_date = "EntryDate";
          name_type = "Type";
          name_vol = "Vol.";
@@ -214,7 +214,7 @@ class TableOpenPos : public Table
          name_profit = "Profit";
          name_comment = "Comment";
          
-         ListPos = new CArrayObj();
+         //ListPos = new CArrayObj();
          int count = 0;
          
          // Первая линия содержит заголовок таблицы (Она есть всегда).
@@ -249,7 +249,7 @@ class TableOpenPos : public Table
          if(true)
          {
             // Order ID
-            Button* hOrderId = new Button(name_order_id, GetPointer(lineHeader));
+            Button* hOrderId = new Button(name_entryOrderId, GetPointer(lineHeader));
             hOrderId.OptimalWidth(ow_order_id);
             lineHeader.Add(hOrderId);
             count++;
@@ -363,9 +363,9 @@ class TableOpenPos : public Table
             case EVENT_CREATE_NEWPOS:
                AddPosition(event);
                break;
-            case EVENT_REFRESH:
-               RefreshPos();
-               break;
+            //case EVENT_REFRESH:
+            //   RefreshPos();
+            //   break;
             case EVENT_COLLAPSE_TREE:
                OnCollapse(event);
                break;
@@ -380,7 +380,7 @@ class TableOpenPos : public Table
          // Сворачиваем
          if(event.IsCollapse())
          {
-            //printf("Сделка № " + event.NLine() + " закрыта.");
+            DeleteDeals(event);
          }
          // Разворачиваем
          else
@@ -392,15 +392,36 @@ class TableOpenPos : public Table
       ///
       /// Деинициализируем дополнительные динамические объекты
       ///
-      void OnDeinit(EventDeinit* event)
+      /*void OnDeinit(EventDeinit* event)
       {
          ListPos.Clear();
          delete ListPos;
+      }*/
+      ///
+      /// Обновляет цены открытых позиций.
+      ///
+      void RefreshPrices()
+      {
+         int total = workArea.ChildsTotal();
+         for(int i = 0; i < total; i++)
+         {
+            ProtoNode* node = workArea.ChildElementAt(i);
+            if(node.TypeElement() != ELEMENT_TYPE_POSITION ||
+               node.TypeElement() != ELEMENT_TYPE_DEAL)
+               continue;
+            //Обновляем позиции и трейды по-разному.
+            if(node.TypeElement() == ELEMENT_TYPE_POSITION)
+            {
+               PosLine* posLine = node;
+               Position* pos = posLine.Position();
+               //posLine.
+            }
+         }
       }
       ///
       /// Обновляем состояние позиций
       ///
-      void RefreshPos()
+      /*void RefreshPos()
       {
          int total = ListPos.Total();
          color lossZone = clrLavenderBlush;
@@ -433,7 +454,7 @@ class TableOpenPos : public Table
                lastprice.Text(price);
             }
          }
-      }
+      }*/
       
       
       ///
@@ -444,7 +465,7 @@ class TableOpenPos : public Table
          Position* pos = event.GetPosition();
          //Добавляем только активные позиции.
          //if(pos.Status == POSITION_STATUS_CLOSED)return;
-         Line* nline = new Line("pos.", GetPointer(workArea));
+         PosLine* nline = new PosLine(GetPointer(workArea),pos);
          
          int total = lineHeader.ChildsTotal();
          Label* cell = NULL;
@@ -456,7 +477,7 @@ class TableOpenPos : public Table
             
             if(node.ShortName() == name_collapse_pos)
             {
-               TreeViewBox* twb = new TreeViewBox(name_collapse_pos, GetPointer(nline), BOX_TREE_GENERAL);
+               TreeViewBoxBorder* twb = new TreeViewBoxBorder(name_collapse_pos, GetPointer(nline), BOX_TREE_GENERAL);
                twb.OptimalWidth(20);
                twb.ConstWidth(true);
                twb.BackgroundColor(clrWhite);
@@ -474,9 +495,9 @@ class TableOpenPos : public Table
                cell = new Label(name_symbol, GetPointer(nline));
                cell.Text((string)pos.Symbol());
             }
-            else if(node.ShortName() == name_order_id)
+            else if(node.ShortName() == name_entryOrderId)
             {
-               cell = new Label(name_order_id, GetPointer(nline));
+               cell = new Label(name_entryOrderId, GetPointer(nline));
                cell.Text((string)pos.EntryOrderID());
             }
             else if(node.ShortName() == name_entry_date)
@@ -551,6 +572,7 @@ class TableOpenPos : public Table
                comby.BindingWidth(node);
                comby.AlignType(LINE_ALIGN_CELLBUTTON);
                cell = new Label(name_profit, comby);
+               //nline.CellProfit(cell);
                cell.Text(pos.ProfitAsString());
                cell.BackgroundColor(clrWhite);
                cell.BorderColor(clrWhiteSmoke);
@@ -588,11 +610,6 @@ class TableOpenPos : public Table
             }
          }
          workArea.Add(nline);
-         //Add(nline);
-         GPosition* gposition = new GPosition();
-         gposition.pos = pos;
-         gposition.gpos = nline;
-         ListPos.Add(gposition);
          //Что бы новая позиция тут же отобразилась в таблице активных позиций
          //уведомляем родительский элемент, что необходимо сделать refresh
          EventRefresh* er = new EventRefresh(EVENT_FROM_DOWN, NameID());
@@ -601,34 +618,91 @@ class TableOpenPos : public Table
       }
       
       ///
-      /// Графическое представление позиции.
+      /// Графическое представление позиции
       ///
-      class GPosition : CObject
+      class PosLine : public Line
       {
          public:
+            PosLine(ProtoNode* parNode, Position* pos) : Line("Position", ELEMENT_TYPE_POSITION, parNode)
+            {
+               //Связываем графическое представление позиции с конкретной позицией.
+               position = pos;
+            }
             ///
-            /// Графическое представление позиции.
+            /// Возвращает позицию, чье графическое представление реализует текущий экземпляр.
             ///
-            Line* gpos;
+            Position* Position(){return position;}
             ///
-            /// Указатель на текущую позицию.
+            /// Возвращает ячейку, отображающую последнюю цену позиции.
             ///
-            Position* pos;
+            Label* CellLastPrice(){return cellLastPrice;}
+            ///
+            /// Связывает последнюю цену позиции с ячейкой, в которой она отображается.
+            ///
+            void CellLastPrice(Label* label){cellLastPrice = label;}
+         private:
+            ///
+            /// Указатель на позицию, чье графическое представление реализует текущий экземпляр.
+            ///
+            Position* position;
+            ///
+            /// Последняя цена инструмента, по которому открыта позиция.
+            ///
+            Label* cellLastPrice;
+            ///
+            /// Профит позиции.
+            ///
+            Label* cellProfit;
       };
-      
+      ///
+      /// Графическое представление трейда
+      ///
+      class DealLine : public Line
+      {
+         public:
+            DealLine(ProtoNode* parNode, Deal* EntryDeal, Deal* ExitDeal) : Line("Deal", ELEMENT_TYPE_DEAL, parNode)
+            {
+               //Связываем графическое представление трейда с конкретной позицией.
+               entryDeal = EntryDeal;
+               exitDeal = ExitDeal;
+            }
+            ///
+            /// Возвращает Указатель на трейд инициализирующий позицию.
+            ///
+            Deal* EntryDeal(){return entryDeal;}
+            ///
+            /// Возвращает указатель на трейд закрывающий позицию.
+            ///
+            Deal* ExitDeal(){return exitDeal;}
+         private:
+            ///
+            /// Указатель на трейд инициализирующий позицию, чье графическое представление реализует текущий экземпляр.
+            ///
+            Deal* entryDeal;
+            ///
+            /// Указатель на трейд закрывающий позицию, чье графическое представление реализует текущий экземпляр.
+            ///
+            Deal* exitDeal;
+      };
       ///
       /// Добавляет визуализацию сделок для позиции
       ///
       void AddDeals(EventCollapseTree* event)
       {
-         GPosition* gpos = ListPos.At(event.NLine());
-         CArrayObj* entryDeals = gpos.pos.EntryDeals();
-         CArrayObj* exitDeals = gpos.pos.ExitDeals();
+         ProtoNode* node = event.Node();
+         //Функция умеет развертывать только позиции, и с другими элеменатми работать не может.
+         if(node.TypeElement() != ELEMENT_TYPE_POSITION)return;
+         PosLine* posLine = node;
+         Position* pos = posLine.Position();
+         //Позиция содержит сделки, которые необходимо раскрыть.
+         CArrayObj* entryDeals = pos.EntryDeals();
+         CArrayObj* exitDeals = pos.ExitDeals();
          // Количество дополнительных строк будет равно максимальном
          // количеству сделок одной из сторон
          int entryTotal = entryDeals != NULL ? entryDeals.Total() : 0;
          int exitTotal = exitDeals != NULL ? exitDeals.Total() : 0;
          int total;
+         int fontSize = 9;
          if(entryTotal > 0 && entryTotal > exitTotal)
             total = entryTotal;
          else if(exitTotal > 0 && exitTotal > exitTotal)
@@ -637,14 +711,21 @@ class TableOpenPos : public Table
          //Перебираем сделки
          for(int i = 0; i < total; i++)
          {
-            Line* nline = new Line("deal", GetPointer(workArea));
+            //Текущая сделка
+            Deal* entryDeal = NULL;
+            if(entryDeals != NULL && i < entryDeals.Total())
+               entryDeal = entryDeals.At(i);
+            Deal* exitDeal = NULL;
+            if(exitDeals != NULL && i < exitDeals.Total())
+               exitDeal = exitDeals.At(i);
+            DealLine* nline = new DealLine(GetPointer(workArea), entryDeal, exitDeal);
             nline.BorderType(BORDER_FLAT);
             nline.BorderColor(BackgroundColor());
             //Перебираем колонки
-            int tColumns = gpos.gpos.ChildsTotal();
+            int tColumns = posLine.ChildsTotal();
             for(int c = 0; c < tColumns; c++)
             {
-               ProtoNode* cell = gpos.gpos.ChildElementAt(c);
+               ProtoNode* cell = posLine.ChildElementAt(c);
                //Отображение дерева позиции.
                if(cell.ShortName() == name_collapse_pos)
                {
@@ -657,8 +738,6 @@ class TableOpenPos : public Table
                   twb.BackgroundColor(cell.BackgroundColor());
                   twb.BorderColor(cell.BorderColor());
                   twb.BindingWidth(cell);
-                  //twb.OptimalWidth(ow_twb);
-                  //twb.ConstWidth(true);
                   nline.Add(twb);
                   continue;
                }
@@ -666,14 +745,13 @@ class TableOpenPos : public Table
                if(cell.ShortName() == name_magic)
                {
                   Label* magic = new Label("deal magic", nline);
+                  magic.FontSize(fontSize);
                   Label* lcell = cell;
                   magic.Edit(true);
                   magic.BindingWidth(cell);
-                  magic.Text("Magic");
-                  //magic.Text(lcell.Text());
+                  magic.Text(lcell.Text());
                   magic.BackgroundColor(cell.BackgroundColor());
                   magic.BorderColor(cell.BorderColor());
-                  //magic.BorderColor(clrBlack);
                   nline.Add(magic);
                   continue;
                }
@@ -681,36 +759,32 @@ class TableOpenPos : public Table
                if(cell.ShortName() == name_symbol)
                {
                   Label* symbol = new Label("deal symbol", nline);
+                  symbol.FontSize(fontSize);
                   Label* lcell = cell;
                   symbol.Edit(true);
                   symbol.BindingWidth(cell);
-                  symbol.Text("Symbol");
-                  //symbol.Text(lcell.Text());
+                  symbol.Text(lcell.Text());
                   symbol.BackgroundColor(cell.BackgroundColor());
                   symbol.BorderColor(cell.BorderColor());
-                  //symbol.BorderColor(clrBlack);
                   nline.Add(symbol);
                   continue;
                }
                //Идентификатор сделки.
-               if(cell.ShortName() == name_order_id)
+               if(cell.ShortName() == name_entryOrderId)
                {
                   Label* entry_id = new Label("EntryDealsID", nline);
+                  entry_id.FontSize(fontSize);
                   Label* lcell = cell;
                   entry_id.Edit(true);
                   entry_id.BindingWidth(cell);
-                  //entry_id.OptimalWidth(ow_order_id);
-                  CArrayObj* deals = gpos.pos.EntryDeals();
-                  if(deals != NULL && i < deals.Total())
+                  if(entryDeal != NULL)
                   {
-                     Deal* deal = deals.At(i);
-                     entry_id.Text((string)deal.Ticket());
+                     entry_id.Text((string)entryDeal.Ticket());
                   }
                   else
                      entry_id.Text("");
                   entry_id.BackgroundColor(cell.BackgroundColor());
                   entry_id.BorderColor(cell.BorderColor());
-                  //entry_id.BorderColor(clrBlack);
                   nline.Add(entry_id);
                   continue;
                }
@@ -718,20 +792,18 @@ class TableOpenPos : public Table
                if(cell.ShortName() == name_entry_date)
                {
                   Label* entryDate = new Label("EntryDealsTime", nline);
+                  entryDate.FontSize(fontSize);
                   entryDate.Edit(true);
-                  entryDate.OptimalWidth(ow_entry_date);
-                  CArrayObj* deals = gpos.pos.EntryDeals();
-                  if(deals != NULL && i < deals.Total())
+                  entryDate.BindingWidth(cell);
+                  if(entryDeal != NULL)
                   {
-                     Deal* deal = deals.At(i);
-                     CTime time = deal.Date();
+                     CTime time = entryDeal.Date();
                      entryDate.Text(time.TimeToString(TIME_DATE|TIME_MINUTES|TIME_SECONDS));
                   }
                   else
                      entryDate.Text("");
                   entryDate.BackgroundColor(cell.BackgroundColor());
                   entryDate.BorderColor(cell.BorderColor());
-                  //entryDate.BorderColor(clrBlack);
                   nline.Add(entryDate);
                   continue;
                }
@@ -739,13 +811,12 @@ class TableOpenPos : public Table
                if(cell.ShortName() == name_type)
                {
                   Label* entryType = new Label("EntryDealsType", nline);
+                  entryType.FontSize(fontSize);
                   entryType.Edit(true);
                   entryType.BindingWidth(cell);
-                  CArrayObj* deals = gpos.pos.EntryDeals();
-                  if(deals != NULL && i < deals.Total())
+                  if(entryDeal != NULL)
                   {
-                     Deal* deal = deals.At(i);
-                     ENUM_DEAL_TYPE type = deal.DealType();
+                     ENUM_DEAL_TYPE type = entryDeal.DealType();
                      string stype = EnumToString(type);
                      stype = StringSubstr(stype, 10);
                      StringReplace(stype, "_", " ");
@@ -755,7 +826,6 @@ class TableOpenPos : public Table
                      entryType.Text("");
                   entryType.BackgroundColor(cell.BackgroundColor());
                   entryType.BorderColor(cell.BorderColor());
-                  //entryType.BorderColor(clrBlack);
                   nline.Add(entryType);
                   continue;
                }
@@ -763,23 +833,20 @@ class TableOpenPos : public Table
                if(cell.ShortName() == name_vol)
                {
                   Label* dealVol = new Label("EntryDealsVol", nline);
+                  dealVol.FontSize(fontSize);
                   dealVol.Edit(true);
                   dealVol.BindingWidth(cell);
-                  //dealVol.OptimalWidth(ow_vol);
-                  CArrayObj* deals = gpos.pos.EntryDeals();
-                  if(deals != NULL && i < deals.Total())
+                  if(entryDeal != NULL)
                   {
-                     double step = SymbolInfoDouble(gpos.pos.Symbol(), SYMBOL_VOLUME_STEP);
+                     double step = SymbolInfoDouble(entryDeal.Symbol(), SYMBOL_VOLUME_STEP);
                      double mylog = MathLog10(step);
-                     Deal* deal = deals.At(i);
-                     string vol = mylog < 0 ? DoubleToString(deal.Volume(),(int)(mylog*(-1.0))) : DoubleToString(deal.Volume(), 0);
+                     string vol = mylog < 0 ? DoubleToString(entryDeal.Volume(),(int)(mylog*(-1.0))) : DoubleToString(entryDeal.Volume(), 0);
                      dealVol.Text(vol);
                   }
                   else
                      dealVol.Text("");
                   dealVol.BackgroundColor(cell.BackgroundColor());
                   dealVol.BorderColor(cell.BorderColor());
-                  //dealVol.BorderColor(clrBlack);
                   nline.Add(dealVol);
                   continue;
                }
@@ -787,15 +854,15 @@ class TableOpenPos : public Table
                if(cell.ShortName() == name_price)
                {
                   Label* entryPrice = new Label("DealEntryPrice", nline);
+                  entryPrice.FontSize(fontSize);
                   entryPrice.Edit(true);
                   entryPrice.BindingWidth(cell);
-                  //entryPrice.OptimalWidth(ow_price);
-                  CArrayObj* deals = gpos.pos.EntryDeals();
-                  Deal* deal = deals.At(i);
-                  entryPrice.Text((string)deal.Price());
+                  if(entryDeal != NULL)
+                     entryPrice.Text((string)entryDeal.Price());
+                  else
+                     entryPrice.Text("");
                   entryPrice.BackgroundColor(cell.BackgroundColor());
                   entryPrice.BorderColor(cell.BorderColor());
-                  //entryPrice.BorderColor(clrBlack);
                   nline.Add(entryPrice);
                   continue;
                }
@@ -803,14 +870,13 @@ class TableOpenPos : public Table
                if(cell.ShortName() == name_sl)
                {
                   Label* sl = new Label("DealStopLoss", nline);
+                  sl.FontSize(fontSize);
                   Label* lcell = cell;
                   sl.Edit(true);
                   sl.BindingWidth(cell);
-                  //sl.OptimalWidth(ow_tp);
                   sl.Text(lcell.Text());
                   sl.BackgroundColor(cell.BackgroundColor());
                   sl.BorderColor(cell.BorderColor());
-                  //sl.BorderColor(clrBlack);
                   nline.Add(sl);
                   continue;
                }
@@ -818,14 +884,13 @@ class TableOpenPos : public Table
                if(cell.ShortName() == name_tp)
                {
                   Label* tp = new Label("DealTakeProfit", nline);
+                  tp.FontSize(fontSize);
                   Label* lcell = cell;
                   tp.Edit(true);
                   tp.BindingWidth(cell);
-                  //tp.OptimalWidth(ow_tp);
                   tp.Text(lcell.Text());
                   tp.BackgroundColor(cell.BackgroundColor());
                   tp.BorderColor(cell.BorderColor());
-                  //tp.BorderColor(clrBlack);
                   nline.Add(tp);
                   continue;
                }
@@ -833,31 +898,28 @@ class TableOpenPos : public Table
                if(cell.ShortName() == name_tralSl)
                {
                   Label* tral = new Label("DealTralSL", nline);
+                  tral.FontSize(fontSize);
                   tral.Edit(true);
                   tral.BindingWidth(cell);
                   tral.Text("T");
+                  tral.Align(ALIGN_RIGHT);
                   tral.BackgroundColor(cell.BackgroundColor());
                   tral.BorderColor(cell.BorderColor());
-                  //tral.BorderColor(clrBlack);
-                  int count = nline.ChildsTotal();
                   nline.Add(tral);
-                  int count1 = nline.ChildsTotal();
-                  int kk = 8;
                   continue;
                }
                //Последняя цена
                if(cell.ShortName() == name_currprice)
                {
                   Label* cprice = new Label("DealLastPrice", nline);
+                  cprice.FontSize(fontSize);
                   cprice.BindingWidth(cell);
-                  //cprice.OptimalWidth(ow_currprice);
-                  int digits = (int)SymbolInfoInteger(gpos.pos.Symbol(), SYMBOL_DIGITS);
-                  string price = DoubleToString(gpos.pos.CurrentPrice(), digits);
-                  cprice.Text("lprice");
-                  //cprice.Text(price);
+                  Label* lprice = cell;
+                  int digits = (int)SymbolInfoInteger(pos.Symbol(), SYMBOL_DIGITS);
+                  string price = DoubleToString(pos.CurrentPrice(), digits);
+                  cprice.Text(lprice.Text());
                   cprice.BackgroundColor(cell.BackgroundColor());
                   cprice.BorderColor(cell.BorderColor());
-                  //cprice.BorderColor(clrBlack);
                   nline.Add(cprice);
                   continue;
                }
@@ -865,19 +927,21 @@ class TableOpenPos : public Table
                if(cell.ShortName() == name_profit)
                {
                   Label* profit = new Label("DealProfit", nline);
+                  profit.FontSize(fontSize);
                   profit.BindingWidth(cell);
-                  
-                  //profit.OptimalWidth(ow_profit);
-                  profit.Edit(true);
-                  profit.Text("Profit");
+                  profit.Edit(true);   
+                  if(entryDeal != NULL)
+                     profit.Text((string)entryDeal.ProfitAsString());
+                  else
+                     profit.Text("");
                   //Данная ячека комбинированная, и содержит другие элементы,
                   //чьи свойства мы и будем использовать.
                   int ch_total = cell.ChildsTotal();
                   bool setManual = true;
                   for(int ch = 0; ch < ch_total; ch++)
                   {
-                     ProtoNode* node = cell.ChildElementAt(ch);
-                     ENUM_ELEMENT_TYPE type = node.TypeElement();
+                     ProtoNode* pnode = cell.ChildElementAt(ch);
+                     ENUM_ELEMENT_TYPE type = pnode.TypeElement();
                      if(type == ELEMENT_TYPE_LABEL)
                      {
                         profit.BackgroundColor(node.BackgroundColor());
@@ -891,7 +955,6 @@ class TableOpenPos : public Table
                      profit.BackgroundColor(clrWhite);
                      profit.BorderColor(clrWhite);
                   }
-                  //profit.BorderColor(clrBlack);
                   nline.Add(profit);
                   continue;
                }
@@ -899,29 +962,52 @@ class TableOpenPos : public Table
                if(cell.ShortName() == name_comment)
                {
                   Label* comment = new Label("DealComment", nline);
+                  comment.FontSize(fontSize);
                   comment.BindingWidth(cell);
-                  //comment.OptimalWidth(ow_profit);
                   comment.Edit(true);
                   comment.Text("");
                   comment.BackgroundColor(cell.BackgroundColor());
                   comment.BorderColor(cell.BorderColor());
-                  //comment.BorderColor(clrBlack);
                   nline.Add(comment);
                   continue;
                }
                
             }
-            //int m_total = nline.ChildsTotal();
-            //for(int el = 0; el < m_total; el++)
-            //{
-            //   ;
-            //}
-            //int n = event.NLine();
+            int m_total = nline.ChildsTotal();
+            for(int el = 0; el < m_total; el++)
+            {
+               Label* label = nline.ChildElementAt(el);
+               label.Font("Courier New");
+            }
+            int n = event.NLine();
             workArea.Add(nline, event.NLine()+1);
          }
       }
-      
-      CArrayObj* ListPos;
+      ///
+      /// Удаляет визуализацию трейдов позиции
+      ///
+      void DeleteDeals(EventCollapseTree* event)
+      {
+         //Имеем дело с визуализированной позицией?
+         ProtoNode* node = event.Node();
+         if(node.TypeElement() != ELEMENT_TYPE_POSITION)return;
+         int sn_line = node.NLine();
+         for(int i = sn_line+1; i < workArea.ChildsTotal(); i++)
+         {
+            ProtoNode* cnode = workArea.ChildElementAt(i);
+            if(cnode.TypeElement() != ELEMENT_TYPE_DEAL)break;
+            EventVisible* vis = new EventVisible(EVENT_FROM_UP, NameID(), false);
+            cnode.Event(vis);
+            workArea.DeleteElement(i);
+            i--;
+         }
+         int total = workArea.ChildsTotal();
+         for(int i = sn_line+1; i < total; i++)
+         {
+            workArea.RefreshLine(i);
+         }
+      }
+      //CArrayObj* ListPos;
       /*Рекомендованные размеры*/
       long ow_twb;
       long ow_magic;
@@ -940,7 +1026,7 @@ class TableOpenPos : public Table
       string name_collapse_pos;
       string name_magic;
       string name_symbol;
-      string name_order_id;
+      string name_entryOrderId;
       string name_entry_date;
       string name_type;
       string name_vol;
