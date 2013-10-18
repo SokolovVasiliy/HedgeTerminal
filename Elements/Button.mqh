@@ -1,3 +1,4 @@
+#include "TextNode.mqh"
 ///
 /// Состояние кнопки
 ///
@@ -69,8 +70,37 @@ class Button : public TextNode
 class ButtonClosePos : public Button
 {
    public:
-      ButtonClosePos(string myName, ProtoNode* parNode) : Button(myName, parNode){;}
+      ButtonClosePos(string myName, ProtoNode* parNode) : Button(myName, parNode)
+      {
+         FontColor(clrDimGray);
+      }
    protected:
+      virtual void OnEvent(Event* event)
+      {
+         switch(event.EventId())
+         {
+            case EVENT_MOUSE_MOVE:
+               OnMouseMove(event);
+            default:
+               EventSend(event);
+               break;
+         }
+      }
+      void OnMouseMove(EventMouseMove* event)
+      {
+         bool res = true;
+         long x = event.XCoord();
+         long xAbs = XAbsDistance();
+         if(x > xAbs + Width() || x < xAbs)res = false;
+         long y = event.YCoord();
+         long yAbs = YAbsDistance();
+         if(y > yAbs + High() || y < yAbs)res = false;
+         if(res)
+            FontColor(clrBlack);
+         else
+            FontColor(clrDimGray);
+         
+      }
       virtual void OnPush()
       {
          //bool state = ObjectGetInteger(MAIN_WINDOW, NameID(), OBJPROP_STATE);

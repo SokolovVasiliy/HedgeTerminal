@@ -16,7 +16,7 @@
 class Table : public ProtoNode
 {
    public:
-      Table(string myName, ProtoNode* parNode):ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_UCONTAINER, myName, parNode)
+      Table(string myName, ProtoNode* parNode):ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_TABLE, myName, parNode)
       {
          
          highLine = 20;
@@ -25,10 +25,21 @@ class Table : public ProtoNode
          workArea.Edit(true);
          workArea.Text("");
          workArea.BorderColor(BackgroundColor());
+         
          scroll = new Scroll("Scroll", GetPointer(this));
+         scroll.BorderType(BORDER_FLAT);
+         scroll.BorderColor(clrBlack);
+         
          childNodes.Add(lineHeader);
          childNodes.Add(workArea);
          childNodes.Add(scroll);
+      }
+      ///
+      /// Возвращает общую высоту всех линий в таблице.
+      ///
+      long HighLines()
+      {
+         return workArea.HighLines();
       }
    protected:
       class CWorkArea : public Label
@@ -88,6 +99,13 @@ class Table : public ProtoNode
                   delete command;
                }
                InterlacingColor(node);
+            }
+            ///
+            /// Возвращает общую высоту всех линий в таблице.
+            ///
+            long HighLines()
+            {
+               return childNodes.Total()*20;
             }
          private:
             virtual void OnCommand(EventNodeCommand* event)
@@ -998,6 +1016,7 @@ class TableOpenPos : public Table
             if(cnode.TypeElement() != ELEMENT_TYPE_DEAL)break;
             EventVisible* vis = new EventVisible(EVENT_FROM_UP, NameID(), false);
             cnode.Event(vis);
+            delete vis;
             workArea.DeleteElement(i);
             i--;
          }

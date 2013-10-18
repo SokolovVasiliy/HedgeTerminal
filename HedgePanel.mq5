@@ -32,14 +32,15 @@ void OnInit(void)
    EventExchange::Add(HedgePanel);
    EventExchange::Add(api);
    api.Init();
-   long X = ChartGetInteger(MAIN_WINDOW, CHART_WIDTH_IN_PIXELS, MAIN_SUBWINDOW);
-   long Y = ChartGetInteger(MAIN_WINDOW, CHART_HEIGHT_IN_PIXELS, MAIN_SUBWINDOW);
-   EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, "TERMINAL WINDOW", true, 0, 0, X, Y);
-   HedgePanel.Event(command);   
-   delete command;
+   EventRedraw* redraw = new EventRedraw(EVENT_FROM_UP, "TERMINAL WINDOW");
+   HedgePanel.Event(redraw);   
+   delete redraw;
+   ChartSetInteger(0, CHART_EVENT_MOUSE_MOVE, true);
 }
 void OnDeinit(const int reason)
 {
+   int size = sizeof(HedgePanel);
+   printf("HedgePanelSize: " + (string)size);
    EventDeinit* ed = new EventDeinit();
    HedgePanel.Event(ed);
    api.Event(ed);
@@ -66,6 +67,15 @@ void OnChartEvent(const int id,
                   const double &dparam,
                   const string &sparam)
 {
+   //Координаты мыши или комбинация нажатых кнопок мыши изменились.
+   if(id == CHARTEVENT_MOUSE_MOVE)
+   {
+      int mask = (int)StringToInteger(sparam);
+      EventMouseMove* move = new EventMouseMove(lparam, (long)dparam, mask);
+      HedgePanel.Event(move);
+      delete move;
+      ChartRedraw(MAIN_WINDOW);
+   }
    //Размеры базового окна изменились.
    if(id == CHARTEVENT_CHART_CHANGE)
    {

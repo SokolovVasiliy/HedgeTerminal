@@ -125,7 +125,7 @@ class TreeViewBoxBorder : public Label
          {
             brdGeneral = new BorderGeneral(GetPointer(this));
             childNodes.Add(brdGeneral);
-            Text("");
+            Text(CharToString(5));
          }
          else if(treeType == BOX_TREE_SLAVE)
             Text(CharToString(5));

@@ -68,7 +68,11 @@ enum ENUM_ELEMENT_TYPE
    ///
    /// Строковое представление сделки.
    ///
-   ELEMENT_TYPE_DEAL
+   ELEMENT_TYPE_DEAL,
+   ///
+   /// Элмент графического интерфейса ползунок скрола.
+   ///
+   ELEMENT_TYPE_TODDLER
 };
 
 
@@ -101,6 +105,9 @@ class ProtoNode : public CObject
                //Нажатие на объект
                case EVENT_PUSH:
                   Push(event);
+                  break;
+               case EVENT_REDRAW:
+                  Redraw(event);
                   break;
                case EVENT_DEINIT:
                   OnDeinit(event);
@@ -501,6 +508,11 @@ class ProtoNode : public CObject
       /// при нажатии на свой объект.
       ///
       virtual void OnPush(){;}
+      ///
+      /// По умолчанию обновляем все элементы рекурсивно.
+      ///
+      virtual void OnRedraw(EventRedraw* event){EventSend(event);}
+      
       void Resize(EventResize* event)
       {
          Resize(event.NewWidth(), event.NewHigh());
@@ -800,6 +812,15 @@ class ProtoNode : public CObject
          }
          else
             EventSend(push);
+      }
+      void Redraw(EventRedraw* event)
+      {
+         //Команда актуальна только для видимых элементов
+         if(Visible())
+         {
+            ChartRedraw(MAIN_WINDOW);
+            OnRedraw(event);
+         }
       }
       ///
       /// Указатель на родительский графический узел.

@@ -113,7 +113,15 @@ enum ENUM_EVENT
    ///
    /// Идентификатор события "дерево Раскрыто/Закрыто".
    ///
-   EVENT_COLLAPSE_TREE
+   EVENT_COLLAPSE_TREE,
+   ///
+   /// Идентификатор команды обновить графический узел.
+   ///
+   EVENT_REDRAW,
+   ///
+   /// Идентификатор события "положение мыши изменено".
+   ///
+   EVENT_MOUSE_MOVE
 };
 
 
@@ -482,5 +490,95 @@ class EventCollapseTree : public Event
       /// Графический объект.
       ///
       ProtoNode* pNode;
+};
+///
+/// Команда на обновление графического узла функцией ChartRedraw();
+///
+class EventRedraw : public Event
+{
+   public:
+      EventRedraw(ENUM_EVENT_DIRECTION myDir, string nameNode) : Event(myDir, EVENT_REDRAW, nameNode){;}
+      virtual Event* Clone(){return new EventRedraw(Direction(), NameNodeId());}
+};
+
+///
+/// Событие "положение мыши изменено".
+///
+class EventMouseMove : public Event
+{
+   public:
+      ///
+      /// Создание события "положение мыши изменено".
+      /// \param xCoord - X координата положения мыши.
+      /// \param yCoord - Y координата положения мыши.
+      /// \param mask - Маска, указывающая комбинацию нажатых кнопок.
+      ///
+      EventMouseMove(long XCoord, long YCoord, int Mask) : Event(EVENT_FROM_UP, EVENT_MOUSE_MOVE, "TERMINAL WINDOW")
+      {
+         xCoord = XCoord;
+         yCoord = YCoord;
+         mask = Mask;
+      }
+      virtual Event* Clone(){return new EventMouseMove(xCoord, yCoord, mask);}
+      ///
+      /// Истина, если нажата правая кнопка мыши.
+      ///
+      bool PushedRightButton()
+      {
+         bool res = (MOUSE_RIGT_BUTTON_PUSH & mask) ==
+              MOUSE_RIGT_BUTTON_PUSH;
+         return res;
+      }
+      ///
+      /// Истина, если нажата левая кнопка мыши.
+      ///
+      bool PushedLeftButton()
+      {
+         bool res = (MOUSE_LEFT_BUTTON_PUSH & mask) ==
+              MOUSE_LEFT_BUTTON_PUSH;
+         return res;
+      }
+      ///
+      /// Истина, если нажата центральная кнопка мыши.
+      ///
+      bool PushedCentralButton()
+      {
+         bool res = (MOUSE_CENTER_BUTTON_PUSH & mask) ==
+              MOUSE_CENTER_BUTTON_PUSH;
+         return res;
+      }
+      ///
+      /// Истина, если не нажата ни одна из кнопок мыши.
+      ///
+      bool PushedNothing()
+      {
+         if(mask == 0)return true;
+         return false;
+      }
+      ///
+      /// Возвращает комбинацию нажатых клавиш мыши в виде маски.
+      ///
+      int Mask(){return mask;}
+      ///
+      /// Возвращает X координату положения мыши.
+      ///
+      long XCoord(){return xCoord;}
+      ///
+      /// Возвращает Y координату положения мыши.
+      ///
+      long YCoord(){return yCoord;}
+   private:
+      ///
+      /// X координата положение мыши.
+      ///
+      long xCoord;
+      ///
+      /// Y координата положение мыши.
+      ///
+      long yCoord;
+      ///
+      /// Маска, содержащая комбинацию нажатых кнопок мыши.
+      ///
+      int mask;
 };
 
