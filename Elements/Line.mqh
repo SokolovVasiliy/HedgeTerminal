@@ -89,6 +89,25 @@ class Line : public ProtoNode
       }
       
    private:
+      virtual void OnVisible(EventVisible* event)
+      {
+         if(parentNode != NULL && parentNode.TypeElement() ==
+            ELEMENT_TYPE_WORK_AREA)
+         {
+            //Не забываем удалить/восстановить дочерние элементы
+            EventSend(event);
+            // Теперь даем сигнал родительскому элементу, что текущая линия поменяла
+            // свой статус видимости.
+            EventVisible* vis = new EventVisible(EVENT_FROM_DOWN, event.Node(), event.Visible());
+            parentNode.Event(vis);
+            delete vis;
+            //if(event.Visible())
+            //   printf(ShortName() + " ON.");
+            //else printf(ShortName() + " OFF.");
+         }
+         else
+            EventSend(event);
+      }
       ///
       /// Положение и размер контейнера изменились.
       ///
@@ -107,6 +126,7 @@ class Line : public ProtoNode
                break;
          }
       }
+      
       ///
       /// Алгоритм масштабирования на основе рекомендованной ширины/высоты элемента.
       ///

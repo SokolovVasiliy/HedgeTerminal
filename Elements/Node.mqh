@@ -72,7 +72,11 @@ enum ENUM_ELEMENT_TYPE
    ///
    /// Элмент графического интерфейса ползунок скрола.
    ///
-   ELEMENT_TYPE_TODDLER
+   ELEMENT_TYPE_TODDLER,
+   ///
+   /// Элемент графического интерфейса тело таблицы.
+   ///
+   ELEMENT_TYPE_WORK_AREA
 };
 
 
@@ -113,7 +117,7 @@ class ProtoNode : public CObject
                   OnDeinit(event);
                   Deinit(event);
                   break;
-               //Все события о которых мы не знаем - делегируем потомкам.
+               //Все события о которых мы не знаем - делигируем потомкам.
                default:
                   OnEvent(event);
             }
@@ -243,19 +247,19 @@ class ProtoNode : public CObject
       ///
       /// Вставляет графический узел на позицию pos в списке графических элементов
       ///
-      void InsertElement(ProtoNode* node, int pos)
+      /*void InsertElement(ProtoNode* node, int pos)
       {         
          //node
          childNodes.Insert(node, pos);
-      }
+      }*/
       ///
       /// Удаляет графический элемент из списка элементов, находящийся 
       /// на позиции index.
       ///
-      void DeleteElement(int index)
+      /*void DeleteElement(int index)
       {
          childNodes.Delete(index);
-      }
+      }*/
       ///
       /// Возвращает статус видимости графического узла.
       /// \return Истина, если графический узел отображается в окне терминала,
@@ -643,19 +647,20 @@ class ProtoNode : public CObject
                Move(xDist, yDist, COOR_GLOBAL);
                Resize(width, high);
                //
-               EventVisible* ev = new EventVisible(EVENT_FROM_UP, NameID(), visible);
+               EventVisible* ev = new EventVisible(EVENT_FROM_UP, GetPointer(this), visible);
+               //printf(ShortName() + " ON.");
                OnVisible(ev);
                delete ev;
-               //ChartRedraw();
             }
          }
          // Выключаем визуализацию.
          if(Visible() && !status)
          {
+            //printf(ShortName() + " OFF.");
             visible = !ObjectDelete(MAIN_WINDOW, nameId);
             //Уведомляем дочерние элементы.
-            EventVisible* ev = new EventVisible(EVENT_FROM_UP, NameID(), visible);
-            EventSend(ev);
+            EventVisible* ev = new EventVisible(EVENT_FROM_UP, GetPointer(this), visible);
+            OnVisible(ev);
             delete ev;
          }
          return visible;

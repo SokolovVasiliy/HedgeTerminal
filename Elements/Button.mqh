@@ -61,7 +61,7 @@ class Button : public TextNode
       {
          bool vis = event.Visible();
          Visible(vis);
-         EventVisible* ev = new EventVisible(EVENT_FROM_UP, NameID(), Visible());
+         EventVisible* ev = new EventVisible(EVENT_FROM_UP, GetPointer(this), Visible());
          EventSend(ev);
          delete ev;
       }

@@ -146,6 +146,12 @@ class Event
       ///
       string NameNodeId(){return nameNodeId;}
       ///
+      /// Возвращает указатель на узел, сгенерировавший событие. Событие может не иметь
+      /// сгенерировавшего его узла (например все системыне события OnChartEvent), или
+      /// узел может не дать ссылку на себя. В этом случае, метод вернет значение NULL.
+      ///
+      ProtoNode* Node(){return node;}
+      ///
       /// Создает точную копию события и возвращает ссылку для него.
       ///
       virtual Event* Clone()
@@ -171,14 +177,41 @@ class Event
          nameNodeId = nameNode;
          tickCount = GetTickCount();
       }
+      ///
+      /// Создает новое событие, с указателем на узел, который его сгенерировал.
+      /// \param myDirection - направление, по которому распространяется событие.
+      /// \param myEventId - идентификатор события.
+      /// \param myNode - значимый указатель на узел, сгенерировавший событие.
+      ///
+      Event(ENUM_EVENT_DIRECTION myDirection, ENUM_EVENT myEventId, ProtoNode* myNode)
+      {
+         eventDirection = myDirection;
+         eventId = myEventId;
+         nameNodeId = myNode.NameID();
+         node = myNode;
+         tickCount = GetTickCount();
+      }
    private:
+      ///
+      /// Направление события.
+      ///
       ENUM_EVENT_DIRECTION eventDirection;
+      ///
+      /// Идентификатор события.
+      ///
       ENUM_EVENT eventId;
+      ///
+      /// Имя узла, сгенерировавшее событие.
+      ///
       string nameNodeId;
       ///
       /// Количество милисекунд, прошедщих с момента запуска терминала до создания события.
       ///
       uint tickCount;
+      ///
+      /// Указатель на экземпляр узла, сгенерировавший событие.
+      ///
+      ProtoNode* node;
 };
 
 
@@ -186,18 +219,23 @@ class Event
 ///
 /// Событие EVENT_NODE_VISIBLE
 ///
-class EventVisible : Event
+class EventVisible : public Event
 {
    public:
       bool Visible(){return isVisible;}
-      EventVisible(ENUM_EVENT_DIRECTION myeventDirection, string mynameId, bool visible) :
+      /*EventVisible(ENUM_EVENT_DIRECTION myeventDirection, string mynameId, bool visible) :
       Event(myeventDirection, EVENT_NODE_VISIBLE, mynameId)
+      {
+         isVisible = visible;
+      }*/
+      EventVisible(ENUM_EVENT_DIRECTION myeventDirection, ProtoNode* myNode, bool visible) :
+      Event(myeventDirection, EVENT_NODE_VISIBLE, myNode)
       {
          isVisible = visible;
       }
       virtual Event* Clone()
       {
-         return new EventVisible(Direction(), NameNodeId(), isVisible);
+         return new EventVisible(Direction(), Node(), isVisible);
       }
    private:
       bool isVisible;
@@ -454,16 +492,11 @@ class EventDelPos : public Event
 class EventCollapseTree : public Event
 {
    public:
-      EventCollapseTree(ENUM_EVENT_DIRECTION myDir, ProtoNode* node, bool isCollapse) : Event(EVENT_FROM_DOWN, EVENT_COLLAPSE_TREE, node.NameID())
+      EventCollapseTree(ENUM_EVENT_DIRECTION myDir, ProtoNode* myNode, bool isCollapse) : Event(EVENT_FROM_DOWN, EVENT_COLLAPSE_TREE, myNode)
       {
-         n_line = node.NLine();
+         n_line = myNode.NLine();
          status = isCollapse;
-         pNode = node;
       }
-      ///
-      /// Возвращает узел, по которому счелкнули.
-      ///
-      ProtoNode* Node(){return pNode;}
       ///
       /// Возвращает состояние списка.
       /// \return Истина, если список закрыт и ложь в противном случае.
@@ -475,7 +508,7 @@ class EventCollapseTree : public Event
       int NLine(){return n_line;}
       virtual Event* Clone()
       {
-         return new EventCollapseTree(Direction(), pNode, status);
+         return new EventCollapseTree(Direction(), Node(), status);
       } 
    private:
       ///
@@ -486,10 +519,6 @@ class EventCollapseTree : public Event
       /// Номер строки в списке дочерних элементов, которая была свернута/развернута
       ///
       int n_line;
-      ///
-      /// Графический объект.
-      ///
-      ProtoNode* pNode;
 };
 ///
 /// Команда на обновление графического узла функцией ChartRedraw();

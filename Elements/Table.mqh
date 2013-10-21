@@ -45,7 +45,7 @@ class Table : public ProtoNode
       class CWorkArea : public Label
       {
          public:
-            CWorkArea(ProtoNode* parNode) : Label("WorkArea", parNode)
+            CWorkArea(ProtoNode* parNode) : Label(ELEMENT_TYPE_WORK_AREA, "WorkArea", parNode)
             {
                highLine = 20;
                Text("");
@@ -65,24 +65,60 @@ class Table : public ProtoNode
             void Add(ProtoNode* lineNode, int pos)
             {
                //lineNode.NLine(pos);
-               InsertElement(lineNode, pos);
+               childNodes.Insert(lineNode, pos);
                //после вставки элемента, все последующие элементы изменили свои координаты.
                int total = ChildsTotal();
                for(int i = pos; i < total; i++)
-               {
                   RefreshLine(i);
+            }
+            ///
+            /// Удаляет строку по индексу index из таблицы строк.
+            ///
+            void Delete(int index)
+            {
+               ProtoNode* line = ChildElementAt(index);
+               EventVisible* vis = new EventVisible(EVENT_FROM_UP, GetPointer(this), false);
+               line.Event(vis);
+               delete vis;
+               childNodes.Delete(index);
+               //Все последующие элементы изменили свое положение
+               for(int i = index; i < ChildsTotal(); i++)
+                  RefreshLine(i);
+            }
+            ///
+            /// Удаляет диапазон строк из таблицы строк.
+            /// \param index - индекс первой удаляемой строки.
+            /// \param count - количество строк, которое надо удалить.
+            ///
+            void DeleteRange(int index, int count)
+            {
+               int total = index + count > ChildsTotal() ? ChildsTotal() : index + count;
+               for(int i = index; i < total; i++)
+               {
+                  ProtoNode* line = ChildElementAt(index);
+                  EventVisible* vis = new EventVisible(EVENT_FROM_UP, GetPointer(this), false);
+                  line.Event(vis);
+                  delete vis;
+                  childNodes.Delete(index);
                }
+               //Все последующие элементы изменили свое положение
+               for(int i = index; i < ChildsTotal(); i++)
+                  RefreshLine(i);
             }
             ///
             /// Обновляет координаты и размер линии по индексу index
             ///
             void RefreshLine(int index)
             {
+               //Всего видимых элементов.
+               static int vistotal;
                int total = ChildsTotal();
                if(index < 0 || index >= total)return;
                //Получаем линию под номером index.
                ProtoNode* node = ChildElementAt(index);
                node.NLine(index);
+               //Запоминаем видимость элемента
+               bool vis = node.Visible();
                if(index == 0)
                {
                   EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 0, 0, Width(), highLine);
@@ -99,6 +135,24 @@ class Table : public ProtoNode
                   delete command;
                }
                InterlacingColor(node);
+               /*int dbg = 3;
+               if(ChildsTotal()-1 == index)
+               {
+                  dbg = 4;
+                  if(!node.Visible())
+                     dbg = 6;
+               }
+               //Если видимость элемента изменилась
+               if(vis != node.Visible() && node.Visible())
+               {
+                  vistotal++;
+                  printf("Вставлен элемент № " + node.NLine() + ". Всего элементов: " + vistotal);
+               }
+               else if(vis != node.Visible() && !node.Visible())
+               {
+                  vistotal--;
+                  printf("Удален элемент № " + node.NLine() + ". Всего элементов: " + vistotal);
+               }*/
             }
             ///
             /// Возвращает общую высоту всех линий в таблице.
@@ -108,6 +162,43 @@ class Table : public ProtoNode
                return childNodes.Total()*20;
             }
          private:
+            virtual void OnEvent(Event* event)
+            {
+               //Видимость одной из строк таблицы изменилась?
+               if(event.Direction() == EVENT_FROM_DOWN && event.EventId() == EVENT_NODE_VISIBLE)
+               {
+                  EventVisible* vis = event;
+                  ProtoNode* node = vis.Node();
+                  if(vis.Visible())
+                  {
+                     
+                     printf("Элементов: " + ++visibleCount);
+                     
+                  }
+                  else
+                  {
+                     //Если удаляется первый видимый элемент, его место занимает следущий
+                     if(node.NLine() == firstVisible)
+                     {
+                        firstVisible = -1;
+                        for(int i = node.NLine(); i < ChildsTotal(); i++)
+                        {
+                           ProtoNode* mnode = ChildElementAt(i);
+                           if(mnode.Visible())
+                           {
+                              firstVisible = mnode.NLine();
+                              break;
+                           }
+                        }
+                     }
+                     printf("Элементов: " + --visibleCount);
+                  }
+                  //firstVisible = node
+               }
+               else
+                  EventSend(event);
+            }
+            
             virtual void OnCommand(EventNodeCommand* event)
             {
                //Команды снизу не принимаются.
@@ -152,6 +243,15 @@ class Table : public ProtoNode
                }
             }
             int highLine;
+            ///
+            /// Количество видимых строк, которые в данный момент отображаются
+            /// в таблице.
+            ///
+            int visibleCount;
+            ///
+            /// Индекс первого видимого элемента.
+            ///
+            int fistVisible;
       };
       ///
       /// Заголовок таблицы.
@@ -1010,22 +1110,29 @@ class TableOpenPos : public Table
          ProtoNode* node = event.Node();
          if(node.TypeElement() != ELEMENT_TYPE_POSITION)return;
          int sn_line = node.NLine();
+         // Визуализация трейдов идет вслед за самой позицией.
+         int count = 0;
          for(int i = sn_line+1; i < workArea.ChildsTotal(); i++)
          {
             ProtoNode* cnode = workArea.ChildElementAt(i);
             if(cnode.TypeElement() != ELEMENT_TYPE_DEAL)break;
-            EventVisible* vis = new EventVisible(EVENT_FROM_UP, NameID(), false);
-            cnode.Event(vis);
-            delete vis;
-            workArea.DeleteElement(i);
-            i--;
+            count++;
          }
-         int total = workArea.ChildsTotal();
-         for(int i = sn_line+1; i < total; i++)
-         {
-            workArea.RefreshLine(i);
-         }
+         workArea.DeleteRange(sn_line+1, count);
       }
+      /*virtual void OnVisible(EventVisible* event)
+      {
+         ProtoNode* node = event.Node();
+         string el = "Элемент #" + node.NLine();
+         string stype = "";
+         if(event.Visible())
+            stype = " вставлен в список.";
+         else
+            stype = " удален из списка.";
+         el += stype;
+         printf(el); 
+         EventSend(event);
+      }*/
       //CArrayObj* ListPos;
       /*Рекомендованные размеры*/
       long ow_twb;

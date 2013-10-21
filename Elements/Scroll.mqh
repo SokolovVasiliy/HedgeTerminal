@@ -13,6 +13,7 @@ class Toddler : public Label
          Edit(true);
          labToddle = new Label("btnToddle", GetPointer(this));
          labToddle.Text("");
+         childNodes.Add(labToddle);
          table = tbl;  
       }
       
@@ -33,25 +34,33 @@ class Toddler : public Label
          if(table == NULL)return;
          //Определяем размер ползунка.
          long highArea = parentNode.High();
+         //Получаем совокупную высоту всех линий.
          long totalHigh = table.HighLines();
          long high = High();
          //Скрываем ползунок, если ширина рабочей области больше суммарной
-         //высоту всех строк таблицы.
-         if(totalHigh < highArea)
+         //высоты всех строк таблицы.
+         if(totalHigh < high + 20)
          {
-            EventVisible* vis = new EventVisible(EVENT_FROM_UP, NameID(), false);
+            EventVisible* vis = new EventVisible(EVENT_FROM_UP, GetPointer(this), false);
             labToddle.Event(vis);
+            delete vis;
+         }
+         // В противном случае размер ползунка - это размер отношения видимых пользователю
+         // строк к общей высоте всех строк.
+         else
+         {
+            
          }
          //В противном случае определяем положение ползунка и мастштабируем его
          //ширину, в зависимости от велечины скрытого пространства.
-         else if(totalHigh - high < high)
+         /*else if(totalHigh - high < high)
          {
             //Рассчитываем высоту ползунка
             long highToddle = high - (totalHigh - high);
             EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 1, 1, Width()-2, highToddle);
             labToddle.Event(command);
             delete command;
-         }
+         }*/
       }
       ///
       /// Перемещает позунок в след за мышью.
