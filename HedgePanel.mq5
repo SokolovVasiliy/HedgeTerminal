@@ -74,7 +74,6 @@ void OnChartEvent(const int id,
       EventMouseMove* move = new EventMouseMove(lparam, (long)dparam, mask);
       HedgePanel.Event(move);
       delete move;
-      ChartRedraw(MAIN_WINDOW);
    }
    //Размеры базового окна изменились.
    if(id == CHARTEVENT_CHART_CHANGE)
@@ -109,5 +108,6 @@ void OnChartEvent(const int id,
       HedgePanel.Event(pushObj);
       delete pushObj;
    }
+   ChartRedraw(MAIN_WINDOW);
 }
 

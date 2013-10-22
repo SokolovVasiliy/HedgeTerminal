@@ -37,9 +37,51 @@ class Table : public ProtoNode
       ///
       /// Возвращает общую высоту всех линий в таблице.
       ///
-      long HighLines()
+      long LinesHighTotal()
       {
-         return workArea.HighLines();
+         return workArea.LinesHighTotal();
+      }
+      ///
+      /// Возвращает общую высоту всех видимых линий в таблице.
+      ///
+      long LinesHighVisible()
+      {
+         return workArea.LinesHighVisible();
+      }
+      ///
+      /// Возвращает общее количество всех строк в таблице, в т.ч. за
+      /// находящимися за пределами окна.
+      ///
+      int LinesTotal()
+      {
+         return workArea.ChildsTotal();
+      }
+      
+      ///
+      /// Возвращает количество строк, отображаемых в текущий момент в
+      /// окне таблице.
+      ///
+      int LinesVisible()
+      {
+         if(workArea != NULL)
+            return workArea.LinesVisible();
+         return 0;
+      }
+      ///
+      /// Возвращает индекс первой видимой строки.
+      ///
+      int LineVisibleFirst()
+      {
+         if(workArea != NULL)
+            return workArea.LineVisibleFirst();
+         return -1;
+      }
+      ///
+      /// Задает индекс первой видимой строки.
+      ///
+      void LineVisibleFirst(int index)
+      {
+         workArea.LineVisibleFirst(index);
       }
    protected:
       class CWorkArea : public Label
@@ -111,7 +153,6 @@ class Table : public ProtoNode
             void RefreshLine(int index)
             {
                //Всего видимых элементов.
-               static int vistotal;
                int total = ChildsTotal();
                if(index < 0 || index >= total)return;
                //Получаем линию под номером index.
@@ -119,7 +160,7 @@ class Table : public ProtoNode
                node.NLine(index);
                //Запоминаем видимость элемента
                bool vis = node.Visible();
-               if(index == 0)
+               if(index == visibleFirst)
                {
                   EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 0, 0, Width(), highLine);
                   node.Event(command);
@@ -135,31 +176,74 @@ class Table : public ProtoNode
                   delete command;
                }
                InterlacingColor(node);
-               /*int dbg = 3;
-               if(ChildsTotal()-1 == index)
-               {
-                  dbg = 4;
-                  if(!node.Visible())
-                     dbg = 6;
-               }
-               //Если видимость элемента изменилась
-               if(vis != node.Visible() && node.Visible())
-               {
-                  vistotal++;
-                  printf("Вставлен элемент № " + node.NLine() + ". Всего элементов: " + vistotal);
-               }
-               else if(vis != node.Visible() && !node.Visible())
-               {
-                  vistotal--;
-                  printf("Удален элемент № " + node.NLine() + ". Всего элементов: " + vistotal);
-               }*/
             }
             ///
             /// Возвращает общую высоту всех линий в таблице.
             ///
-            long HighLines()
+            long LinesHighTotal()
             {
                return childNodes.Total()*20;
+            }
+            ///
+            /// Возвращает общую высоту всех видимых линий в таблице.
+            ///
+            long LinesHighVisible()
+            {
+               return LinesVisible()*20;
+            }
+            ///
+            /// Возвращает индекс первой видимой строки.
+            ///
+            int LineVisibleFirst(){return visibleFirst;}
+            ///
+            /// Возвращает количество видимых строк в таблице.
+            ///
+            int LinesVisible(){return visibleCount;}
+            ///
+            /// Устанавливает первую линию, которую требуется отобразить.
+            ///
+            void LineVisibleFirst(int index)
+            {
+               if(index < 0 || LineVisibleFirst() == index) return;
+               //Ползунок перемещен вниз - скрываем верхние строки.
+               if(index > visibleFirst)
+               {
+                  int total = childNodes.Total();
+                  int i = visibleFirst;
+                  //Скрываем верхние элементы.
+                  for(; i < index; i++)
+                  {
+                     ProtoNode* node = childNodes.At(i);
+                     EventVisible* vis = new EventVisible(EVENT_FROM_UP, GetPointer(this), false);
+                     node.Event(vis);
+                     delete vis;
+                  }
+                  //Передвигаем нижние.
+                  visibleFirst = index;
+                  for(; i < total; i++)
+                     RefreshLine(i);
+               }
+               //Ползунок перемещен вверх
+               if(index < visibleFirst)
+               {
+                  visibleFirst = index;
+                  int total = childNodes.Total();
+                  //Показываем верхние элементы
+                  for(int i = index; i < visibleFirst; i++)
+                  {
+                     RefreshLine(i);
+                  }
+                  
+                  /*for(; i < visibleFirst; i++)
+                  {
+                     ProtoNode* node = childNodes.At(i);
+                     EventVisible* vis = new EventVisible(EVENT_FROM_UP, GetPointer(this), true);
+                     node.Event(vis);
+                     delete vis;
+                  }*/
+                  //Скрываем нижние
+                  
+               }
             }
          private:
             virtual void OnEvent(Event* event)
@@ -171,27 +255,27 @@ class Table : public ProtoNode
                   ProtoNode* node = vis.Node();
                   if(vis.Visible())
                   {
-                     
-                     printf("Элементов: " + ++visibleCount);
-                     
+                     ++visibleCount;
+                     printf("Элементов: " + visibleCount);
                   }
                   else
                   {
                      //Если удаляется первый видимый элемент, его место занимает следущий
-                     if(node.NLine() == firstVisible)
+                     if(node.NLine() == visibleFirst)
                      {
-                        firstVisible = -1;
+                        visibleFirst = -1;
                         for(int i = node.NLine(); i < ChildsTotal(); i++)
                         {
                            ProtoNode* mnode = ChildElementAt(i);
                            if(mnode.Visible())
                            {
-                              firstVisible = mnode.NLine();
+                              visibleFirst = mnode.NLine();
                               break;
                            }
                         }
                      }
-                     printf("Элементов: " + --visibleCount);
+                     --visibleCount;
+                     printf("Элементов: " + visibleCount);
                   }
                   //firstVisible = node
                }
@@ -251,7 +335,7 @@ class Table : public ProtoNode
             ///
             /// Индекс первого видимого элемента.
             ///
-            int fistVisible;
+            int visibleFirst;
       };
       ///
       /// Заголовок таблицы.

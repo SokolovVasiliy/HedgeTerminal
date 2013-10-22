@@ -70,9 +70,13 @@ enum ENUM_ELEMENT_TYPE
    ///
    ELEMENT_TYPE_DEAL,
    ///
-   /// Ёлмент графического интерфейса ползунок скрола.
+   /// Ёлемент графического интерфейса направл€юща€ ползунка скрола.
    ///
    ELEMENT_TYPE_TODDLER,
+   ///
+   /// Ёлемент графического интерфейса ползунок скрола.
+   ///
+   ELEMENT_TYPE_LABTODDLER,
    ///
    /// Ёлемент графического интерфейса тело таблицы.
    ///
@@ -117,7 +121,7 @@ class ProtoNode : public CObject
                   OnDeinit(event);
                   Deinit(event);
                   break;
-               //¬се событи€ о которых мы не знаем - делигируем потомкам.
+               //¬се событи€ о которых мы не знаем - делегируем потомкам.
                default:
                   OnEvent(event);
             }
@@ -479,6 +483,20 @@ class ProtoNode : public CObject
             n_line = n;
       }
    protected:
+      ///
+      /// ¬овращает истину, если обект находитс€ под курсором мыши,
+      /// и ложь в противном случе.
+      ///
+      bool IsMouseSelected(EventMouseMove* event)
+      {
+         long x = event.XCoord();
+         long xAbs = XAbsDistance();
+         if(x > xAbs + Width() || x < xAbs)return false;
+         long y = event.YCoord();
+         long yAbs = YAbsDistance();
+         if(y > yAbs + High() || y < yAbs)return false;
+         return true;   
+      }
       ///
       /// ѕереопредел€емый прием событий.
       ///

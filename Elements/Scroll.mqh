@@ -2,7 +2,92 @@
 #include "Table.mqh"
 
 ///
-/// Ползунок скрола, его поведение и графическое представление области хода ползунка. 
+/// 
+///
+class LabToddle : public Label
+{
+   public:
+      LabToddle(ProtoNode* parNode, Table* tbl) : Label(ELEMENT_TYPE_LABTODDLER, "LabToddler", parNode)
+      {
+         table = tbl;
+         Text("");
+         Edit(true);
+         prevY = -1;
+      }
+   private:
+      virtual void OnEvent(Event* event)
+      {
+         switch(event.EventId())
+         {
+            case EVENT_MOUSE_MOVE:
+               OnMouseMove(event);
+               break;
+            default:
+               EventSend(event);
+         }
+      }
+      ///
+      /// Перемещает позунок в след за мышью.
+      ///
+      void OnMouseMove(EventMouseMove* event)
+      {
+         // Текущий объект должен находится под курсором мыши, а
+         // правая кнопка должна быть нажата. В противном случае
+         // обнуляем предыдущую y координату мыши.
+         if(!IsMouseSelected(event) ||
+            !event.PushedRightButton())
+         {
+            prevY = -1;
+            return;
+         }
+         //В первый раз просто запоминаем положение мыши
+         if(prevY == -1)
+         {
+            prevY = event.YCoord();
+            return;
+         }
+         
+         //Затем двигаем ползунок на изменившееся положение
+         long delta = event.YCoord() - prevY;
+         long yLocal = YLocalDistance();
+         long yLimit = yLocal + High() + delta;
+         //Ползунок не может заходит за нижнюю границу направляющей.
+         if(delta > 0 && yLimit > parentNode.High())
+            delta = parentNode.High() - High() - yLocal;
+         //Ползунок не может заходит за верхнюю границу направляющей.
+         if(delta < 0 && yLocal < MathAbs(delta))
+            delta = yLocal * (-1);
+         //Делаем зазоры для красоты.
+         if(yLocal + delta == 0)delta += 1;
+         if(yLimit >= parentNode.High())
+            delta -= 1;
+         Move(XLocalDistance(), yLocal + delta, COOR_LOCAL);
+         prevY = event.YCoord();
+         
+         //Теперь, когда ползунок передвинут, рассчитываем
+         //первую видимую строку в таблице
+         yLocal = YLocalDistance();
+         long parHigh = parentNode.High();
+         //Зазоры используемые для красоты убираем.
+         if(yLocal == 1) yLocal--;
+         if(yLocal + High() == parentNode.High()-1)
+            yLocal++;
+         //Рассчитываем % отступа от первой строки
+         double perFirst = yLocal/((double)parHigh);
+         int lineFirst = (int)(table.LinesTotal() * perFirst);
+         table.LineVisibleFirst(lineFirst);
+      }
+      ///
+      /// Указатель на таблицу, видимость элементов которых надо изменять.
+      ///
+      Table* table;
+      ///
+      /// Предыдущая вертикальная координата мыши.
+      ///
+      long prevY;
+};
+///
+/// Направляющая ползунка скрола. Задает его размер, в зависимости от отношения видимых и невидимых строк. 
 ///
 class Toddler : public Label
 {
@@ -11,86 +96,46 @@ class Toddler : public Label
       {
          BorderColor(parNode.BackgroundColor());
          Edit(true);
-         labToddle = new Label("btnToddle", GetPointer(this));
-         labToddle.Text("");
+         labToddle = new LabToddle(GetPointer(this), tbl);
          childNodes.Add(labToddle);
          table = tbl;  
       }
       
    private:
-      virtual void OnEvent(Event* event)
-      {
-         switch(event.EventId())
-         {
-            case EVENT_MOUSE_MOVE:
-               OnMouseMove(event);
-            default:
-               EventSend(event);
-               break;
-         }
-      }
       virtual void OnCommand(EventNodeCommand* event)
       {
          if(table == NULL)return;
-         //Определяем размер ползунка.
-         long highArea = parentNode.High();
-         //Получаем совокупную высоту всех линий.
-         long totalHigh = table.HighLines();
-         long high = High();
-         //Скрываем ползунок, если ширина рабочей области больше суммарной
-         //высоты всех строк таблицы.
-         if(totalHigh < high + 20)
+         // 1. Находим отношение всех строк к видимым строкам:
+         double p1 = ((double)table.LinesHighVisible())/((double)table.LinesHighTotal());
+         // Если отношение больше либо равно еденицы - все строки умещаются на одном
+         // экране, и ползунок отображать не надо.
+         if(NormalizeDouble(p1, 4) >= 1.0)
          {
+            if(!labToddle.Visible())return;
             EventVisible* vis = new EventVisible(EVENT_FROM_UP, GetPointer(this), false);
             labToddle.Event(vis);
             delete vis;
+            return;
          }
-         // В противном случае размер ползунка - это размер отношения видимых пользователю
+         // Размер ползунка - это размер отношения видимых пользователю
          // строк к общей высоте всех строк.
          else
          {
-            
-         }
-         //В противном случае определяем положение ползунка и мастштабируем его
-         //ширину, в зависимости от велечины скрытого пространства.
-         /*else if(totalHigh - high < high)
-         {
-            //Рассчитываем высоту ползунка
-            long highToddle = high - (totalHigh - high);
-            EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 1, 1, Width()-2, highToddle);
+            // Переводим отношение в размеры ползунка относительно его направляющей
+            long size = (long)(High()*p1);
+            //Ползунок не может быть меньше 5 пикселей.
+            if(size < 5)size = 5;
+            long yMyDist = labToddle.YLocalDistance();
+            if(yMyDist == 0)yMyDist = 1;
+            EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 1, yMyDist, Width()-2, size);
             labToddle.Event(command);
             delete command;
-         }*/
+         }
       }
-      ///
-      /// Перемещает позунок в след за мышью.
-      ///
-      void OnMouseMove(EventMouseMove* event)
-      {
-         // Для изменения положения ползунка скрола правая кнопка
-         // мыши должна быть нажата.
-         /*
-         if(!event.PushedRightButton())return;
-         long x = event.XCoord();
-         long xAbs = XAbsDistance();
-         if(x > xAbs + Width() || x < xAbs)return;
-         long y = event.YCoord();
-         long yAbs = YAbsDistance();
-         if(y > yAbs + High() || y < yAbs)return;
-         */
-      }
-      ///
-      /// Предыдущая горизонтальная координата мыши.
-      ///
-      long prevX;
-      ///
-      /// Предыдущая вертикальная координата мыши.
-      ///
-      long prevY;
       ///
       /// Ползунок, находящийся на области хода ползунка.
       ///
-      Label* labToddle;
+      LabToddle* labToddle;
       ///
       /// Указатель на родительскую таблицу.
       ///
