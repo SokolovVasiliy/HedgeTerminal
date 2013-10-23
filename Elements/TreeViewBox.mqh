@@ -176,6 +176,12 @@ class TreeViewBoxBorder : public Label
       }
       virtual void OnCommand(EventNodeCommand* event)
       {
+         EventVisible* vis = new EventVisible(EVENT_FROM_UP, GetPointer(this), Visible());
+         OnVisible(vis);
+         delete vis;
+      }
+      virtual void OnVisible(EventVisible* event)
+      {
          // Позиционируем плюсик в рамки
          if(brdGeneral != NULL)
          {

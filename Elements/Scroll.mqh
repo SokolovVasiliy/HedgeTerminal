@@ -75,7 +75,10 @@ class LabToddle : public Label
          //Рассчитываем % отступа от первой строки
          double perFirst = yLocal/((double)parHigh);
          int lineFirst = (int)(table.LinesTotal() * perFirst);
+         printf("LF: " + lineFirst);
          table.LineVisibleFirst(lineFirst);
+         ChartRedraw();
+         //printf("Scroll FL: " + table.LineVisibleFirst() + " Visible: " + table.LinesVisible());
       }
       ///
       /// Указатель на таблицу, видимость элементов которых надо изменять.
@@ -142,6 +145,66 @@ class Toddler : public Label
       Table* table;
 };
 ///
+/// Тип кнопки скрола.
+///
+enum ENUM_CLICK_SCROLL
+{
+   CLICK_SCROLL_DOWN,
+   CLICK_SCROLL_UP
+};
+
+class ClickScroll : public Button
+{
+   public:
+      ClickScroll(ProtoNode* parNode, Table* tbl, ENUM_CLICK_SCROLL tClick) : Button("ScrollClickDn", parNode)
+      {
+         typeClick = tClick;
+         Text(CharToString(241));
+         if(typeClick == CLICK_SCROLL_DOWN)
+         {
+            itt = 1;
+            Text(CharToString(242));
+         }
+         else itt = -1;
+         Font("Wingdings");
+         
+         BackgroundColor(clrWhiteSmoke);
+         BorderColor(clrBlack);
+         table = tbl;
+      }
+   private:
+      void OnPush()
+      {
+         int fline = table.LineVisibleFirst();
+         int vline = table.LinesVisible();
+         if(fline + vline >= table.LinesTotal() && itt == 1)
+         {
+            printf("Весь список отображен");
+            return;
+         }
+         if(fline == 0 && itt == -1)
+         {
+            printf("Достигнуто начало списка");
+            return;
+         }
+         if(itt == 1)
+            table.LineVisibleFirst(fline+itt);
+         else
+            table.LineVisibleFirst(fline+itt);
+         //printf("Кнопка нажата " + table.LineVisibleFirst());
+      }
+      Table* table;
+      ///
+      /// Тип кнопки скрола.
+      ///
+      ENUM_CLICK_SCROLL typeClick;
+      ///
+      /// Количество прибавляемых линий.
+      ///
+      int itt;
+};
+
+///
 /// Прокрутка списка.
 ///
 class Scroll : public ProtoNode
@@ -150,22 +213,11 @@ class Scroll : public ProtoNode
       Scroll(string myName, ProtoNode* parNode) : ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_SCROLL, myName, parNode)
       {
          //у скрола есть две кнопки и ползунок.
-         up = new Button("UpClick", GetPointer(this));
-         up.BorderType(BORDER_FLAT);
-         up.BorderColor(clrBlack);
-         //up.BorderColor(clrNONE);
-         up.Font("Wingdings");
-         up.Text(CharToString(241));
-         up.BackgroundColor(clrWhiteSmoke);
+         up = new ClickScroll(GetPointer(this), parNode, CLICK_SCROLL_UP);
          childNodes.Add(up);
          
-         dn = new Button("DnClick", GetPointer(this));
-         dn.BorderType(BORDER_FLAT);
-         dn.BorderColor(clrBlack);
-         //dn.BorderColor(clrNONE);
-         dn.Font("Wingdings");
-         dn.Text(CharToString(242));
-         dn.BackgroundColor(clrWhiteSmoke);
+
+         dn = new ClickScroll(GetPointer(this), parNode, CLICK_SCROLL_DOWN);
          childNodes.Add(dn);
          
          toddler = new Toddler(GetPointer(this), parentNode);
@@ -200,7 +252,7 @@ class Scroll : public ProtoNode
          delete command;
       }
       //у скрола есть две кнопки и ползунок.
-      Button* up;
-      Button* dn;
+      ClickScroll* up;
+      ClickScroll* dn;
       Toddler* toddler;
 };
