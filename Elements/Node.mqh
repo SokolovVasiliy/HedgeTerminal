@@ -473,14 +473,21 @@ class ProtoNode : public CObject
          return n_line;
       }
       ///
-      /// Устанавливает номер строки в списке дочерних элементов
+      /// Устанавливает номер строки в списке дочерних элементов.
       ///
       void NLine(int n)
       {
+         
          if(n < 0)
+         {
             n_line = -1;
+         }
          else
+         {
+            if(parentNode.ChildElementAt(n) != GetPointer(this))
+               printf("Устанавливаемый номер не равен фактическому!!!!");
             n_line = n;
+         }
       }
    protected:
       ///

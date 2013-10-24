@@ -74,6 +74,7 @@ class TreeViewBox : public Label
                   Text("-");
                //else twb.Text("-");
                //Создаем событие "Список развернут".
+               
                EventCollapseTree* ctree = new EventCollapseTree(EVENT_FROM_DOWN, parentNode, false);
                EventSend(ctree);
                delete ctree;
@@ -123,9 +124,10 @@ class TreeViewBoxBorder : public Label
          treeType = TreeType;
          if(treeType == BOX_TREE_GENERAL)
          {
+            //printf("Create bew TWB, Name: " + nameCheck);
             brdGeneral = new BorderGeneral(GetPointer(this));
             childNodes.Add(brdGeneral);
-            Text(CharToString(5));
+            //Text(CharToString(5));
          }
          else if(treeType == BOX_TREE_SLAVE)
             Text(CharToString(5));
@@ -134,12 +136,13 @@ class TreeViewBoxBorder : public Label
       }
       void OnEvent(Event* event)
       {
-         if(event.Direction() == EVENT_FROM_DOWN)
-         {
+         //if(event.Direction() == EVENT_FROM_DOWN)
+         //{
             if(event.EventId() == EVENT_PUSH)
                OnPush();
-         }
+         //}
       }
+      ProtoNode* ParentNode(){return parentNode;}      
       ///
       /// Вызывает действия срабатывающие при нажатии кнопки.
       ///
@@ -153,11 +156,20 @@ class TreeViewBoxBorder : public Label
             //Список был свернут? - значит сейчас разворачивается.
             if(state == BOX_TREE_COLLAPSE)
             {
+               
                state = BOX_TREE_RESTORE;
                if(brdGeneral != NULL){
                   brdGeneral.Text("-");
                   //brdGeneral.Align(ALIGN_CENTER);
                }
+               
+               if(parentNode.TypeElement() != ELEMENT_TYPE_POSITION)return;
+               PosLine* posLine = parentNode;
+               Position* pos = posLine.Position();
+               long order_id = pos.EntryOrderID();
+               int n_line = parentNode.NLine();
+               string name = parentNode.NameID();
+               ENUM_ELEMENT_TYPE el_type = parentNode.TypeElement();
                EventCollapseTree* collapse = new EventCollapseTree(EVENT_FROM_DOWN, parentNode, false);
                EventSend(collapse);
                delete collapse;
@@ -176,18 +188,28 @@ class TreeViewBoxBorder : public Label
       }
       virtual void OnCommand(EventNodeCommand* event)
       {
-         EventVisible* vis = new EventVisible(EVENT_FROM_UP, GetPointer(this), Visible());
-         OnVisible(vis);
-         delete vis;
-      }
-      virtual void OnVisible(EventVisible* event)
-      {
+         //if(NameID() == "CollapsePos.0")
+         //printf("cline: " + parentNode.NameID() + " " + parentNode.NLine());
          // Позиционируем плюсик в рамки
          if(brdGeneral != NULL)
          {
             EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 2, 3, 14, 14);
             brdGeneral.Event(command);
             delete command;
+         }
+      }
+      virtual void OnVisible(EventVisible* event)
+      {
+         
+         // Скрываем или показываем плюсик.
+         if(CheckPointer(brdGeneral) != POINTER_INVALID)
+         {
+            Edit(true);
+            //if(brdGeneral.NameID() == "CollapsePos.0")
+            //printf("vline: " + parentNode.NameID() + " " + parentNode.NLine());
+            EventVisible* vis = new EventVisible(EVENT_FROM_UP, GetPointer(this), Visible());
+            brdGeneral.Event(vis);
+            delete vis;
          }
       }
       

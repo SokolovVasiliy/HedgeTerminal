@@ -88,7 +88,7 @@ class Table : public ProtoNode
       ///
       void LineVisibleFirst1(int index)
       {
-         workArea.LineVisibleFirst1(index);
+         workArea.LineVisibleFirst(index);
       }
    protected:
       class CWorkArea : public Label
@@ -114,12 +114,13 @@ class Table : public ProtoNode
             ///
             void Add(ProtoNode* lineNode, int pos)
             {
-               //lineNode.NLine(pos);
                childNodes.Insert(lineNode, pos);
+               lineNode.NLine(pos);
                //после вставки элемента, все последующие элементы изменили свои координаты.
-               int total = ChildsTotal();
+               OnCommand();
+               /*int total = ChildsTotal();
                for(int i = pos; i < total; i++)
-                  RefreshLine(i);
+                  RefreshLine(i);*/
             }
             ///
             /// Удаляет строку по индексу index из таблицы строк.
@@ -165,6 +166,7 @@ class Table : public ProtoNode
                if(index < 0 || index >= total)return;
                //Получаем линию под номером index.
                ProtoNode* node = ChildElementAt(index);
+               int nline = node.NLine();
                node.NLine(index);
                //Запоминаем видимость элемента
                bool vis = node.Visible();
@@ -172,12 +174,10 @@ class Table : public ProtoNode
                {
                   EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 0, 0, Width(), highLine);
                   node.Event(command);
-                  node.NLine(0);
                   delete command;
                }
                else
                {
-                  
                   ProtoNode* prevNode = ChildElementAt(index-1);
                   long y_dist = prevNode.YLocalDistance() + prevNode.High();
                   EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 0, y_dist, Width(), highLine);
@@ -214,10 +214,47 @@ class Table : public ProtoNode
             ///
             void LineVisibleFirst(int index)
             {
+               //Пытаемся получить имя элемента, на который ссылается
+               //вторая строка
+               //DEBUG TEMP
+               /*ProtoNode* ref = NULL;
+               if(index == 1)
+               {
+                  ProtoNode* node = ChildElementAt(1);
+                  if(node.TypeElement() == ELEMENT_TYPE_POSITION){
+                     PosLine* pline = node;
+                     Position* pos = pline.Position();
+                     long id = pos.EntryOrderID();
+                     long tid = 1005439241;
+                     //if(id != tid){
+                     TreeViewBoxBorder* twb = node.ChildElementAt(0);
+                     ref = twb.ParentNode();
+                     int n = ref.NLine();
+                     printf("Pos#" + tid + " ref on " + ref.NameID() + " n:" + ref.NLine());
+                  }
+               }*/
+               
                if(index < visibleFirst)
                   MoveUp(index);
                if(index > visibleFirst)
                   MoveDown(index);
+               
+               //DEBUG TEMP
+               /*if(index == 1)
+               {
+                  ProtoNode* node = ChildElementAt(1);
+                  if(node.TypeElement() == ELEMENT_TYPE_POSITION){
+                     PosLine* pline = node;
+                     Position* pos = pline.Position();
+                     long id = pos.EntryOrderID();
+                     long tid = 1005439241;
+                     //if(id != tid){
+                     TreeViewBoxBorder* twb = node.ChildElementAt(0);
+                     ref = twb.ParentNode();
+                     int n = ref.NLine();
+                     printf("Pos#" + tid + " ref on " + ref.NameID() + " n:" + ref.NLine());
+                  }
+               }*/
             }
          private:
             ///
@@ -229,6 +266,7 @@ class Table : public ProtoNode
                   index <= visibleFirst) return;
                //Ползунок перемещен вниз - скрываем верхние строки.
                int total = childNodes.Total();
+               //int i = 0;
                int i = visibleFirst;
                for(; i < index; i++)
                {
@@ -264,7 +302,9 @@ class Table : public ProtoNode
                   if(vis.Visible())
                   {
                      ++visibleCount;
-                     printf("Показана строка: " + string(node.NLine()+1) + " из " + visibleCount);
+                     highTotal += node.High();
+                     //printf("Показана строка: " + string(node.NLine()+1) + " из " + visibleCount + " Общая высота: " + highTotal);
+                     
                   }
                   else
                   {
@@ -282,10 +322,12 @@ class Table : public ProtoNode
                            }
                         }
                      }*/
+                     highTotal -= node.High();
                      --visibleCount;
-                     printf("Скрыта строка: " + string(node.NLine()+1) + " из " + visibleCount);
+                     //printf("Скрыта строка: " + string(node.NLine()+1) + " из " + visibleCount + " Общая высота: " + highTotal);
                      
                   }
+                  //printf("FL: " + visibleFirst + " Count: " + visibleCount);
                   //printf("VisibleCount: " + visibleCount);
                   //firstVisible = node
                }
@@ -297,13 +339,86 @@ class Table : public ProtoNode
             {
                //Команды снизу не принимаются.
                if(!Visible() || event.Direction() == EVENT_FROM_DOWN)return;
-               
-               //Размещаем строки рабочей области
+               OnCommand();
+               return;
                int total = ChildsTotal();
-               for(int i = 0; i < total; i++)
+               //Узнаем потенциальное количество строк, которое может разместиться
+               //при текущем размере таблице.
+               int highTable = High();
+               //1000
+               double lines = MathFloor(High()/20.0);
+               //Появилась возможность отобразить дополнительные линии?
+               //if(lines > visibleCount && total >= lines)
+               //{
+                  //Если теперь все линии вмещаются в таблицу - 
+                  //отображаем их все.
+                  if(total <= lines)
+                  {
+                     visibleFirst = 0;
+                     for(int i = visibleFirst; i < total; i++)
+                        RefreshLine(i);
+                     return;
+                  }
+                  //Иначе, считаем линии, для которых не осталось места
+                  int dn_line = total - (visibleFirst + visibleCount);
+                  //Можно также отобразить часть нижних линий
+                  if(visibleCount + dn_line < lines)
+                  {
+                     int n = lines - (dn_line + visibleCount);
+                     visibleFirst -= n;
+                  }
+                  //else visibleFirst = total - lines;
+                  for(int i = visibleFirst; i < total; i++)
+                     RefreshLine(i);
+               //}
+               //Обновляем только те линии, что видны сейчас.
+               /*else
                {
-                  RefreshLine(i);
+                  int limit = visibleFirst + visibleCount
+                  for(int i = visibleFirst; i < limit; i++)
+                     RefreshLine(i);
+               }*/
+            }
+            ///
+            /// Размещает линии согласно алгоритму таблицы.
+            ///
+            void OnCommand()
+            {
+               int total = ChildsTotal();
+               //Пытаемся получить имя элемента, на который ссылается
+               //вторая строка
+               /*for(int i = 0; i < total; i++)
+               {
+                  ProtoNode* node = ChildElementAt(i);
+                  if(node.TypeElement() != ELEMENT_TYPE_POSITION)continue;
+                  PosLine* pline = node;
+                  Position* pos = pline.Position();
+                  long id = pos.EntryOrderID();
+                  long tid = 1005439241;
+                  if(id != tid)continue;
+                  TreeViewBoxBorder* twb = node.ChildElementAt(0);
+                  ProtoNode* ref = twb.ParentNode();
+                  int n = ref.NLine();
+                  printf("Pos#" + tid + " ref on " + ref.NameID() + " n:" + ref.NLine());
+               }*/
+               double lines = MathFloor(High()/20.0);
+               if(total <= lines)
+               {
+                  visibleFirst = 0;
+                  for(int i = visibleFirst; i < total; i++)
+                     RefreshLine(i);
+                  return;
                }
+               //Иначе, считаем линии, для которых не осталось места
+               int dn_line = total - (visibleFirst + visibleCount);
+               //Можно также отобразить часть нижних линий
+               if(visibleCount + dn_line < lines)
+               {
+                  int n = lines - (dn_line + visibleCount);
+                  visibleFirst -= n;
+               }
+               for(int i = visibleFirst; i < total; i++)
+                  RefreshLine(i);
             }
             ///
             /// Нечетные строки подкрашиваются в более темный оттенок.
@@ -346,6 +461,10 @@ class Table : public ProtoNode
             /// Индекс первого видимого элемента.
             ///
             int visibleFirst;
+            ///
+            /// Общая высота всех видимых элементов.
+            ///
+            long highTotal;
       };
       ///
       /// Заголовок таблицы.
@@ -689,6 +808,7 @@ class TableOpenPos : public Table
             
             if(node.ShortName() == name_collapse_pos)
             {
+               //TreeViewBox* twb = new TreeViewBox(name_collapse_pos, GetPointer(nline), BOX_TREE_GENERAL);
                TreeViewBoxBorder* twb = new TreeViewBoxBorder(name_collapse_pos, GetPointer(nline), BOX_TREE_GENERAL);
                twb.OptimalWidth(20);
                twb.ConstWidth(true);
@@ -902,10 +1022,12 @@ class TableOpenPos : public Table
       void AddDeals(EventCollapseTree* event)
       {
          ProtoNode* node = event.Node();
+         int n_line = node.NLine();
          //Функция умеет развертывать только позиции, и с другими элеменатми работать не может.
          if(node.TypeElement() != ELEMENT_TYPE_POSITION)return;
          PosLine* posLine = node;
          Position* pos = posLine.Position();
+         long order_id = pos.EntryOrderID();
          //Позиция содержит сделки, которые необходимо раскрыть.
          CArrayObj* entryDeals = pos.EntryDeals();
          CArrayObj* exitDeals = pos.ExitDeals();
