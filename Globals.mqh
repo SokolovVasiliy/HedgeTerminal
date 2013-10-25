@@ -91,11 +91,11 @@ enum ENUM_COOR_CONTEXT
 ///
 /// »дентификатор указывающий, что нажата права€ кнопка мыши.
 ///
-#define MOUSE_RIGT_BUTTON_PUSH 1
+#define MOUSE_LEFT_BUTTON_PUSH 1
 ///
 /// »дентификатор указывающий, что нажата лева€ кнопка мыши.
 ///
-#define MOUSE_LEFT_BUTTON_PUSH 2
+#define MOUSE_RIGHT_BUTTON_PUSH 2
 ///
 /// »дентификатор указывающий, что нажата средн€€ кнопка мыши.
 ///

@@ -960,11 +960,13 @@ class ProtoNode : public CObject
          //Если объект с таким именем уже существует
          //добавляем к имени индекс, до тех пор пока имя не станет уникальным.
          int index = 0;
-         while(ObjectFind(MAIN_WINDOW, nameId + (string)index) >= 0)
+         //MathSrand(TimeLocal());
+         int rnd = MathRand();
+         while(ObjectFind(MAIN_WINDOW, nameId + (string)index + rnd) >= 0)
          {
             index++;
          }
-         nameId += (string)index;
+         nameId += (string)index + rnd;
       }
       ///
       /// Инициализатор объекта.

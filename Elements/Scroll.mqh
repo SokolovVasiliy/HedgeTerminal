@@ -1,6 +1,8 @@
 #include "Node.mqh"
 #include "Table.mqh"
 
+class Toddler;
+
 ///
 /// 
 ///
@@ -9,6 +11,9 @@ class LabToddle : public Label
    public:
       LabToddle(ProtoNode* parNode, Table* tbl) : Label(ELEMENT_TYPE_LABTODDLER, "LabToddler", parNode)
       {
+         if(parNode != NULL && parNode.TypeElement() == ELEMENT_TYPE_TODDLER)
+            tdl = parNode;
+         blockedComm = false;
          table = tbl;
          Text("");
          Edit(true);
@@ -35,18 +40,19 @@ class LabToddle : public Label
          // правая кнопка должна быть нажата. В противном случае
          // обнуляем предыдущую y координату мыши.
          if(!IsMouseSelected(event) ||
-            !event.PushedRightButton())
+            !event.PushedLeftButton())
          {
             prevY = -1;
+            tdl.BlockedCommand(false);
             return;
          }
          //В первый раз просто запоминаем положение мыши
          if(prevY == -1)
          {
             prevY = event.YCoord();
+            tdl.BlockedCommand(true);
             return;
          }
-         
          //Затем двигаем ползунок на изменившееся положение
          long delta = event.YCoord() - prevY;
          long yLocal = YLocalDistance();
@@ -75,7 +81,6 @@ class LabToddle : public Label
          //Рассчитываем % отступа от первой строки
          double perFirst = yLocal/((double)parHigh);
          int lineFirst = (int)(table.LinesTotal() * perFirst);
-         printf("LF: " + lineFirst);
          table.LineVisibleFirst(lineFirst);
          ChartRedraw();
          //printf("Scroll FL: " + table.LineVisibleFirst() + " Visible: " + table.LinesVisible());
@@ -88,6 +93,15 @@ class LabToddle : public Label
       /// Предыдущая вертикальная координата мыши.
       ///
       long prevY;
+      ///
+      /// Истина, если треубется заблокировать обработку события EventNodeCommand,
+      /// на время перемещения ползунка.
+      ///
+      bool blockedComm;
+      ///
+      /// Направляющая ползунка.
+      ///
+      Toddler* tdl;
 };
 ///
 /// Направляющая ползунка скрола. Задает его размер, в зависимости от отношения видимых и невидимых строк. 
@@ -97,20 +111,29 @@ class Toddler : public Label
    public:
       Toddler(ProtoNode* parNode, Table* tbl) : Label(ELEMENT_TYPE_TODDLER, "Toddler", parNode)
       {
+         blockedComm = false;
+         Text("");
          BorderColor(parNode.BackgroundColor());
          Edit(true);
          labToddle = new LabToddle(GetPointer(this), tbl);
          childNodes.Add(labToddle);
          table = tbl;  
       }
-      
+      ///
+      /// Блокирует либо восстанавилвает обработку OnCommand на время движения скрола.
+      ///
+      void BlockedCommand(bool blocked)
+      {
+         if(blockedComm != blocked)
+            blockedComm = blocked;
+      }
    private:
       virtual void OnCommand(EventNodeCommand* event)
       {
-         if(table == NULL)return;
+         if(table == NULL || blockedComm)return;
          // 1. Находим отношение всех строк к видимым строкам:
          double p1 = ((double)table.LinesHighVisible())/((double)table.LinesHighTotal());
-         // Если отношение больше либо равно еденицы - все строки умещаются на одном
+         // Если отношение больше либо равно еденице - все строки умещаются на одном
          // экране, и ползунок отображать не надо.
          if(NormalizeDouble(p1, 4) >= 1.0)
          {
@@ -128,7 +151,11 @@ class Toddler : public Label
             long size = (long)(High()*p1);
             //Ползунок не может быть меньше 5 пикселей.
             if(size < 5)size = 5;
-            long yMyDist = labToddle.YLocalDistance();
+            //Положение полузнка - это отношение первой видимой строки к общему количеству строк.
+            int fl = table.LineVisibleFirst();
+            double p2 = ((double)table.LineVisibleFirst())/((double)table.LinesTotal());
+            long yMyDist = (long)(p2*High());
+            //long yMyDist = labToddle.YLocalDistance();
             if(yMyDist == 0)yMyDist = 1;
             EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 1, yMyDist, Width()-2, size);
             labToddle.Event(command);
@@ -143,6 +170,11 @@ class Toddler : public Label
       /// Указатель на родительскую таблицу.
       ///
       Table* table;
+      ///
+      /// Флаг указывающий, надо ли блокировать комманду EventNodeCommand.
+      /// Истина, если комманда блокируется и ложь в противном случае.
+      ///
+      bool blockedComm;
 };
 ///
 /// Тип кнопки скрола.
@@ -158,6 +190,8 @@ class ClickScroll : public Button
    public:
       ClickScroll(ProtoNode* parNode, Table* tbl, ENUM_CLICK_SCROLL tClick) : Button("ScrollClickDn", parNode)
       {
+         if(parNode.TypeElement() == ELEMENT_TYPE_SCROLL)
+            scroll = parNode;
          typeClick = tClick;
          Text(CharToString(241));
          if(typeClick == CLICK_SCROLL_DOWN)
@@ -173,27 +207,74 @@ class ClickScroll : public Button
          table = tbl;
       }
    private:
+      virtual void OnEvent(Event* event)
+      {
+         switch(event.EventId())
+         {
+            case EVENT_MOUSE_MOVE:
+               OnMouseMove(event);
+               break;
+            default:
+               EventSend(event);
+         }
+      }
+      ///
+      /// Обрабатываем нажатия кнопок мыши.
+      ///
+      void OnMouseMove(EventMouseMove* event)
+      {
+         if(!IsMouseSelected(event) || !event.PushedLeftButton())
+         {
+            //Сбрасываем время нажатия.
+            lastCall = 0;
+            return;
+         }
+         //В первый раз просто запоминаем время нажатия
+         if(lastCall == 0)
+         {
+            lastCall = GetTickCount();
+            return;
+         }
+         //Если прошло более 2 секунд с момента нажатия кнопки, начинаем реагировать
+         //На комманду.
+         if(GetTickCount() - lastCall >= 2000)
+         {
+            if()
+            OnPush();
+            Sleep(300);
+            ChartSetInteger(MAIN_WINDOW, CHART_EVENT_MOUSE_MOVE, true);
+         }
+         //Sleep(200);
+         //Теперь создаем еще одно событие нажатие мыши
+         
+         //printf("Нажата левая кнопка");
+         //ChartRedraw();
+      }
       void OnPush()
       {
          int fline = table.LineVisibleFirst();
          int vline = table.LinesVisible();
+         //Весь список отображен?
          if(fline + vline >= table.LinesTotal() && itt == 1)
-         {
-            printf("Весь список отображен");
             return;
-         }
-         if(fline == 0 && itt == -1)
-         {
-            printf("Достигнуто начало списка");
+         //Достигнуто начало списка.
+         if(fline == 0 && itt == -1)   
             return;
-         }
-         if(itt == 1)
-            table.LineVisibleFirst(fline+itt);
-         else
-            table.LineVisibleFirst(fline+itt);
-         //printf("Кнопка нажата " + table.LineVisibleFirst());
+         table.LineVisibleFirst(fline+itt);
+         //Меняем цвет кнопок, если пределы достигнуты:
+         fline = table.LineVisibleFirst();
+         vline = table.LinesVisible();
+         if(scroll != NULL)
+            scroll.ChangedScroll();
       }
+      ///
+      /// Таблица.
+      ///
       Table* table;
+      ///
+      /// Родительский скролл.
+      ///
+      Scroll* scroll;
       ///
       /// Тип кнопки скрола.
       ///
@@ -202,6 +283,15 @@ class ClickScroll : public Button
       /// Количество прибавляемых линий.
       ///
       int itt;
+      ///
+      /// Время работы терминала в миллисекундах на момент последнего
+      /// вызова функции OnMouseMove. 
+      ///
+      long lastCall;
+      ///
+      /// Время последнего вызова события EventMouse.
+      ///
+      long lastEventMouse;
 };
 
 ///
@@ -212,25 +302,27 @@ class Scroll : public ProtoNode
    public:
       Scroll(string myName, ProtoNode* parNode) : ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_SCROLL, myName, parNode)
       {
+         BackgroundColor(clrWhiteSmoke); 
          //у скрола есть две кнопки и ползунок.
          up = new ClickScroll(GetPointer(this), parNode, CLICK_SCROLL_UP);
          childNodes.Add(up);
          
-
          dn = new ClickScroll(GetPointer(this), parNode, CLICK_SCROLL_DOWN);
          childNodes.Add(dn);
          
          toddler = new Toddler(GetPointer(this), parentNode);
-         //toddler.BorderType(BORDER_FLAT);
-         //toddler.BorderColor(clrBlack);
-         //toddler.BorderColor(clrNONE);
-         toddler.Text("");
-         toddler.BackgroundColor(clrWhiteSmoke);
          childNodes.Add(toddler);
-         
-         BackgroundColor(clrWhiteSmoke); 
       }
-      
+      ///
+      /// Изменяет положение ползунка скрола в зависимости
+      /// от состояния видимой части таблицы.
+      ///
+      void ChangedScroll()
+      {
+         EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 1, 18, Width()-2, High()-36);
+         toddler.Event(command);
+         delete command;
+      }
       
    private:
       virtual void OnCommand(EventNodeCommand* event)

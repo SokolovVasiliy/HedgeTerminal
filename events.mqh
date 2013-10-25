@@ -554,8 +554,8 @@ class EventMouseMove : public Event
       ///
       bool PushedRightButton()
       {
-         bool res = (MOUSE_RIGT_BUTTON_PUSH & mask) ==
-              MOUSE_RIGT_BUTTON_PUSH;
+         bool res = (MOUSE_RIGHT_BUTTON_PUSH & mask) ==
+              MOUSE_RIGHT_BUTTON_PUSH;
          return res;
       }
       ///

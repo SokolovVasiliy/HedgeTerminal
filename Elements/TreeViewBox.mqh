@@ -156,19 +156,10 @@ class TreeViewBoxBorder : public Label
             //Список был свернут? - значит сейчас разворачивается.
             if(state == BOX_TREE_COLLAPSE)
             {
-               
                state = BOX_TREE_RESTORE;
-               if(brdGeneral != NULL){
+               if(brdGeneral != NULL)
                   brdGeneral.Text("-");
-                  //brdGeneral.Align(ALIGN_CENTER);
-               }
-               
                if(parentNode.TypeElement() != ELEMENT_TYPE_POSITION)return;
-               PosLine* posLine = parentNode;
-               Position* pos = posLine.Position();
-               long order_id = pos.EntryOrderID();
-               int n_line = parentNode.NLine();
-               string name = parentNode.NameID();
                ENUM_ELEMENT_TYPE el_type = parentNode.TypeElement();
                EventCollapseTree* collapse = new EventCollapseTree(EVENT_FROM_DOWN, parentNode, false);
                EventSend(collapse);
@@ -188,8 +179,6 @@ class TreeViewBoxBorder : public Label
       }
       virtual void OnCommand(EventNodeCommand* event)
       {
-         //if(NameID() == "CollapsePos.0")
-         //printf("cline: " + parentNode.NameID() + " " + parentNode.NLine());
          // Позиционируем плюсик в рамки
          if(brdGeneral != NULL)
          {
@@ -205,8 +194,6 @@ class TreeViewBoxBorder : public Label
          if(CheckPointer(brdGeneral) != POINTER_INVALID)
          {
             Edit(true);
-            //if(brdGeneral.NameID() == "CollapsePos.0")
-            //printf("vline: " + parentNode.NameID() + " " + parentNode.NLine());
             EventVisible* vis = new EventVisible(EVENT_FROM_UP, GetPointer(this), Visible());
             brdGeneral.Event(vis);
             delete vis;

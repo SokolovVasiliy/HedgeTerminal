@@ -19,6 +19,7 @@ input int RefreshRate = 5;
 CHedge* api;
 MainForm* HedgePanel;
 
+PosLine* GlobalLine;
 
 ///
 /// Инициализирующая функция.
