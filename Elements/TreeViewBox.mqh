@@ -147,7 +147,16 @@ class TreeViewBoxBorder : public Label
       /// Вызывает действия срабатывающие при нажатии кнопки.
       ///
       void Pushed(){OnPush();}
-   private:
+      ///
+      /// Возвращает статус нажатия списка.
+      ///
+      ENUM_BOX_TREE_STATE State()
+      {
+         return state;
+      }
+      ///
+      /// Разворачивает и сворачивает список.
+      ///
       virtual void OnPush()
       {
          //Реагируем на нажатие, только если текущий элемент кнопка раскрывающая список
@@ -177,6 +186,7 @@ class TreeViewBoxBorder : public Label
             }
          }
       }
+   private:      
       virtual void OnCommand(EventNodeCommand* event)
       {
          // Позиционируем плюсик в рамки

@@ -80,7 +80,11 @@ enum ENUM_ELEMENT_TYPE
    ///
    /// Элемент графического интерфейса тело таблицы.
    ///
-   ELEMENT_TYPE_WORK_AREA
+   ELEMENT_TYPE_WORK_AREA,
+   ///
+   /// Элемент графического интерфейса заголовок таблицы.
+   ///
+   ELEMENT_TYPE_TABLE_HEADER
 };
 
 

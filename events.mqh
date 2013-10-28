@@ -121,7 +121,11 @@ enum ENUM_EVENT
    ///
    /// Идентификатор события "положение мыши изменено".
    ///
-   EVENT_MOUSE_MOVE
+   EVENT_MOUSE_MOVE,
+   ///
+   /// Идентификатор события "статус графического элемента CheckBox изменене".
+   ///
+   EVENT_CHECK_BOX_CHANGED
 };
 
 
@@ -609,5 +613,27 @@ class EventMouseMove : public Event
       /// Маска, содержащая комбинацию нажатых кнопок мыши.
       ///
       int mask;
+};
+
+class EventCheckBoxChanged : public Event
+{
+   public:
+      EventCheckBoxChanged(ENUM_EVENT_DIRECTION dirEvent, CheckBox* m_checkBox, ENUM_BUTTON_STATE myState) : Event(dirEvent, EVENT_CHECK_BOX_CHANGED, m_checkBox)
+      {
+         checkBox = m_checkBox;
+      }
+      ///
+      /// Возвращает состояние CheckBox.
+      ///
+      ENUM_BUTTON_STATE State(){return state;}
+      virtual Event* Clone()
+      {
+         EventCheckBoxChanged* checked = new EventCheckBoxChanged(Direction(), checkBox, state);
+         return checked;
+      }
+   private:
+      CheckBox* checkBox;
+      
+      ENUM_BUTTON_STATE state;
 };
 

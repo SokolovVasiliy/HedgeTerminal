@@ -22,6 +22,9 @@ class CheckBox : public Button
             checked = true;
             Text(CharToString(254));
          }
+         EventCheckBoxChanged* checkBox = new EventCheckBoxChanged(EVENT_FROM_UP, GetPointer(this), State());
+         EventSend(checkBox);
+         delete checkBox;
       }
       bool checked;
 };

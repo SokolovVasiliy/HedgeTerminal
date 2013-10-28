@@ -237,18 +237,8 @@ class ClickScroll : public Button
          }
          //Если прошло более 2 секунд с момента нажатия кнопки, начинаем реагировать
          //На комманду.
-         if(GetTickCount() - lastCall >= 2000)
-         {
-            if()
+         if(GetTickCount() - lastCall >= 1500)
             OnPush();
-            Sleep(300);
-            ChartSetInteger(MAIN_WINDOW, CHART_EVENT_MOUSE_MOVE, true);
-         }
-         //Sleep(200);
-         //Теперь создаем еще одно событие нажатие мыши
-         
-         //printf("Нажата левая кнопка");
-         //ChartRedraw();
       }
       void OnPush()
       {

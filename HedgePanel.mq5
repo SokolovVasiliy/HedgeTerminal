@@ -14,7 +14,7 @@
 ///
 /// —корость обновлени€ панели
 ///
-input int RefreshRate = 5;
+input int RefreshRate = 5000;
 
 CHedge* api;
 MainForm* HedgePanel;
@@ -26,8 +26,8 @@ PosLine* GlobalLine;
 ///
 void OnInit(void)
 {  
-   //Print("»нициализаци€ советника");
-   EventSetTimer(RefreshRate);
+   
+   EventSetMillisecondTimer(RefreshRate);
    HedgePanel = new MainForm();
    api = new CHedge();
    EventExchange::Add(HedgePanel);
@@ -59,6 +59,7 @@ void OnTimer(void)
    EventRefresh* refresh = new EventRefresh(EVENT_FROM_UP, "TERMINAL REFRESH");
    EventExchange::PushEvent(refresh);
    delete refresh;
+   ChartRedraw(MAIN_WINDOW);
 }
 ///
 /// ѕодстраиваем размер главной формы панели под размер текущего окна

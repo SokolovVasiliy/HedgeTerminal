@@ -18,9 +18,8 @@ class Table : public ProtoNode
    public:
       Table(string myName, ProtoNode* parNode):ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_TABLE, myName, parNode)
       {
-         
          highLine = 20;
-         lineHeader = new Line("Header", GetPointer(this));
+         lineHeader = new Line("Header", ELEMENT_TYPE_TABLE_HEADER, GetPointer(this));
          workArea = new CWorkArea(GetPointer(this));
          workArea.Edit(true);
          workArea.Text("");
@@ -397,6 +396,33 @@ class Table : public ProtoNode
             long highTotal;
       };
       ///
+      /// Алгоритм размещения заголовка таблицы.
+      ///
+      void AllocationHeader()
+      {
+         EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 2, 2, Width()-24, 20);
+         lineHeader.Event(command);
+         delete command;
+      }
+      ///
+      /// Алгоритм размещения рабочей области таблицы.
+      ///
+      void AllocationWorkTable()
+      {
+         EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 2, 22, Width()-24, High()-24);
+         workArea.Event(command);
+         delete command;
+      }
+      ///
+      /// Алгоритм размещения скролла таблицы.
+      ///
+      void AllocationScroll()
+      {
+         EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(),Width()-22, 2, 20, High()-4);
+         scroll.Event(command);
+         delete command;
+      }
+      ///
       /// Заголовок таблицы.
       ///
       Line* lineHeader;
@@ -408,6 +434,7 @@ class Table : public ProtoNode
       /// Скролл.
       ///
       Scroll* scroll;
+      
    private:
       
       virtual void OnCommand(EventNodeCommand* event)
@@ -416,33 +443,27 @@ class Table : public ProtoNode
          if(!Visible() || event.Direction() == EVENT_FROM_DOWN)return;
          
          //Размещаем заголовок таблицы.
-         EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 2, 2, Width()-24, 20);
-         lineHeader.Event(command);
-         delete command;
-            
+         AllocationHeader();
          //Размещаем рабочую область.
-         command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 2, 22, Width()-24, High()-24);
-         workArea.Event(command);
-         delete command;
-         
+         AllocationWorkTable();
          //Размещаем скролл.
-         command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(),Width()-22, 2, 20, High()-4);
-         scroll.Event(command);
-         delete command;
+         AllocationScroll();
       }
+      
       ///
       /// Ширина линии.
       ///
       int highLine;
       
 };
-
+class PosLine;
 ///
 /// Таблица открытых позиций.
 ///
 class TableOpenPos : public Table
 {
    public:
+      
       TableOpenPos(ProtoNode* parNode):Table("TableOfOpenPos.", parNode)
       {
          nProfit = -1;
@@ -624,9 +645,12 @@ class TableOpenPos : public Table
             case EVENT_CREATE_NEWPOS:
                AddPosition(event);
                break;
-            //case EVENT_REFRESH:
-            //   RefreshPos();
-            //   break;
+            case EVENT_REFRESH:
+               RefreshPrices();
+               break;
+            case EVENT_CHECK_BOX_CHANGED:
+               OnCheckBoxChanged(event);
+               break;
             case EVENT_COLLAPSE_TREE:
                OnCollapse(event);
                break;
@@ -636,28 +660,87 @@ class TableOpenPos : public Table
          }
       }
    private:
+      ///
+      /// Обработчик события "трал для позиции включен".
+      ///
+      void OnCheckBoxChanged(EventCheckBoxChanged* event)
+      {
+         ProtoNode* node = event.Node();
+         if(node.TypeElement() != ELEMENT_TYPE_BOTTON)return;
+         Button* btn = node;
+         ENUM_BUTTON_STATE state = btn.State();
+         //parNode = node.ParentNode();
+         //if(node.TypeElement() != ELEMENT_TYPE_POSITION)return;
+         
+      }
       void OnCollapse(EventCollapseTree* event)
       {
-         // Сворачиваем
-         if(event.IsCollapse())
+         ProtoNode* node = event.Node();
+         ENUM_ELEMENT_TYPE type = node.TypeElement();
+         if(type == ELEMENT_TYPE_POSITION)
          {
-            DeleteDeals(event);
+            // Сворачиваем
+            if(event.IsCollapse())
+               DeleteDeals(event);
+            // Разворачиваем
+            else AddDeals(event);
+            //Скролл реагирует на разворачивания списка
+            AllocationScroll();
          }
-         // Разворачиваем
-         else
+         //Требуется развернуть/свернуть все позиции?
+         if(type == ELEMENT_TYPE_TABLE_HEADER)
          {
-            //printf("Сделка № " + event.NLine() + " раскрыта.");
-            AddDeals(event);
+            // Сворачиваем весь список.
+            if(event.IsCollapse())
+               CollapseAll();
+            // Разворачиваем весь список.
+            else RestoreAll();
+            //Скролл реагирует на разворачивания списка
+            AllocationScroll();
+         }      
+      }
+      ///
+      /// Разворачивает весь список позиций.
+      ///
+      void RestoreAll()
+      {
+         for(int i = 0; i < workArea.ChildsTotal(); i++)
+         {
+            ProtoNode* node = workArea.ChildElementAt(i);
+            if(node.TypeElement() != ELEMENT_TYPE_POSITION)
+               continue;
+            PosLine* posLine = node;
+            TreeViewBoxBorder* twb = posLine.CellCollapsePos();
+            if(twb != NULL && twb.State() != BOX_TREE_COLLAPSE)continue;
+            twb.OnPush();
          }
       }
       ///
-      /// Деинициализируем дополнительные динамические объекты
+      /// Сворачивает весь список позиций
       ///
-      /*void OnDeinit(EventDeinit* event)
+      void CollapseAll()
       {
-         ListPos.Clear();
-         delete ListPos;
-      }*/
+         for(int i = 0; i < workArea.ChildsTotal(); i++)
+         {
+            ProtoNode* node = workArea.ChildElementAt(i);
+            if(node.TypeElement() != ELEMENT_TYPE_POSITION)continue;
+            PosLine* posLine = node;
+            TreeViewBoxBorder* twb = posLine.CellCollapsePos();
+            if(twb != NULL && twb.State() != BOX_TREE_RESTORE)continue;
+            twb.OnPush();
+         }
+      }
+      ///
+      /// Меняет значок раскрывающейся позиции в зависимости от
+      /// flaga isCollapse
+      ///
+      void ChangeCollapse(PosLine* pos, bool isCollapse)
+      {
+         TreeViewBoxBorder* twb = pos.CellCollapsePos();
+         if(isCollapse)
+            twb.Text("-");
+         else twb.Text("+");
+      }
       ///
       /// Обновляет цены открытых позиций.
       ///
@@ -667,57 +750,44 @@ class TableOpenPos : public Table
          for(int i = 0; i < total; i++)
          {
             ProtoNode* node = workArea.ChildElementAt(i);
-            if(node.TypeElement() != ELEMENT_TYPE_POSITION ||
+            ENUM_ELEMENT_TYPE el_type = node.TypeElement();
+            if(node.TypeElement() != ELEMENT_TYPE_POSITION &&
                node.TypeElement() != ELEMENT_TYPE_DEAL)
                continue;
             //Обновляем позиции и трейды по-разному.
             if(node.TypeElement() == ELEMENT_TYPE_POSITION)
             {
+               //Обновляем последнюю цену
                PosLine* posLine = node;
                Position* pos = posLine.Position();
-               //posLine.
+               Label* lastPrice = posLine.CellLastPrice();
+               double price = pos.CurrentPrice();
+               if(lastPrice != NULL)
+               {
+                  int digits = (int)SymbolInfoInteger(pos.Symbol(), SYMBOL_DIGITS);
+                  lastPrice.Text(DoubleToString(price, digits));
+               }
+               //Обновляем информацию о профите позиции
+               Label* profit = posLine.CellProfit();
+               if(profit != NULL)
+                  profit.Text(pos.ProfitAsString());
+            }
+            else if(node.TypeElement() == ELEMENT_TYPE_DEAL)
+            {
+               DealLine* dealLine = node;
+               Deal* deal = dealLine.EntryDeal();
+               double price = deal.CurrentPrice();
+               int digits = (int)SymbolInfoInteger(deal.Symbol(), SYMBOL_DIGITS);
+               Label* lastPrice = dealLine.CellLastPrice();
+               lastPrice.Text(NormalizeDouble(price, digits));
+               //Обновляем информацию о профите сделки.
+               Label* profit = dealLine.CellProfit();
+               if(profit != NULL)
+                  profit.Text(deal.ProfitAsString());
             }
          }
       }
-      ///
-      /// Обновляем состояние позиций
-      ///
-      /*void RefreshPos()
-      {
-         int total = ListPos.Total();
-         color lossZone = clrLavenderBlush;
-         color profitZone = clrMintCream;
-         for(int i = 0; i < total; i++)
-         {
-            GPosition* gposition = ListPos.At(i);
-            //Обновляем профит позиции.
-            if(nProfit != -1)
-            {
-               Line* lline = gposition.gpos.ChildElementAt(nProfit);
-               if(lline.ChildsTotal() < 1)continue;
-               Label* lprofit = lline.ChildElementAt(0);
-               double profit = gposition.pos.Profit();
-               string sprofit = gposition.pos.ProfitAsString();
-               Button* btnClose = lline.ChildElementAt(1);
-               if(profit > 0 && btnClose.BackgroundColor() != profitZone)
-                  btnClose.BackgroundColor(profitZone);
-               else if(profit <= 0 && btnClose.BackgroundColor() != lossZone)
-                  btnClose.BackgroundColor(lossZone);
-               lprofit.Text(sprofit);
-            }
-            //Обновляем последнюю цену позиции
-            if(nLastPrice)
-            {
-               Label* lastprice = gposition.gpos.ChildElementAt(nLastPrice);
-               int digits = (int)SymbolInfoInteger(gposition.pos.Symbol(), SYMBOL_DIGITS);
-               string price = DoubleToString(gposition.pos.CurrentPrice(), digits);
-               //lastprice.Text((string)gposition.pos.CurrentPrice());
-               lastprice.Text(price);
-            }
-         }
-      }*/
-      
-      
+
       ///
       /// Добавляем новую созданную таблицу, либо раскрывает позицию
       ///
@@ -745,6 +815,7 @@ class TableOpenPos : public Table
                twb.BackgroundColor(clrWhite);
                twb.BorderColor(clrWhiteSmoke);
                nline.Add(twb);
+               nline.CellCollapsePos(twb);
                continue;
             }
             if(node.ShortName() == name_magic)
@@ -823,9 +894,11 @@ class TableOpenPos : public Table
             else if(node.ShortName() == name_currprice)
             {
                cell = new Label(name_currprice, GetPointer(nline));
+               nline.CellLastPrice(cell);
                int digits = (int)SymbolInfoInteger(pos.Symbol(), SYMBOL_DIGITS);
                string price = DoubleToString(pos.CurrentPrice(), digits);
                cell.Text(price);
+               nline.CellLastPrice(cell);
             }
             
             else if(node.ShortName() == name_profit)
@@ -839,6 +912,7 @@ class TableOpenPos : public Table
                cell.BackgroundColor(clrWhite);
                cell.BorderColor(clrWhiteSmoke);
                cell.Edit(true);
+               nline.CellProfit(cell);
                ButtonClosePos* btnClose = new ButtonClosePos("btnClosePos.", comby);
                btnClose.Font("Wingdings");
                btnClose.FontSize(12);
@@ -871,6 +945,7 @@ class TableOpenPos : public Table
                cell = NULL;
             }
          }
+         
          workArea.Add(nline);
          //Что бы новая позиция тут же отобразилась в таблице активных позиций
          //уведомляем родительский элемент, что необходимо сделать refresh
@@ -878,14 +953,52 @@ class TableOpenPos : public Table
          EventSend(er);
          delete er;
       }
-      
+      ///
+      /// Содержит общие свойства и методы позиций и сделок для графического представления.
+      ///
+      class AbstractPos : public Line
+      {
+         public:
+            ///
+            /// Устанавливает ссылку на ячейку строки, отображающую последнюю цену инструмента,
+            /// по которому открыта позиция / совершена сделка.
+            ///
+            void CellLastPrice(Label* label){cellLastPrice = label;}
+            ///
+            /// Возвращает ячейку, отображающую последнюю цену позиции.
+            ///
+            Label* CellLastPrice(){return cellLastPrice;}
+            ///
+            /// Устанавливает ссылку на ячейку строки, отображающую профит.
+            ///
+            void CellProfit(Label* profit)
+            {
+               cellProfit = profit;
+            }
+            ///
+            /// Возвращает ссылку на ячейку, отображающую профит.
+            ///
+            Label* CellProfit(){return cellProfit;}
+            
+         protected:
+            AbstractPos(string nameEl, ENUM_ELEMENT_TYPE el_type, ProtoNode* parNode) : Line(nameEl, el_type, parNode){;}
+         private:
+            ///
+            /// Указатель на ячейку, отображающую последнюю цену инструмента, по которому открыта позиция/сделка.
+            ///
+            Label* cellLastPrice;
+            ///
+            /// Указатель на ячейку, отображающую профит позиции/сделки.
+            ///
+            Label* cellProfit;
+      };
       ///
       /// Графическое представление позиции
       ///
-      class PosLine : public Line
+      class PosLine : public AbstractPos
       {
          public:
-            PosLine(ProtoNode* parNode, Position* pos) : Line("Position", ELEMENT_TYPE_POSITION, parNode)
+            PosLine(ProtoNode* parNode, Position* pos) : AbstractPos("Position", ELEMENT_TYPE_POSITION, parNode)
             {
                //Связываем графическое представление позиции с конкретной позицией.
                position = pos;
@@ -895,34 +1008,45 @@ class TableOpenPos : public Table
             ///
             Position* Position(){return position;}
             ///
-            /// Возвращает ячейку, отображающую последнюю цену позиции.
+            /// Возвращает флаг указываютщий, является ли текущая позиция развернутой (true)
+            /// или свернутой.
             ///
-            Label* CellLastPrice(){return cellLastPrice;}
+            bool IsRestore(){return isRestore;}
             ///
-            /// Связывает последнюю цену позиции с ячейкой, в которой она отображается.
+            /// Устанавливает флаг указывающий, является ли текущая позиция развернутой (true)
+            /// или свернутой.
             ///
-            void CellLastPrice(Label* label){cellLastPrice = label;}
+            void IsRestore(bool status){isRestore = status;}
+            ///
+            /// Возвращает ссылку на кнопку раскрытия позиции.
+            ///
+            TreeViewBoxBorder* CellCollapsePos(){return collapsePos;}
+            ///
+            /// Устанавливает ссылку на ячейку расскрытия позиции
+            ///
+            void CellCollapsePos(TreeViewBoxBorder* collapse){collapsePos = collapse;}
          private:
+            ///
+            /// Указатель на раскрывающую кнопку позиции.
+            ///
+            TreeViewBoxBorder* collapsePos;
             ///
             /// Указатель на позицию, чье графическое представление реализует текущий экземпляр.
             ///
             Position* position;
             ///
-            /// Последняя цена инструмента, по которому открыта позиция.
+            /// Истина, если позиция имеет развернутое графическое представление
+            /// (показываются также сделки), ложь - в противном случе.
             ///
-            Label* cellLastPrice;
-            ///
-            /// Профит позиции.
-            ///
-            Label* cellProfit;
+            bool isRestore;
       };
       ///
       /// Графическое представление трейда
       ///
-      class DealLine : public Line
+      class DealLine : public AbstractPos
       {
          public:
-            DealLine(ProtoNode* parNode, Deal* EntryDeal, Deal* ExitDeal) : Line("Deal", ELEMENT_TYPE_DEAL, parNode)
+            DealLine(ProtoNode* parNode, Deal* EntryDeal, Deal* ExitDeal) : AbstractPos("Deal", ELEMENT_TYPE_DEAL, parNode)
             {
                //Связываем графическое представление трейда с конкретной позицией.
                entryDeal = EntryDeal;
@@ -936,6 +1060,7 @@ class TableOpenPos : public Table
             /// Возвращает указатель на трейд закрывающий позицию.
             ///
             Deal* ExitDeal(){return exitDeal;}
+            //Label* CellLastPrice(){}
          private:
             ///
             /// Указатель на трейд инициализирующий позицию, чье графическое представление реализует текущий экземпляр.
@@ -956,6 +1081,8 @@ class TableOpenPos : public Table
          //Функция умеет развертывать только позиции, и с другими элеменатми работать не может.
          if(node.TypeElement() != ELEMENT_TYPE_POSITION)return;
          PosLine* posLine = node;
+         //Повторно разворачивать уже развернутую позицию не надо.
+         if(posLine.IsRestore())return;
          Position* pos = posLine.Position();
          long order_id = pos.EntryOrderID();
          //Позиция содержит сделки, которые необходимо раскрыть.
@@ -966,7 +1093,7 @@ class TableOpenPos : public Table
          int entryTotal = entryDeals != NULL ? entryDeals.Total() : 0;
          int exitTotal = exitDeals != NULL ? exitDeals.Total() : 0;
          int total;
-         int fontSize = 9;
+         int fontSize = 8;
          if(entryTotal > 0 && entryTotal > exitTotal)
             total = entryTotal;
          else if(exitTotal > 0 && exitTotal > exitTotal)
@@ -1013,7 +1140,9 @@ class TableOpenPos : public Table
                   Label* lcell = cell;
                   magic.Edit(true);
                   magic.BindingWidth(cell);
-                  magic.Text(lcell.Text());
+                  magic.Font("Wingdings");
+                  magic.Text(CharToString(225));
+                  //magic.Text(lcell.Text());
                   magic.BackgroundColor(cell.BackgroundColor());
                   magic.BorderColor(cell.BorderColor());
                   nline.Add(magic);
@@ -1027,7 +1156,9 @@ class TableOpenPos : public Table
                   Label* lcell = cell;
                   symbol.Edit(true);
                   symbol.BindingWidth(cell);
-                  symbol.Text(lcell.Text());
+                  symbol.Font("Wingdings");
+                  symbol.Text(CharToString(225));
+                  //symbol.Text(lcell.Text());
                   symbol.BackgroundColor(cell.BackgroundColor());
                   symbol.BorderColor(cell.BorderColor());
                   nline.Add(symbol);
@@ -1122,7 +1253,10 @@ class TableOpenPos : public Table
                   entryPrice.Edit(true);
                   entryPrice.BindingWidth(cell);
                   if(entryDeal != NULL)
+                  {
+                     
                      entryPrice.Text((string)entryDeal.Price());
+                  }
                   else
                      entryPrice.Text("");
                   entryPrice.BackgroundColor(cell.BackgroundColor());
@@ -1138,7 +1272,9 @@ class TableOpenPos : public Table
                   Label* lcell = cell;
                   sl.Edit(true);
                   sl.BindingWidth(cell);
-                  sl.Text(lcell.Text());
+                  sl.Font("Wingdings");
+                  sl.Text(CharToString(225));
+                  //sl.Text(lcell.Text());
                   sl.BackgroundColor(cell.BackgroundColor());
                   sl.BorderColor(cell.BorderColor());
                   nline.Add(sl);
@@ -1152,7 +1288,9 @@ class TableOpenPos : public Table
                   Label* lcell = cell;
                   tp.Edit(true);
                   tp.BindingWidth(cell);
-                  tp.Text(lcell.Text());
+                  tp.Font("Wingdings");
+                  tp.Text(CharToString(225));
+                  //tp.Text(lcell.Text());
                   tp.BackgroundColor(cell.BackgroundColor());
                   tp.BorderColor(cell.BorderColor());
                   nline.Add(tp);
@@ -1165,7 +1303,9 @@ class TableOpenPos : public Table
                   tral.FontSize(fontSize);
                   tral.Edit(true);
                   tral.BindingWidth(cell);
-                  tral.Text("T");
+                  tral.Font("Wingdings");
+                  tral.Text(CharToString(225));
+                  //tral.Text("T");
                   tral.Align(ALIGN_RIGHT);
                   tral.BackgroundColor(cell.BackgroundColor());
                   tral.BorderColor(cell.BorderColor());
@@ -1185,6 +1325,7 @@ class TableOpenPos : public Table
                   cprice.BackgroundColor(cell.BackgroundColor());
                   cprice.BorderColor(cell.BorderColor());
                   nline.Add(cprice);
+                  nline.CellLastPrice(cprice);
                   continue;
                }
                //Профит
@@ -1220,6 +1361,7 @@ class TableOpenPos : public Table
                      profit.BorderColor(clrWhite);
                   }
                   nline.Add(profit);
+                  nline.CellProfit(profit);
                   continue;
                }
                //Комментарий
@@ -1238,14 +1380,15 @@ class TableOpenPos : public Table
                
             }
             int m_total = nline.ChildsTotal();
-            for(int el = 0; el < m_total; el++)
+            /*for(int el = 0; el < m_total; el++)
             {
                Label* label = nline.ChildElementAt(el);
-               label.Font("Courier New");
-            }
+               label.Font("Arial Black");
+            }*/
             int n = event.NLine();
             workArea.Add(nline, event.NLine()+1);
          }
+         posLine.IsRestore(true);
       }
       ///
       /// Удаляет визуализацию трейдов позиции
@@ -1265,6 +1408,8 @@ class TableOpenPos : public Table
             count++;
          }
          workArea.DeleteRange(sn_line+1, count);
+         PosLine* posLine = node;
+         posLine.IsRestore(false);
       }
       /*virtual void OnVisible(EventVisible* event)
       {
