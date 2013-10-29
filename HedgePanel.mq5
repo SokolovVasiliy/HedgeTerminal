@@ -41,7 +41,7 @@ void OnInit(void)
 void OnDeinit(const int reason)
 {
    int size = sizeof(HedgePanel);
-   printf("HedgePanelSize: " + (string)size);
+   //printf("HedgePanelSize: " + (string)size);
    EventDeinit* ed = new EventDeinit();
    HedgePanel.Event(ed);
    api.Event(ed);
@@ -106,7 +106,7 @@ void OnChartEvent(const int id,
    //Определяем, является ли событие нажатием на одну из кнопок HP
    else if (id == CHARTEVENT_OBJECT_CLICK)
    {
-      EventPush* pushObj = new EventPush(sparam);
+      EventObjectClick* pushObj = new EventObjectClick(sparam);
       HedgePanel.Event(pushObj);
       delete pushObj;
    }

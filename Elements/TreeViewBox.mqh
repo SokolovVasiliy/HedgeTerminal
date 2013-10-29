@@ -138,7 +138,7 @@ class TreeViewBoxBorder : public Label
       {
          //if(event.Direction() == EVENT_FROM_DOWN)
          //{
-            if(event.EventId() == EVENT_PUSH)
+            if(event.EventId() == EVENT_OBJ_CLICK)
                OnPush();
          //}
       }

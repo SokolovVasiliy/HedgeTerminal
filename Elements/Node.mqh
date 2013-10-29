@@ -115,7 +115,7 @@ class ProtoNode : public CObject
                   ExecuteCommand(event);
                   break;
                //Нажатие на объект
-               case EVENT_PUSH:
+               case EVENT_OBJ_CLICK:
                   Push(event);
                   break;
                case EVENT_REDRAW:
@@ -252,6 +252,10 @@ class ProtoNode : public CObject
          ProtoNode* node = childNodes.At(n);
          return node;
       }
+      ///
+      /// Возвращает родительский узел текущего графического узла.
+      ///
+      ProtoNode* ParentNode(){return parentNode;}
       ///
       /// Вставляет графический узел на позицию pos в списке графических элементов
       ///
@@ -540,7 +544,23 @@ class ProtoNode : public CObject
       /// Каждый потомок должен самостоятельно определить свои действия,
       /// при нажатии на свой объект.
       ///
-      virtual void OnPush(){;}
+      virtual void OnPush()
+      {
+         // Уведомляем дочерние элементы, что был произведен клик по текущему объекту.
+         if(ChildsTotal() > 0)
+         {
+            EventNodeClick* click = new EventNodeClick(EVENT_FROM_UP, GetPointer(this));
+            EventSend(click);
+            delete click;
+         }
+         // Уведомляем родительский элемент, что был произведен клик по текущему объекту.
+         if(parentNode != NULL)
+         {
+            EventNodeClick* click = new EventNodeClick(EVENT_FROM_DOWN, GetPointer(this));
+            EventSend(click);
+            delete click;
+         }
+      }
       ///
       /// По умолчанию обновляем все элементы рекурсивно.
       ///
@@ -837,7 +857,7 @@ class ProtoNode : public CObject
          Visible(newEvent.Visible());
          OnCommand(newEvent);
       }
-      void Push(EventPush* push)
+      void Push(EventObjectClick* push)
       {
          if(push.PushObjName() == NameID())
          {
@@ -966,11 +986,11 @@ class ProtoNode : public CObject
          int index = 0;
          //MathSrand(TimeLocal());
          int rnd = MathRand();
-         while(ObjectFind(MAIN_WINDOW, nameId + (string)index + rnd) >= 0)
+         while(ObjectFind(MAIN_WINDOW, nameId + (string)index + (string)rnd) >= 0)
          {
             index++;
          }
-         nameId += (string)index + rnd;
+         nameId += (string)index + (string)rnd;
       }
       ///
       /// Инициализатор объекта.

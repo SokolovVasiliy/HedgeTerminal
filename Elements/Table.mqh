@@ -286,6 +286,33 @@ class Table : public ProtoNode
                   //printf("VisibleCount: " + visibleCount);
                   //firstVisible = node
                }
+               ///
+               /// Обрабатываем щелчок, по одной из строк
+               ///
+               else if(event.Direction() == EVENT_FROM_DOWN && event.EventId() == EVENT_NODE_CLICK)
+               {
+                  //Если щелчок был произведен по строке содержащий фиксированный текст,
+                  //значит текущую строку надо подкрасить курсором.
+                  //В противном случае, произошло другое значимое событие, которое надо передать наверх.
+                  ProtoNode* node = event.Node();
+                  if(node.TypeElement() == ELEMENT_TYPE_LABEL)
+                  {
+                     Label* lab = node;
+                     //Включаем подсветку строки
+                     ProtoNode* parNode = lab.ParentNode();
+                     bool isConvert = parNode.TypeElement() == ELEMENT_TYPE_POSITION ||
+                     parNode.TypeElement() == ELEMENT_TYPE_DEAL;
+                     if(lab.Edit() && isConvert)
+                     {
+                        //Заменяем старый курсор на стандартный цвет
+                        if(CheckPointer(cursorLine) != POINTER_INVALID)
+                           InterlacingColor(cursorLine);
+                        cursorLine = parNode;
+                        ColorationBack(parNode, clrLightSteelBlue);
+                     }
+                  }
+                  EventSend(event);
+               }
                else
                   EventSend(event);
             }
@@ -299,7 +326,7 @@ class Table : public ProtoNode
                int total = ChildsTotal();
                //Узнаем потенциальное количество строк, которое может разместиться
                //при текущем размере таблице.
-               int highTable = High();
+               long highTable = High();
                double lines = MathFloor(High()/20.0);
                //Появилась возможность отобразить дополнительные линии?
                
@@ -317,7 +344,7 @@ class Table : public ProtoNode
                //Можно также отобразить часть нижних линий
                if(visibleCount + dn_line < lines)
                {
-                  int n = lines - (dn_line + visibleCount);
+                  int n = (int)(lines - (dn_line + visibleCount));
                   visibleFirst -= n;
                }
                //else visibleFirst = total - lines;
@@ -343,7 +370,7 @@ class Table : public ProtoNode
                //Можно также отобразить часть нижних линий
                if(visibleCount + dn_line < lines)
                {
-                  int n = lines - (dn_line + visibleCount);
+                  int n = (int)(lines - (dn_line + visibleCount));
                   visibleFirst -= n;
                }
                for(int i = visibleFirst; i < total; i++)
@@ -355,9 +382,19 @@ class Table : public ProtoNode
             void InterlacingColor(ProtoNode* nline)
             {
                color clrBack;
+               //Выделенную строку под курсором не перекрашиваем.
+               //if(cursorLine != NULL && nline == cursorLine)return;
                if((nline.NLine()+1) % 2 == 0)
                   clrBack = clrWhiteSmoke;
                else clrBack = clrWhite;
+               ColorationBack(nline, clrBack);
+            }
+            ///
+            /// Раскрашивает фон дочерних элементов nline в указанный цвет.
+            ///
+            void ColorationBack(ProtoNode* nline, color clrBack)
+            {
+               
                for(int i = 0; i < nline.ChildsTotal(); i++)
                {
                   ProtoNode* node = nline.ChildElementAt(i);
@@ -394,6 +431,10 @@ class Table : public ProtoNode
             /// Общая высота всех видимых элементов.
             ///
             long highTotal;
+            ///
+            /// Содержит на строку, которая в данный момент находится под курсором.
+            ///
+            Line* cursorLine;
       };
       ///
       /// Алгоритм размещения заголовка таблицы.
@@ -434,6 +475,7 @@ class Table : public ProtoNode
       /// Скролл.
       ///
       Scroll* scroll;
+      
       
    private:
       
@@ -654,6 +696,9 @@ class TableOpenPos : public Table
             case EVENT_COLLAPSE_TREE:
                OnCollapse(event);
                break;
+            case EVENT_NODE_CLICK:
+               OnNodeClick(event);
+               break;
             default:
                EventSend(event);
                break;
@@ -669,9 +714,56 @@ class TableOpenPos : public Table
          if(node.TypeElement() != ELEMENT_TYPE_BOTTON)return;
          Button* btn = node;
          ENUM_BUTTON_STATE state = btn.State();
-         //parNode = node.ParentNode();
-         //if(node.TypeElement() != ELEMENT_TYPE_POSITION)return;
-         
+         ProtoNode* parNode = node.ParentNode();
+         if(parNode == NULL || parNode.TypeElement() != ELEMENT_TYPE_POSITION)return;
+         PosLine* pos = parNode;
+         int total = workArea.ChildsTotal();
+         for(int i = parNode.NLine()+1; i < total; i++)
+         {
+            ProtoNode* node = workArea.ChildElementAt(i);
+            if(node.TypeElement() != ELEMENT_TYPE_DEAL)break;
+            DealLine* deal = node;
+            Label* tral = deal.CellTral();
+            if(tral == NULL)return;
+            if(tral.Font() != "Wingdings")
+               tral.Font("Wingdings");
+            if(event.Checked() == true)
+               tral.Text(CharToString(254));
+            else
+               tral.Text(CharToString(168));
+         }
+      }
+      ///
+      /// Обрабатываем событие нажатие кнопки мыши.
+      ///
+      void OnNodeClick(EventNodeClick* event)
+      {
+         ProtoNode* node = event.Node();
+         ProtoNode* parNode = node.ParentNode();
+         if(parNode == NULL || parNode != lineHeader)
+            return;
+         //Обрабатываем включение трала для всех позиций.
+         if(node.ShortName() == name_tralSl)
+         {
+            if(node.TypeElement() != ELEMENT_TYPE_BOTTON)return;
+            Button* btn = node;
+            //Выключаем трал для всех позиций.
+            ENUM_BUTTON_STATE state = btn.State();
+            int total = workArea.ChildsTotal();
+            for(int i = 0; i < total; i++)
+            {
+               ProtoNode* node = workArea.ChildElementAt(i);
+               if(node.TypeElement() == ELEMENT_TYPE_POSITION)
+               {
+                  PosLine* pos = node;
+                  CheckBox* checkBox = pos.CellTral();
+                  if(checkBox.State() != state)
+                     checkBox.State(state);
+               }
+            }
+         }
+         //Пробуем идентифицировать строку, по которой было осуществленно нажатие
+         //if(parentNode.TypeElement() == ELEMENT)
       }
       void OnCollapse(EventCollapseTree* event)
       {
@@ -779,7 +871,7 @@ class TableOpenPos : public Table
                double price = deal.CurrentPrice();
                int digits = (int)SymbolInfoInteger(deal.Symbol(), SYMBOL_DIGITS);
                Label* lastPrice = dealLine.CellLastPrice();
-               lastPrice.Text(NormalizeDouble(price, digits));
+               lastPrice.Text(DoubleToString(price, digits));
                //Обновляем информацию о профите сделки.
                Label* profit = dealLine.CellProfit();
                if(profit != NULL)
@@ -889,6 +981,7 @@ class TableOpenPos : public Table
                btnTralSL.OptimalWidth(nline.OptimalHigh());
                btnTralSL.ConstWidth(true);
                nline.Add(btnTralSL);
+               nline.CellTral(btnTralSL);
                continue;
             }
             else if(node.ShortName() == name_currprice)
@@ -980,8 +1073,7 @@ class TableOpenPos : public Table
             ///
             Label* CellProfit(){return cellProfit;}
             
-         protected:
-            AbstractPos(string nameEl, ENUM_ELEMENT_TYPE el_type, ProtoNode* parNode) : Line(nameEl, el_type, parNode){;}
+            AbstractPos(string nameEl, ENUM_ELEMENT_TYPE el_type, ProtoNode* parNode) : Line(nameEl, el_type, parNode){;}           
          private:
             ///
             /// Указатель на ячейку, отображающую последнюю цену инструмента, по которому открыта позиция/сделка.
@@ -991,6 +1083,7 @@ class TableOpenPos : public Table
             /// Указатель на ячейку, отображающую профит позиции/сделки.
             ///
             Label* cellProfit;
+            
       };
       ///
       /// Графическое представление позиции
@@ -1025,6 +1118,14 @@ class TableOpenPos : public Table
             /// Устанавливает ссылку на ячейку расскрытия позиции
             ///
             void CellCollapsePos(TreeViewBoxBorder* collapse){collapsePos = collapse;}
+            ///
+            /// Устанавливает указатель на ячейку отображающую кнопку влкючения/выключения трала.
+            ///
+            void CellTral(CheckBox* tral){cellTral = tral;}
+            ///
+            /// Возвращает указатель на ячейку отображающую кнопку включения/выключения трала.
+            ///
+            CheckBox* CellTral(){return cellTral;}
          private:
             ///
             /// Указатель на раскрывающую кнопку позиции.
@@ -1039,6 +1140,10 @@ class TableOpenPos : public Table
             /// (показываются также сделки), ложь - в противном случе.
             ///
             bool isRestore;
+            ///
+            /// Указатель на ячейку, отображающую трал для позиции/сделки.
+            ///
+            CheckBox* cellTral;
       };
       ///
       /// Графическое представление трейда
@@ -1060,7 +1165,15 @@ class TableOpenPos : public Table
             /// Возвращает указатель на трейд закрывающий позицию.
             ///
             Deal* ExitDeal(){return exitDeal;}
-            //Label* CellLastPrice(){}
+            ///
+            /// Устанавливает указатель на ячейку, показывающую статус трала.
+            ///
+            void CellTral(Label* tral){cellTral = tral;}
+            ///
+            /// Возвращает указатель на ячейку, указывающую на статус трала.
+            ///
+            Label* CellTral(){return cellTral;}
+            
          private:
             ///
             /// Указатель на трейд инициализирующий позицию, чье графическое представление реализует текущий экземпляр.
@@ -1070,6 +1183,10 @@ class TableOpenPos : public Table
             /// Указатель на трейд закрывающий позицию, чье графическое представление реализует текущий экземпляр.
             ///
             Deal* exitDeal;
+            ///
+            /// Указатель на метку, указывающиую, используется ли трал для сделки.
+            ///
+            Label* cellTral;
       };
       ///
       /// Добавляет визуализацию сделок для позиции
@@ -1077,14 +1194,13 @@ class TableOpenPos : public Table
       void AddDeals(EventCollapseTree* event)
       {
          ProtoNode* node = event.Node();
-         int n_line = node.NLine();
          //Функция умеет развертывать только позиции, и с другими элеменатми работать не может.
          if(node.TypeElement() != ELEMENT_TYPE_POSITION)return;
          PosLine* posLine = node;
          //Повторно разворачивать уже развернутую позицию не надо.
          if(posLine.IsRestore())return;
          Position* pos = posLine.Position();
-         long order_id = pos.EntryOrderID();
+         ulong order_id = pos.EntryOrderID();
          //Позиция содержит сделки, которые необходимо раскрыть.
          CArrayObj* entryDeals = pos.EntryDeals();
          CArrayObj* exitDeals = pos.ExitDeals();
@@ -1099,6 +1215,7 @@ class TableOpenPos : public Table
          else if(exitTotal > 0 && exitTotal > exitTotal)
             total = exitTotal;
          else return;
+         color clrSlave = clrSilver;
          //Перебираем сделки
          for(int i = 0; i < total; i++)
          {
@@ -1140,9 +1257,10 @@ class TableOpenPos : public Table
                   Label* lcell = cell;
                   magic.Edit(true);
                   magic.BindingWidth(cell);
-                  magic.Font("Wingdings");
-                  magic.Text(CharToString(225));
-                  //magic.Text(lcell.Text());
+                  //magic.Font("Wingdings");
+                  //magic.Text(CharToString(225));
+                  //magic.FontColor(clrSlave);
+                  magic.Text(lcell.Text());
                   magic.BackgroundColor(cell.BackgroundColor());
                   magic.BorderColor(cell.BorderColor());
                   nline.Add(magic);
@@ -1156,9 +1274,10 @@ class TableOpenPos : public Table
                   Label* lcell = cell;
                   symbol.Edit(true);
                   symbol.BindingWidth(cell);
-                  symbol.Font("Wingdings");
-                  symbol.Text(CharToString(225));
-                  //symbol.Text(lcell.Text());
+                  //symbol.Font("Wingdings");
+                  //symbol.Text(CharToString(225));
+                  symbol.Text(lcell.Text());
+                  //symbol.FontColor(clrSlave);
                   symbol.BackgroundColor(cell.BackgroundColor());
                   symbol.BorderColor(cell.BorderColor());
                   nline.Add(symbol);
@@ -1272,9 +1391,10 @@ class TableOpenPos : public Table
                   Label* lcell = cell;
                   sl.Edit(true);
                   sl.BindingWidth(cell);
-                  sl.Font("Wingdings");
-                  sl.Text(CharToString(225));
-                  //sl.Text(lcell.Text());
+                  //sl.FontColor(clrSlave);
+                  //sl.Font("Wingdings");
+                  //sl.Text(CharToString(225));
+                  sl.Text(lcell.Text());
                   sl.BackgroundColor(cell.BackgroundColor());
                   sl.BorderColor(cell.BorderColor());
                   nline.Add(sl);
@@ -1288,9 +1408,10 @@ class TableOpenPos : public Table
                   Label* lcell = cell;
                   tp.Edit(true);
                   tp.BindingWidth(cell);
-                  tp.Font("Wingdings");
-                  tp.Text(CharToString(225));
-                  //tp.Text(lcell.Text());
+                  //tp.FontColor(clrSlave);
+                  tp.Text(lcell.Text());
+                  //tp.Font("Wingdings");
+                  //tp.Text(CharToString(225));
                   tp.BackgroundColor(cell.BackgroundColor());
                   tp.BorderColor(cell.BorderColor());
                   nline.Add(tp);
@@ -1299,17 +1420,24 @@ class TableOpenPos : public Table
                //Трал
                if(cell.ShortName() == name_tralSl)
                {
+                  
                   Label* tral = new Label("DealTralSL", nline);
                   tral.FontSize(fontSize);
                   tral.Edit(true);
                   tral.BindingWidth(cell);
                   tral.Font("Wingdings");
-                  tral.Text(CharToString(225));
-                  //tral.Text("T");
-                  tral.Align(ALIGN_RIGHT);
+                  CheckBox* checkTral = cell;
+                  if(checkTral.Checked())
+                     tral.Text(CharToString(254));
+                  else
+                     tral.Text(CharToString(168));
+                  tral.FontSize(12);
+                  tral.FontColor(clrSilver);
+                  tral.Align(ALIGN_CENTER);
                   tral.BackgroundColor(cell.BackgroundColor());
                   tral.BorderColor(cell.BorderColor());
                   nline.Add(tral);
+                  nline.CellTral(tral);
                   continue;
                }
                //Последняя цена
@@ -1324,6 +1452,7 @@ class TableOpenPos : public Table
                   cprice.Text(lprice.Text());
                   cprice.BackgroundColor(cell.BackgroundColor());
                   cprice.BorderColor(cell.BorderColor());
+                  //cprice.FontColor(clrSlave);
                   nline.Add(cprice);
                   nline.CellLastPrice(cprice);
                   continue;
@@ -1383,7 +1512,7 @@ class TableOpenPos : public Table
             /*for(int el = 0; el < m_total; el++)
             {
                Label* label = nline.ChildElementAt(el);
-               label.Font("Arial Black");
+               label.FontColor(clrDimGray);
             }*/
             int n = event.NLine();
             workArea.Add(nline, event.NLine()+1);

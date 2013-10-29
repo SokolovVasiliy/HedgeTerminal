@@ -22,9 +22,18 @@ class CheckBox : public Button
             checked = true;
             Text(CharToString(254));
          }
-         EventCheckBoxChanged* checkBox = new EventCheckBoxChanged(EVENT_FROM_UP, GetPointer(this), State());
-         EventSend(checkBox);
-         delete checkBox;
+         if(ChildsTotal() > 0)
+         {
+            EventCheckBoxChanged* checkBox = new EventCheckBoxChanged(EVENT_FROM_UP, GetPointer(this), checked);
+            EventSend(checkBox);
+            delete checkBox;;
+         }
+         if(parentNode != NULL)
+         {
+            EventCheckBoxChanged* checkBox = new EventCheckBoxChanged(EVENT_FROM_DOWN, GetPointer(this), State());
+            EventSend(checkBox);
+            delete checkBox;
+         }
       }
       bool checked;
 };

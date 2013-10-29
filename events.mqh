@@ -109,7 +109,11 @@ enum ENUM_EVENT
    ///
    /// Идентификатор события "кнопка нажата".
    ///
-   EVENT_PUSH,
+   EVENT_OBJ_CLICK,
+   ///
+   /// Это событие посылает графический объект, после того, как был нажат.
+   ///
+   EVENT_NODE_CLICK,
    ///
    /// Идентификатор события "дерево Раскрыто/Закрыто".
    ///
@@ -125,7 +129,11 @@ enum ENUM_EVENT
    ///
    /// Идентификатор события "статус графического элемента CheckBox изменене".
    ///
-   EVENT_CHECK_BOX_CHANGED
+   EVENT_CHECK_BOX_CHANGED,
+   ///
+   /// Идентификатор события цвет узла сменен.
+   ///
+   EVENT_CHANGE_COLOR
 };
 
 
@@ -452,11 +460,13 @@ class EventRefresh : public Event
       EventRefresh(ENUM_EVENT_DIRECTION Dir, string nodeId):
       Event(Dir, EVENT_REFRESH, nodeId){;}
 };
-
-class EventPush : public Event
+///
+/// Это событие генерируется терминалом 
+///
+class EventObjectClick : public Event
 {
    public:
-      EventPush(string pushName): Event(EVENT_FROM_UP, EVENT_PUSH, "TERMINAL WINDOW")
+      EventObjectClick(string pushName): Event(EVENT_FROM_UP, EVENT_OBJ_CLICK, "TERMINAL WINDOW")
       {
          pushObjName = pushName;
       }
@@ -466,7 +476,7 @@ class EventPush : public Event
       string PushObjName(){return pushObjName;}
       virtual Event* Clone()
       {
-         return new EventPush(pushObjName);
+         return new EventObjectClick(pushObjName);
       }
    private:
       ///
@@ -618,22 +628,56 @@ class EventMouseMove : public Event
 class EventCheckBoxChanged : public Event
 {
    public:
-      EventCheckBoxChanged(ENUM_EVENT_DIRECTION dirEvent, CheckBox* m_checkBox, ENUM_BUTTON_STATE myState) : Event(dirEvent, EVENT_CHECK_BOX_CHANGED, m_checkBox)
+      EventCheckBoxChanged(ENUM_EVENT_DIRECTION dirEvent, CheckBox* m_checkBox, bool check) : Event(dirEvent, EVENT_CHECK_BOX_CHANGED, m_checkBox)
       {
          checkBox = m_checkBox;
+         isChecked = check;
       }
+      ///
+      /// Возвращает статус нажатия кнопки.
+      ///
+      ENUM_BUTTON_STATE Checked(){return isChecked;}
       ///
       /// Возвращает состояние CheckBox.
       ///
       ENUM_BUTTON_STATE State(){return state;}
       virtual Event* Clone()
       {
-         EventCheckBoxChanged* checked = new EventCheckBoxChanged(Direction(), checkBox, state);
+         EventCheckBoxChanged* checked = new EventCheckBoxChanged(Direction(), checkBox, isChecked);
          return checked;
       }
    private:
       CheckBox* checkBox;
-      
+      bool isChecked;
       ENUM_BUTTON_STATE state;
+};
+
+///
+/// Это событие посылает графический объект после того, как был нажат
+/// (реализация по-умолчанию в ProtoNode.OnPush())
+///
+class EventNodeClick : public Event
+{
+   public:
+      EventNodeClick(ENUM_EVENT_DIRECTION dirEvent, ProtoNode* myNode) : Event(dirEvent, EVENT_NODE_CLICK, myNode){;}
+      Event* Clone(){return new EventNodeClick(Direction(), Node());}
+};
+
+///
+/// Событие, сигнализирующее о смене цвета.
+///
+class EventChangeColor : public Event
+{
+   public:
+      EventChangeColor(ENUM_EVENT_DIRECTION dirEvent, string nodeName, color clr) : Event(dirEvent, EVENT_CHANGE_COLOR, nodeName)
+      {
+         m_clr = clr;
+      }
+      ///
+      /// Возвращает цвет, на который необходимо сменить цвет узла.
+      ///
+      color Color(){return m_clr;}
+   private:
+      color m_clr;
 };
 
