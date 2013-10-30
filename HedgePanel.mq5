@@ -86,29 +86,23 @@ void OnChartEvent(const int id,
       //Print("Получены новые размеры окна X:" + (string)X + " Y:" + (string)Y);
       EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, "TERMINAL WINDOW", true, 0, 0, X, Y);
       HedgePanel.Event(command);
-      
       delete command;
-      /*Position* pos = new Position(POSITION_STATUS_OPEN,
-                                   POSITION_TYPE_BUY,
-                                   12345,
-                                   Symbol(),
-                                   MathRand(),
-                                   0.1,
-                                   TimeCurrent(),
-                                   1.20394,
-                                   0, 0, str);
-      EventCreateNewPos* createPos = new EventCreateNewPos(EVENT_FROM_UP, "HP API", pos);
-      HedgePanel.Event(createPos);
-      delete pos;
-      delete createPos;
-      */
+      
    }
    //Определяем, является ли событие нажатием на одну из кнопок HP
-   else if (id == CHARTEVENT_OBJECT_CLICK)
+   if(id == CHARTEVENT_OBJECT_CLICK)
    {
       EventObjectClick* pushObj = new EventObjectClick(sparam);
       HedgePanel.Event(pushObj);
       delete pushObj;
+   }
+   //Нажата кнопка.
+   if(id == CHARTEVENT_KEYDOWN)
+   {
+      int mask = (int)StringToInteger(sparam);
+      EventKeyDown* key = new EventKeyDown(lparam, mask);
+      HedgePanel.Event(key);
+      delete key;
    }
    ChartRedraw(MAIN_WINDOW);
 }

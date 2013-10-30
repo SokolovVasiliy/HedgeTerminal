@@ -117,6 +117,7 @@ enum ENUM_BUTTON_STATE
 
 //-------------------------------------------------------------------------------------------------------
 //
+#include "Keys.mqh"
 #include "Time.mqh"
 #include "Log.mqh"
 #include "API\API.mqh"

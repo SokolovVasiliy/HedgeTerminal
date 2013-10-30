@@ -93,8 +93,9 @@ class Table : public ProtoNode
       class CWorkArea : public Label
       {
          public:
-            CWorkArea(ProtoNode* parNode) : Label(ELEMENT_TYPE_WORK_AREA, "WorkArea", parNode)
+            CWorkArea(Table* parNode) : Label(ELEMENT_TYPE_WORK_AREA, "WorkArea", parNode)
             {
+               table = parNode;
                highLine = 20;
                Text("");
                Edit(true);
@@ -213,6 +214,7 @@ class Table : public ProtoNode
             ///
             void LineVisibleFirst(int index)
             {               
+               if(index == visibleFirst)return;
                // Скрывает нижние строки и отображает верхние.
                if(index < visibleFirst)
                {
@@ -244,77 +246,124 @@ class Table : public ProtoNode
                   for(; i < total; i++)
                      RefreshLine(i);
                }
+               //Позиционируем скролл, всякий раз после прокрутики таблицы.
+               table.AllocationScroll();
             }
          private:
-            
+         
             virtual void OnEvent(Event* event)
             {
                //Видимость одной из строк таблицы изменилась?
                if(event.Direction() == EVENT_FROM_DOWN && event.EventId() == EVENT_NODE_VISIBLE)
+                  ChangeLineVisible(event);
+
+               // Обрабатываем щелчок, по одной из строк
+               if(event.Direction() == EVENT_FROM_DOWN && event.EventId() == EVENT_NODE_CLICK)
                {
-                  EventVisible* vis = event;
-                  ProtoNode* node = vis.Node();
-                  if(vis.Visible())
-                  {
-                     ++visibleCount;
-                     highTotal += node.High();
-                     //printf("Показана строка: " + string(node.NLine()+1) + " из " + visibleCount + " Общая высота: " + highTotal);
-                     
-                  }
-                  else
-                  {
-                     //Если удаляется первый видимый элемент, его место занимает следущий
-                     /*if(node.NLine() == visibleFirst)
-                     {
-                        visibleFirst = -1;
-                        for(int i = node.NLine(); i < ChildsTotal(); i++)
-                        {
-                           ProtoNode* mnode = ChildElementAt(i);
-                           if(mnode.Visible())
-                           {
-                              visibleFirst = mnode.NLine();
-                              break;
-                           }
-                        }
-                     }*/
-                     highTotal -= node.High();
-                     --visibleCount;
-                     //printf("Скрыта строка: " + string(node.NLine()+1) + " из " + visibleCount + " Общая высота: " + highTotal);
-                     
-                  }
-                  //printf("FL: " + visibleFirst + " Count: " + visibleCount);
-                  //printf("VisibleCount: " + visibleCount);
-                  //firstVisible = node
+                  OnClickNode(event);
+                  EventSend(event);
                }
-               ///
-               /// Обрабатываем щелчок, по одной из строк
-               ///
-               else if(event.Direction() == EVENT_FROM_DOWN && event.EventId() == EVENT_NODE_CLICK)
+               
+               // Обрабатываем нажатие клавиши.
+               else if(event.EventId() == EVENT_KEYDOWN)
                {
-                  //Если щелчок был произведен по строке содержащий фиксированный текст,
-                  //значит текущую строку надо подкрасить курсором.
-                  //В противном случае, произошло другое значимое событие, которое надо передать наверх.
-                  ProtoNode* node = event.Node();
-                  if(node.TypeElement() == ELEMENT_TYPE_LABEL)
-                  {
-                     Label* lab = node;
-                     //Включаем подсветку строки
-                     ProtoNode* parNode = lab.ParentNode();
-                     bool isConvert = parNode.TypeElement() == ELEMENT_TYPE_POSITION ||
-                     parNode.TypeElement() == ELEMENT_TYPE_DEAL;
-                     if(lab.Edit() && isConvert)
-                     {
-                        //Заменяем старый курсор на стандартный цвет
-                        if(CheckPointer(cursorLine) != POINTER_INVALID)
-                           InterlacingColor(cursorLine);
-                        cursorLine = parNode;
-                        ColorationBack(parNode, clrLightSteelBlue);
-                     }
-                  }
+                  OnKeyPress(event);
                   EventSend(event);
                }
                else
                   EventSend(event);
+            }
+            ///
+            /// Обработчик события "видимость одной из строк таблицы изменилась".
+            ///
+            void ChangeLineVisible(EventVisible* event)
+            {
+               EventVisible* vis = event;
+               ProtoNode* node = vis.Node();
+               if(vis.Visible())
+               {
+                  ++visibleCount;
+                  highTotal += node.High();
+               }
+               else
+               {
+                  highTotal -= node.High();
+                  --visibleCount;  
+               }
+            }
+            ///
+            /// Устанавливает курсор на строку таблицы, по которой
+            /// был произведен щелчок.
+            ///
+            void OnClickNode(EventNodeClick* event)
+            {
+               //Если щелчок был произведен по строке содержащий фиксированный текст,
+               //значит текущую строку надо подкрасить курсором.
+               //В противном случае, произошло другое значимое событие, которое надо передать наверх.
+               ProtoNode* node = event.Node();
+               if(node.TypeElement() == ELEMENT_TYPE_LABEL)
+               {
+                  Label* lab = node;
+                  //Включаем подсветку строки
+                  ProtoNode* parNode = lab.ParentNode();
+                  bool isConvert = parNode.TypeElement() == ELEMENT_TYPE_POSITION ||
+                  parNode.TypeElement() == ELEMENT_TYPE_DEAL;
+                  if(lab.Edit() && isConvert)
+                     MoveCursor(parNode);
+               }
+            }
+            ///
+            /// Перемещает курсор на новую строку.
+            /// \param newCursLine - новая линия, на которую нужно переместить курсор.
+            ///
+            void MoveCursor(Line* newCursLine)
+            {
+               if(CheckPointer(newCursLine) == POINTER_INVALID)return;
+               Line* oldCursor = cursorLine;
+               cursorLine = newCursLine;
+               //Заменяем старый курсор на стандартный цвет
+               if(CheckPointer(oldCursor) != POINTER_INVALID)
+                  InterlacingColor(oldCursor);
+               ColorationBack(newCursLine, clrLightSteelBlue);
+            }
+            ///
+            /// Обработчик события нажатия клавиши.
+            ///
+            void OnKeyPress(EventKeyDown* event)
+            {
+               // Клавиши могут перемещать курсор, если он есть,
+               // а также раскрывать позицию под курсором.
+               if(CheckPointer(cursorLine) != POINTER_INVALID)
+               {
+                  // Перемещаем курсор вниз.
+                  if(event.Code() == KEY_DOWN || event.Code() == KEY_UP)
+                  {
+                     int n = cursorLine.NLine();
+                     //Конец списка еще недостигнут?
+                     if(ChildsTotal() > n+1 && event.Code() == KEY_DOWN)
+                     {
+                        //Если требуется двигаем таблицу вслед за курсором.
+                        if(visibleFirst + visibleCount <= n+1)
+                           LineVisibleFirst(n+2 - visibleCount);
+                        Line* nline = ChildElementAt(n+1);
+                        MoveCursor(nline);
+                     }
+                     else if(n > 0 && event.Code() == KEY_UP)
+                     {
+                        //Если требуется двигаем таблицу вслед за курсором.
+                        if(n-1 < visibleFirst)
+                           LineVisibleFirst(n-1);
+                        Line* nline = ChildElementAt(n-1);
+                        MoveCursor(nline);
+                     }
+                  }
+                  
+                  //Раскрываем позицию.
+                  if(event.Code() == KEY_ENTER)
+                  {
+                     ;
+                  }
+               }
             }
             
             virtual void OnCommand(EventNodeCommand* event)
@@ -383,7 +432,9 @@ class Table : public ProtoNode
             {
                color clrBack;
                //Выделенную строку под курсором не перекрашиваем.
-               //if(cursorLine != NULL && nline == cursorLine)return;
+               bool checkPoint = CheckPointer(cursorLine) != POINTER_INVALID &&
+                                 CheckPointer(nline) != POINTER_INVALID;
+               if(checkPoint && nline == cursorLine)return;
                if((nline.NLine()+1) % 2 == 0)
                   clrBack = clrWhiteSmoke;
                else clrBack = clrWhite;
@@ -435,6 +486,10 @@ class Table : public ProtoNode
             /// Содержит на строку, которая в данный момент находится под курсором.
             ///
             Line* cursorLine;
+            ///
+            /// Указатель на родительскую таблицу.
+            ///
+            Table* table;
       };
       ///
       /// Алгоритм размещения заголовка таблицы.

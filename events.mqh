@@ -133,7 +133,11 @@ enum ENUM_EVENT
    ///
    /// Идентификатор события цвет узла сменен.
    ///
-   EVENT_CHANGE_COLOR
+   EVENT_CHANGE_COLOR,
+   ///
+   /// Клавиша нажатия
+   ///
+   EVENT_KEYDOWN
 };
 
 
@@ -679,5 +683,41 @@ class EventChangeColor : public Event
       color Color(){return m_clr;}
    private:
       color m_clr;
+};
+
+///
+/// Событие нажатия клавишы клавиатуры.
+///
+class EventKeyDown : public Event
+{
+   public:
+      ///
+      /// Созадет событие "нажатие клавиши".
+      /// \param keyCode - Код нажатой клавиши.
+      /// \param keysMask - Маска, описывающая комбинацию нажатых клавиш на клавиатуре.
+      ///
+      EventKeyDown(int keyCode, int keysMask) : Event(EVENT_FROM_UP, EVENT_KEYDOWN, "TERMINAL WINDOW")
+      {
+         code = keyCode;
+         mask = keysMask;
+      }
+      ///
+      /// Возвращает код нажатой клавишы.
+      ///
+      int Code(){return code;}
+      ///
+      /// Возвращает маску, описывающую комбинацию нажатых клавишь на компьютере.
+      ///
+      int Mask(){return mask;}
+      Event* Clone(){return new EventKeyDown(code, mask);}
+   private:
+      ///
+      /// Маска, описывающая комбинацию нажатых клавиш на клавиатуре.
+      ///
+      int mask;
+      ///
+      /// Код нажатой клавиши.
+      ///
+      int code;
 };
 
