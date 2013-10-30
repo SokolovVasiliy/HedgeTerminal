@@ -27,13 +27,17 @@ enum ENUM_LINE_ALIGN_TYPE
 class Line : public ProtoNode
 {
    public:
-      Line(string myName, ProtoNode* parNode):ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_GCONTAINER, myName, parNode)
+      Line(string myName, ProtoNode* parNode):ProtoNode(OBJ_EDIT, ELEMENT_TYPE_GCONTAINER, myName, parNode)
       {
+         clearance = 1;
+         BorderColor(clrWhite);
          OptimalHigh(20);
          typeAlign = LINE_ALIGN_SCALE;
       }
-      Line(string myName, ENUM_ELEMENT_TYPE elType, ProtoNode* parNode):ProtoNode(OBJ_RECTANGLE_LABEL, elType, myName, parNode)
+      Line(string myName, ENUM_ELEMENT_TYPE elType, ProtoNode* parNode):ProtoNode(OBJ_EDIT, elType, myName, parNode)
       {
+         clearance = 1;
+         BorderColor(clrWhite);
          OptimalHigh(20);
          typeAlign = LINE_ALIGN_SCALE;
       }
@@ -87,6 +91,17 @@ class Line : public ProtoNode
       {
          Visible(isVisible);
       }
+      ///
+      /// Устанавливает зазор между элементами строки.
+      ///
+      void Clearance(int clr)
+      {
+         clearance = clr;
+      }
+      ///
+      /// Возвращает зазор между элементами.
+      ///
+      int Clearance(){return clearance;}
       
    private:
       virtual void OnVisible(EventVisible* event)
@@ -133,6 +148,8 @@ class Line : public ProtoNode
       void AlgoScale()
       {
          //Положение подузла по горизонтали, относительно текущего узла.
+         //Зазор между соседними элементами в пикселях, 0 - когда зазора нет.
+         
          int total = childNodes.Total();
          long xdist = 0;
          ProtoNode* prevColumn = NULL;
@@ -156,8 +173,8 @@ class Line : public ProtoNode
             else if(node.ConstWidth())
                cwidth = node.OptimalWidth();
             else
-               cwidth = i == total-1 ? cwidth = Width() - xdist : (long)MathRound((double)node.OptimalWidth() * kScale);
-            EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), xdist, 0, cwidth, High());
+               cwidth = i == total-1 ? cwidth = Width() - xdist - clearance : (long)MathRound((double)node.OptimalWidth() * kScale) - clearance;
+            EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), xdist + clearance, 0, cwidth, High());
             node.Event(command);
             delete command;
             prevColumn = node;
@@ -212,4 +229,8 @@ class Line : public ProtoNode
       /// Элемент, к чьей высоте необходимо привязать высоту текущего элемента.
       ///
       ProtoNode* bindingHigh;
+      ///
+      /// Содержит зазор между соседними элементами.
+      ///
+      int clearance;
 };

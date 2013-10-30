@@ -469,12 +469,41 @@ class ProtoNode : public CObject
                for(int i = 0; i < total; i++)
                {
                   ProtoNode* node = parentNode.ChildElementAt(i);
-                  // Идентификация узла по уникальному имени.
-                  if(this.NameID() == node.NameID())
+                  // Идентификация узла по адресации.
+                  if(GetPointer(this) == GetPointer(node))
                   {
                      n_line = i;
                      return n_line;
                   }
+               }
+            }
+         }
+         //Проверяем, действительно ли установленный номер является верным.
+         if(parentNode != NULL)
+         {
+            //Номер неверен
+            bool isTrue;
+            if(n_line >= parentNode.ChildsTotal())
+               isTrue = false;
+            if(isTrue)
+            {
+               ProtoNode* node = parentNode.ChildElementAt(n_line);
+               if(GetPointer(node) != GetPointer(this))
+                  isTrue = false;
+            }
+            //Номер указан верно.
+            if(isTrue)
+               return n_line;
+            //printf("Номер потерял свою актуальность!!!");
+            //В противном случае, пытаемся найти правильный номер заново
+            int total = parentNode.ChildsTotal();
+            for(int i = 0; i < total; i++)
+            {
+               ProtoNode* node = parentNode.ChildElementAt(i);
+               if(GetPointer(node) == GetPointer(this))
+               {
+                  n_line = i;
+                  return n_line;
                }
             }
          }
@@ -485,7 +514,6 @@ class ProtoNode : public CObject
       ///
       void NLine(int n)
       {
-         
          if(n < 0)
          {
             n_line = -1;

@@ -149,7 +149,7 @@ class Tab : public ProtoNode
             btnHistoryPos.BackgroundColor(clrShadowTab);
             btnHistoryPos.State(BUTTON_STATE_ON);
             ENUM_BUTTON_STATE state = btnHistoryPos.State();
-            ChartRedraw(MAIN_WINDOW);
+            //ChartRedraw(MAIN_WINDOW);
          }
          
          //Определяем местоположение таблицы
