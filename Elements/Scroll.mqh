@@ -16,7 +16,7 @@ class LabToddle : public Label
          blockedComm = false;
          table = tbl;
          Text("");
-         Edit(true);
+         ReadOnly(true);
          prevY = -1;
       }
    private:
@@ -114,7 +114,7 @@ class Toddler : public Label
          blockedComm = false;
          Text("");
          BorderColor(parNode.BackgroundColor());
-         Edit(true);
+         ReadOnly(true);
          labToddle = new LabToddle(GetPointer(this), tbl);
          childNodes.Add(labToddle);
          table = tbl;  
@@ -132,7 +132,7 @@ class Toddler : public Label
       {
          if(table == NULL || blockedComm)return;
          // 1. Ќаходим отношение всех строк к видимым строкам:
-         double p1 = ((double)table.LinesHighVisible())/((double)table.LinesHighTotal());
+         double p1 = table.LinesHighTotal() == 0 ? 0 : ((double)table.LinesHighVisible())/((double)table.LinesHighTotal());
          // ≈сли отношение больше либо равно еденице - все строки умещаютс€ на одном
          // экране, и ползунок отображать не надо.
          if(NormalizeDouble(p1, 4) >= 1.0)

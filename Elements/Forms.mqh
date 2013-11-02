@@ -8,12 +8,30 @@ class MainForm : public ProtoNode
       {
          BorderType(BORDER_FLAT);
          BackgroundColor(clrWhiteSmoke);
-         tabs = new Tab(GetPointer(this));
+         
+         //Создаем табулятор
+         tabs = new TabFlat(GetPointer(this));
          childNodes.Add(tabs);
+         
+         //Добавляем вкладку активных позиций
+         //Label* label = new Label("label", GetPointer(this));
+         //label.Text("This tab #1");
+         //Внедряем таблицу открытых позиций в окно вкладок.
+         TableOpenPos* openPos = new TableOpenPos(GetPointer(this));
+         tabs.AddTab("Active", openPos);
+         
+         //Добавляем вкладку завершенных (исторических) позиций.
+         Label* label = new Label("label1", GetPointer(this));
+         label.Text("And This tab #2");
+         label.FontColor(clrRed);
+         tabs.AddTab("History", label);
+         
+         
+         
          allowed = false;
          
          status = new Label("TradeStatus", GetPointer(this));
-         status.Edit(true);
+         status.ReadOnly(true);
          status.BackgroundColor(BackgroundColor());
          status.BorderColor(BackgroundColor());
          status.Font("Wingdings");
@@ -23,7 +41,7 @@ class MainForm : public ProtoNode
          childNodes.Add(status);
          
          mailStatus = new Label("MailStatus", GetPointer(this));
-         mailStatus.Edit(true);
+         mailStatus.ReadOnly(true);
          mailStatus.BackgroundColor(BackgroundColor());
          mailStatus.BorderColor(BackgroundColor());
          mailStatus.Font("Wingdings");
@@ -33,7 +51,7 @@ class MainForm : public ProtoNode
          childNodes.Add(mailStatus);
          
          connected = new Label("ConnectedStatus", GetPointer(this));
-         connected.Edit(true);
+         connected.ReadOnly(true);
          connected.BackgroundColor(BackgroundColor());
          connected.BorderColor(BackgroundColor());
          connected.Font("Wingdings");
@@ -139,7 +157,7 @@ class MainForm : public ProtoNode
       ///
       /// Вкладки
       ///
-      Tab* tabs;
+      TabFlat* tabs;
       ///
       /// Статус торговли
       ///

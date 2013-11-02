@@ -45,7 +45,7 @@ class TreeViewBox : public Label
                childNodes.Add(twb);
             }*/
          //}
-         Edit(true);
+         ReadOnly(true);
          Font("Arial");
          Align(ALIGN_CENTER);
          //По умолчанию список свернут.
@@ -120,7 +120,7 @@ class TreeViewBoxBorder : public Label
    public:
       TreeViewBoxBorder(string nameCheck, ProtoNode* parNode, ENUM_BOX_TREE_TYPE TreeType) : Label(ELEMENT_TYPE_TREE_BORDER, nameCheck, parNode)
       {
-         Edit(true);
+         ReadOnly(true);
          treeType = TreeType;
          if(treeType == BOX_TREE_GENERAL)
          {
@@ -203,7 +203,7 @@ class TreeViewBoxBorder : public Label
          // Скрываем или показываем плюсик.
          if(CheckPointer(brdGeneral) != POINTER_INVALID)
          {
-            Edit(true);
+            ReadOnly(true);
             EventVisible* vis = new EventVisible(EVENT_FROM_UP, GetPointer(this), Visible());
             brdGeneral.Event(vis);
             delete vis;
@@ -217,7 +217,7 @@ class TreeViewBoxBorder : public Label
             {
                if(twb == NULL || twb.TypeElement() != ELEMENT_TYPE_TREE_BORDER)return;
                treeViewBox = twb;
-               Edit(true);
+               ReadOnly(true);
                BorderColor(clrBlack);
                BackgroundColor(parentNode.BackgroundColor());
                Align(ALIGN_LEFT);

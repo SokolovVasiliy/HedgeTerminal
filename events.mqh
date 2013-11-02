@@ -640,7 +640,7 @@ class EventCheckBoxChanged : public Event
       ///
       /// Возвращает статус нажатия кнопки.
       ///
-      ENUM_BUTTON_STATE Checked(){return isChecked;}
+      bool Checked(){return isChecked;}
       ///
       /// Возвращает состояние CheckBox.
       ///

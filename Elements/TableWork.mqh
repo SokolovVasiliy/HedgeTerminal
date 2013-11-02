@@ -6,7 +6,7 @@ class CWorkArea : public Label
          table = parNode;   
          highLine = 20;
          Text("");
-         Edit(true);
+         ReadOnly(true);
          BorderColor(parNode.BackgroundColor());
          //visibleCount = -1;
       }
@@ -116,12 +116,16 @@ class CWorkArea : public Label
       /// Возвращает количество видимых строк в таблице.
       ///
       int LinesVisible(){return visibleCount;}
-      
+      ///
+      /// Возвращает общее количество видимых и невидимых строк в таблице.
+      ///
+      int LinesTotal(){return childNodes.Total();}
       ///
       /// Устанавливает первую линию, которую требуется отобразить.
       ///
       void LineVisibleFirst(int index)
       {               
+         
          if(index == visibleFirst)return;
          // Скрывает нижние строки и отображает верхние.
          if(index < visibleFirst)
@@ -216,7 +220,7 @@ class CWorkArea : public Label
             ProtoNode* parNode = lab.ParentNode();
             bool isConvert = parNode.TypeElement() == ELEMENT_TYPE_POSITION ||
             parNode.TypeElement() == ELEMENT_TYPE_DEAL;
-            if(lab.Edit() && isConvert)
+            if(lab.ReadOnly() && isConvert)
                MoveCursor(parNode);
          }
       }

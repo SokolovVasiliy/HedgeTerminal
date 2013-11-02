@@ -7,4 +7,5 @@
 #include "Scroll.mqh"
 #include "Table.mqh"
 #include "Tab.mqh"
+#include "TabFlat.mqh"
 #include "Forms.mqh"

@@ -30,29 +30,26 @@ class Tab : public ProtoNode
          comPanel.Add(btnHistoryPos);
          
          //Конфигурируем заглушки.
-         stub = new Label("stub", GetPointer(comPanel));
+         /*stub = new Label("stub", GetPointer(comPanel));
          stub.Text("");
          if(parentNode != NULL)
          {
             stub.BorderColor(parentNode.BackgroundColor());
             stub.BackgroundColor(parentNode.BackgroundColor());
          }
-         stub.Edit(false);
-         comPanel.Add(stub);
+         stub.ReadOnly(false);
+         comPanel.Add(stub);*/
          childNodes.Add(comPanel);
          
          sstub = new Label("stub2", GetPointer(this));
          sstub.Text("");
          sstub.BorderColor(BackgroundColor());
          sstub.BackgroundColor(BackgroundColor());
-         sstub.Edit(false);
+         sstub.ReadOnly(false);
          childNodes.Add(sstub);
          
          //Внедряем таблицу открытых позиций в окно вкладок.
          openPos = new TableOpenPos(GetPointer(this));
-         openPos.BorderType(BORDER_FLAT);
-         openPos.BackgroundColor(clrWhite);
-         openPos.BorderType(BORDER_FLAT);
          childNodes.Add(openPos);
       }
       
@@ -196,7 +193,7 @@ class Tab : public ProtoNode
       ///
       CArrayObj btnArray;
       ///
-      /// Цвет не активной вкладки.
+      /// Цвет неактивной вкладки.
       ///
       color clrShadowTab;
 };

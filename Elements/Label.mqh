@@ -13,7 +13,7 @@ class Label : public TextNode
       {
          alignMode = ALIGN_LEFT;
       }
-      void Edit(bool edit)
+      void ReadOnly(bool edit)
       {
          isEdit = edit;
          if(Visible())
@@ -22,7 +22,7 @@ class Label : public TextNode
       ///
       /// ¬озвращает режим редактировани€ текстовой метки.
       ///
-      bool Edit(){return isEdit;}
+      bool ReadOnly(){return isEdit;}
       ///
       /// ”станавливает выравнивание текста в метке.
       ///
@@ -50,7 +50,7 @@ class Label : public TextNode
          Font(Font());
          FontSize(FontSize());
          FontColor(FontColor());
-         Edit(Edit());
+         ReadOnly(ReadOnly());
          Align(alignMode);
       }
       ///

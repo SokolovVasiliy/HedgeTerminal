@@ -14,15 +14,18 @@
 /// 3. Скролл прокрутки вертикального контейнера строк.
 /// Каждый из трех элементов имеет свой персональный указатель.
 ///
-class Table : public ProtoNode
+class Table : public Label
 {
    public:
-      Table(string myName, ProtoNode* parNode):ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_TABLE, myName, parNode)
+      Table(string myName, ProtoNode* parNode):Label(ELEMENT_TYPE_TABLE, myName, parNode)
       {
+         ReadOnly(true);
+         BorderType(BORDER_FLAT);
+         BorderColor(clrWhite);
          highLine = 20;
          lineHeader = new Line("Header", ELEMENT_TYPE_TABLE_HEADER, GetPointer(this));
          workArea = new CWorkArea(GetPointer(this));
-         workArea.Edit(true);
+         workArea.ReadOnly(true);
          workArea.Text("");
          workArea.BorderColor(BackgroundColor());
          
@@ -95,7 +98,7 @@ class Table : public ProtoNode
       ///
       void AllocationHeader()
       {
-         EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 1, 2, Width()-24, 20);
+         EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 0, 1, Width()-22, 20);
          lineHeader.Event(command);
          delete command;
       }
@@ -104,7 +107,7 @@ class Table : public ProtoNode
       ///
       void AllocationWorkTable()
       {
-         EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 1, 22, Width()-24, High()-24);
+         EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 0, 21, Width()-22, High()-24);
          workArea.Event(command);
          delete command;
       }
@@ -113,7 +116,7 @@ class Table : public ProtoNode
       ///
       void AllocationScroll()
       {
-         EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(),Width()-22, 2, 20, High()-4);
+         EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), Width()-21, 1, 20, High()-2);
          scroll.Event(command);
          delete command;
       }
@@ -133,7 +136,16 @@ class Table : public ProtoNode
       
       
    private:
-      
+      virtual void OnCommand(EventVisible* event)
+      {
+         if(!event.Visible())return;
+         //Размещаем заголовок таблицы.
+         AllocationHeader();
+         //Размещаем рабочую область.
+         AllocationWorkTable();
+         //Размещаем скролл.
+         AllocationScroll();
+      }
       virtual void OnCommand(EventNodeCommand* event)
       {
          //Команды снизу не принимаются.
@@ -375,9 +387,9 @@ class TableOpenPos : public Table
          int total = workArea.ChildsTotal();
          for(int i = parNode.NLine()+1; i < total; i++)
          {
-            ProtoNode* node = workArea.ChildElementAt(i);
-            if(node.TypeElement() != ELEMENT_TYPE_DEAL)break;
-            DealLine* deal = node;
+            ProtoNode* mnode = workArea.ChildElementAt(i);
+            if(mnode.TypeElement() != ELEMENT_TYPE_DEAL)break;
+            DealLine* deal = mnode;
             Label* tral = deal.CellTral();
             if(tral == NULL)return;
             if(tral.Font() != "Wingdings")
@@ -407,10 +419,10 @@ class TableOpenPos : public Table
             int total = workArea.ChildsTotal();
             for(int i = 0; i < total; i++)
             {
-               ProtoNode* node = workArea.ChildElementAt(i);
-               if(node.TypeElement() == ELEMENT_TYPE_POSITION)
+               ProtoNode* mnode = workArea.ChildElementAt(i);
+               if(mnode.TypeElement() == ELEMENT_TYPE_POSITION)
                {
-                  PosLine* pos = node;
+                  PosLine* pos = mnode;
                   CheckBox* checkBox = pos.CellTral();
                   if(checkBox.State() != state)
                      checkBox.State(state);
@@ -431,8 +443,6 @@ class TableOpenPos : public Table
                DeleteDeals(event);
             // Разворачиваем
             else AddDeals(event);
-            //Скролл реагирует на разворачивания списка
-            AllocationScroll();
          }
          //Требуется развернуть/свернуть все позиции?
          if(type == ELEMENT_TYPE_TABLE_HEADER)
@@ -442,10 +452,17 @@ class TableOpenPos : public Table
                CollapseAll();
             // Разворачиваем весь список.
             else RestoreAll();
-            //Скролл реагирует на разворачивания списка
-            AllocationScroll();
-         }      
+            //AllocationShow();
+         }
+         //Обновляем рабочую область для гарантированного позиционирования
+         //строк.
+         AllocationWorkTable();
+         
+         //Скролл реагирует на разворачивания списка
+         AllocationScroll();      
       }
+      
+      
       ///
       /// Разворачивает весь список позиций.
       ///
@@ -460,7 +477,6 @@ class TableOpenPos : public Table
             TreeViewBoxBorder* twb = posLine.CellCollapsePos();
             if(twb != NULL && twb.State() != BOX_TREE_COLLAPSE)continue;
             twb.OnPush();
-            
          }
       }
       ///
@@ -660,7 +676,7 @@ class TableOpenPos : public Table
                cell.Text(pos.ProfitAsString());
                cell.BackgroundColor(clrWhite);
                cell.BorderColor(clrWhiteSmoke);
-               cell.Edit(true);
+               cell.ReadOnly(true);
                nline.CellProfit(cell);
                ButtonClosePos* btnClose = new ButtonClosePos("btnClosePos.", comby);
                btnClose.Font("Wingdings");
@@ -689,7 +705,7 @@ class TableOpenPos : public Table
                cell.BindingWidth(node);
                cell.BackgroundColor(clrWhite);
                cell.BorderColor(clrWhiteSmoke);
-               cell.Edit(isReadOnly);
+               cell.ReadOnly(isReadOnly);
                nline.Add(cell);
                cell = NULL;
             }
@@ -911,7 +927,7 @@ class TableOpenPos : public Table
                   Label* magic = new Label("deal magic", nline);
                   magic.FontSize(fontSize);
                   Label* lcell = cell;
-                  magic.Edit(true);
+                  magic.ReadOnly(true);
                   magic.BindingWidth(cell);
                   //magic.Font("Wingdings");
                   //magic.Text(CharToString(225));
@@ -928,7 +944,7 @@ class TableOpenPos : public Table
                   Label* symbol = new Label("deal symbol", nline);
                   symbol.FontSize(fontSize);
                   Label* lcell = cell;
-                  symbol.Edit(true);
+                  symbol.ReadOnly(true);
                   symbol.BindingWidth(cell);
                   //symbol.Font("Wingdings");
                   //symbol.Text(CharToString(225));
@@ -945,7 +961,7 @@ class TableOpenPos : public Table
                   Label* entry_id = new Label("EntryDealsID", nline);
                   entry_id.FontSize(fontSize);
                   Label* lcell = cell;
-                  entry_id.Edit(true);
+                  entry_id.ReadOnly(true);
                   entry_id.BindingWidth(cell);
                   if(entryDeal != NULL)
                   {
@@ -963,7 +979,7 @@ class TableOpenPos : public Table
                {
                   Label* entryDate = new Label("EntryDealsTime", nline);
                   entryDate.FontSize(fontSize);
-                  entryDate.Edit(true);
+                  entryDate.ReadOnly(true);
                   entryDate.BindingWidth(cell);
                   if(entryDeal != NULL)
                   {
@@ -982,7 +998,7 @@ class TableOpenPos : public Table
                {
                   Label* entryType = new Label("EntryDealsType", nline);
                   entryType.FontSize(fontSize);
-                  entryType.Edit(true);
+                  entryType.ReadOnly(true);
                   entryType.BindingWidth(cell);
                   if(entryDeal != NULL)
                   {
@@ -1004,7 +1020,7 @@ class TableOpenPos : public Table
                {
                   Label* dealVol = new Label("EntryDealsVol", nline);
                   dealVol.FontSize(fontSize);
-                  dealVol.Edit(true);
+                  dealVol.ReadOnly(true);
                   dealVol.BindingWidth(cell);
                   if(entryDeal != NULL)
                   {
@@ -1025,7 +1041,7 @@ class TableOpenPos : public Table
                {
                   Label* entryPrice = new Label("DealEntryPrice", nline);
                   entryPrice.FontSize(fontSize);
-                  entryPrice.Edit(true);
+                  entryPrice.ReadOnly(true);
                   entryPrice.BindingWidth(cell);
                   if(entryDeal != NULL)
                   {
@@ -1045,7 +1061,7 @@ class TableOpenPos : public Table
                   Label* sl = new Label("DealStopLoss", nline);
                   sl.FontSize(fontSize);
                   Label* lcell = cell;
-                  sl.Edit(true);
+                  sl.ReadOnly(true);
                   sl.BindingWidth(cell);
                   //sl.FontColor(clrSlave);
                   //sl.Font("Wingdings");
@@ -1062,7 +1078,7 @@ class TableOpenPos : public Table
                   Label* tp = new Label("DealTakeProfit", nline);
                   tp.FontSize(fontSize);
                   Label* lcell = cell;
-                  tp.Edit(true);
+                  tp.ReadOnly(true);
                   tp.BindingWidth(cell);
                   //tp.FontColor(clrSlave);
                   tp.Text(lcell.Text());
@@ -1079,7 +1095,7 @@ class TableOpenPos : public Table
                   
                   Label* tral = new Label("DealTralSL", nline);
                   tral.FontSize(fontSize);
-                  tral.Edit(true);
+                  tral.ReadOnly(true);
                   tral.BindingWidth(cell);
                   tral.Font("Wingdings");
                   CheckBox* checkTral = cell;
@@ -1119,7 +1135,7 @@ class TableOpenPos : public Table
                   Label* profit = new Label("DealProfit", nline);
                   profit.FontSize(fontSize);
                   profit.BindingWidth(cell);
-                  profit.Edit(true);   
+                  profit.ReadOnly(true);   
                   if(entryDeal != NULL)
                      profit.Text((string)entryDeal.ProfitAsString());
                   else
@@ -1155,7 +1171,7 @@ class TableOpenPos : public Table
                   Label* comment = new Label("DealComment", nline);
                   comment.FontSize(fontSize);
                   comment.BindingWidth(cell);
-                  comment.Edit(true);
+                  comment.ReadOnly(true);
                   comment.Text("");
                   comment.BackgroundColor(cell.BackgroundColor());
                   comment.BorderColor(cell.BorderColor());

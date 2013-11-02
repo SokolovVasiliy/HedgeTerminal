@@ -60,6 +60,15 @@ void OnTimer(void)
    EventExchange::PushEvent(refresh);
    delete refresh;
    ChartRedraw(MAIN_WINDOW);
+   
+   //Принудительно обновляем положение (только для выходных дней)
+   /*long X = ChartGetInteger(MAIN_WINDOW, CHART_WIDTH_IN_PIXELS, MAIN_SUBWINDOW);
+   long Y = ChartGetInteger(MAIN_WINDOW, CHART_HEIGHT_IN_PIXELS, MAIN_SUBWINDOW);
+   string str = "X: " + (string)X + " Y:" + (string)Y;
+   //Print("Получены новые размеры окна X:" + (string)X + " Y:" + (string)Y);
+   EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, "TERMINAL WINDOW", true, 0, 0, X, Y);
+   HedgePanel.Event(command);
+   delete command;*/
 }
 ///
 /// Подстраиваем размер главной формы панели под размер текущего окна
@@ -100,7 +109,7 @@ void OnChartEvent(const int id,
    if(id == CHARTEVENT_KEYDOWN)
    {
       int mask = (int)StringToInteger(sparam);
-      EventKeyDown* key = new EventKeyDown(lparam, mask);
+      EventKeyDown* key = new EventKeyDown((int)lparam, mask);
       HedgePanel.Event(key);
       delete key;
    }
