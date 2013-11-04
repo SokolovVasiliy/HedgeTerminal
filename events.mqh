@@ -1,4 +1,10 @@
 #include <Arrays\ArrayObj.mqh>
+
+#ifndef EVENTS_MQH
+   #define EVENTS_MQH
+#endif
+
+class Event;
 /*
   Идентификаторы событий и их параметры
 */

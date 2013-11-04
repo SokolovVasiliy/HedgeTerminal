@@ -2,68 +2,24 @@
 ///
 /// “екстова€ метка
 ///
-class Label : public TextNode
+class Label : public EditNode
 {
    public:
-      Label(ENUM_ELEMENT_TYPE elType, string myName, ProtoNode* node) : TextNode(OBJ_EDIT, elType, myName, node)
+      Label(ENUM_ELEMENT_TYPE elType, string myName, ProtoNode* node) : EditNode(elType, myName, node){;}
+      Label(string myName, ProtoNode* node) : EditNode(ELEMENT_TYPE_LABEL, myName, node){;}
+   protected:
+      ///
+      /// ”станавливает базовые свойства элемента.
+      ///
+      void RefreshPropertyLabel()
       {
-         alignMode = ALIGN_LEFT;
+         RefreshPropertyEditNode();
       }
-      Label(string myName, ProtoNode* node) : TextNode(OBJ_EDIT, ELEMENT_TYPE_LABEL, myName, node)
-      {
-         alignMode = ALIGN_LEFT;
-      }
-      void ReadOnly(bool edit)
-      {
-         isEdit = edit;
-         if(Visible())
-            ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_READONLY, isEdit);
-      }
-      ///
-      /// ¬озвращает режим редактировани€ текстовой метки.
-      ///
-      bool ReadOnly(){return isEdit;}
-      ///
-      /// ”станавливает выравнивание текста в метке.
-      ///
-      void Align(ENUM_ALIGN_MODE mode)
-      {
-         alignMode = mode;
-         if(Visible())
-            ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_ALIGN, alignMode);
-      }
-      ///
-      /// ¬озвращает тип выравнивани€ текста в метке.
-      ///
-      ENUM_ALIGN_MODE Align()
-      {
-         return alignMode;
-      }
-      ///
-      /// ¬озвращает текст метки.
-      ///
-      //string Text(){return text;}
    private:
       virtual void OnVisible(EventVisible* event)
       {
-         Text(Text());
-         Font(Font());
-         FontSize(FontSize());
-         FontColor(FontColor());
-         ReadOnly(ReadOnly());
-         Align(alignMode);
+         if(Visible())
+            RefreshPropertyLabel();
+         EventSend(event);
       }
-      ///
-      /// »стина, если текстова€ метка может редактироватьс€ пользователем, ложь, в противном случае.
-      ///
-      bool isEdit;
-      ///
-      /// “екущий текст, который отображаетс€ в текстовой метке.
-      ///
-      string text;
-      ///
-      /// —одержит тип выравнивани€ текста.
-      ///
-      ENUM_ALIGN_MODE alignMode;
-      
 };

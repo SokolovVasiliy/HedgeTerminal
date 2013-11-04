@@ -1,4 +1,6 @@
-
+#ifndef NODE_MQH
+   #include "Node.MQH"
+#endif
 ///
 /// Идентификатор указывающий на алгоритм выравнивания элементов в горизонтальном или вертикальном контейнере.
 ///
@@ -24,22 +26,16 @@ enum ENUM_LINE_ALIGN_TYPE
 ///
 /// Горизонтальный вектор.
 ///
-class Line : public ProtoNode
+class Line : public EditNode
 {
    public:
-      Line(string myName, ProtoNode* parNode):ProtoNode(OBJ_EDIT, ELEMENT_TYPE_GCONTAINER, myName, parNode)
+      Line(string myName, ProtoNode* parNode) : EditNode(ELEMENT_TYPE_GCONTAINER, myName, parNode)
       {
-         clearance = 1;
-         BorderColor(clrWhite);
-         OptimalHigh(20);
-         typeAlign = LINE_ALIGN_SCALE;
+         Init();
       }
-      Line(string myName, ENUM_ELEMENT_TYPE elType, ProtoNode* parNode):ProtoNode(OBJ_EDIT, elType, myName, parNode)
+      Line(string myName, ENUM_ELEMENT_TYPE elType, ProtoNode* parNode) : EditNode(elType, myName, parNode)
       {
-         clearance = 1;
-         BorderColor(clrWhite);
-         OptimalHigh(20);
-         typeAlign = LINE_ALIGN_SCALE;
+         Init();
       }
       ///
       /// Устанавливает алгоритм выравнивания для элементов внутри линии.
@@ -104,8 +100,17 @@ class Line : public ProtoNode
       int Clearance(){return clearance;}
       
    private:
+      void Init()
+      {
+         clearance = 1;
+         BorderColor(clrWhite);
+         OptimalHigh(20);
+         typeAlign = LINE_ALIGN_SCALE;
+      }
       virtual void OnVisible(EventVisible* event)
       {
+         ReadOnly(ReadOnly());
+         Align(Align());
          if(parentNode != NULL && parentNode.TypeElement() ==
             ELEMENT_TYPE_WORK_AREA)
          {
@@ -157,6 +162,10 @@ class Line : public ProtoNode
          long kBase = 1250;
          //Коэффициент масштабируемости.
          double kScale = (double)Width()/(double)kBase;
+         //Рассчитаем сумму оптимальных широт всех элементов.
+         if(optWidthTotal == 0)
+            CalcWidthTotal();
+         kScale = (double)Width()/(double)optWidthTotal;
          for(int i = 0; i < total; i++)
          {
             node = childNodes.At(i);
@@ -179,6 +188,20 @@ class Line : public ProtoNode
             delete command;
             prevColumn = node;
          }
+      }
+      ///
+      /// Рассчитывает сумму оптимальных широт.
+      ///
+      int CalcWidthTotal()
+      {
+         if(optWidthTotal > 0)return optWidthTotal;
+         int total = ChildsTotal();
+         for(int i = 0; i < total; i++)
+         {
+            ProtoNode* node = ChildElementAt(i);
+            optWidthTotal += node.OptimalWidth();
+         }
+         return optWidthTotal;
       }
       ///
       /// Алгоритм позиционирования элементов "ячейка с кнопками"
@@ -233,4 +256,8 @@ class Line : public ProtoNode
       /// Содержит зазор между соседними элементами.
       ///
       int clearance;
+      ///
+      /// Сумма опитмальных широт всех элементов.
+      ///
+      int optWidthTotal;
 };

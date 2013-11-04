@@ -24,6 +24,7 @@ class Table : public Label
          BorderColor(clrWhite);
          highLine = 20;
          lineHeader = new Line("Header", ELEMENT_TYPE_TABLE_HEADER, GetPointer(this));
+         lineHeader.Align(ALIGN_CENTER);
          workArea = new CWorkArea(GetPointer(this));
          workArea.ReadOnly(true);
          workArea.Text("");
@@ -99,6 +100,7 @@ class Table : public Label
       void AllocationHeader()
       {
          EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 0, 1, Width()-22, 20);
+         bool vis = Visible();
          lineHeader.Event(command);
          delete command;
       }
@@ -165,186 +167,40 @@ class Table : public Label
       int highLine;
       
 };
+
 class PosLine;
+
+///
+/// Тип таблицы позиций.
+///
+enum ENUM_TABLE_POSTYPE
+{
+   ///
+   /// Таблица открытых позиций.
+   ///
+   TABLE_POSOPEN,
+   ///
+   /// Таблица исторических позиций.
+   ///
+   TABLE_POSHISTORY
+};
+
 ///
 /// Таблица открытых позиций.
 ///
-class TableOpenPos : public Table
+class TablePositions : public Table
 {
    public:
-      
-      TableOpenPos(ProtoNode* parNode):Table("TableOfOpenPos.", parNode)
+      TablePositions(ProtoNode* parNode, ENUM_TABLE_POSTYPE posType):Table("TableOfPosition.", parNode)
       {
-         nProfit = -1;
-         nLastPrice = -1;
-         ow_twb = 20;
-         ow_magic = 100;
-         ow_symbol = 70;
-         ow_order_id = 100;
-         ow_entry_date = 150;
-         ow_type = 50;
-         ow_vol = 50;
-         ow_price = 70;
-         ow_sl = 70;
-         ow_tp = 70;
-         ow_currprice = 70;
-         ow_profit = 90;
-         ow_comment = 150;
-         
-         name_collapse_pos = "CollapsePos.";
-         name_magic = "Magic";
-         name_symbol = "Symbol";
-         name_entryOrderId = "Order ID";
-         name_entry_date = "EntryDate";
-         name_type = "Type";
-         name_vol = "Vol.";
-         name_price = "Price";
-         name_sl = "S/L";
-         name_tp = "T/P";
-         name_currprice = "Last Price";
-         name_profit = "Profit";
-         name_comment = "Comment";
-         
-         //ListPos = new CArrayObj();
-         int count = 0;
-         
-         // Первая линия содержит заголовок таблицы (Она есть всегда).
-         //lineHeader = new Line("LineHeader", GetPointer(this));
-         Button* hmagic;
-         // Раскрытие позиции
-         if(true)
-         {
-            TreeViewBox* hCollapse = new TreeViewBox(name_collapse_pos, GetPointer(lineHeader), BOX_TREE_GENERAL);
-            hCollapse.Text("+");
-            hCollapse.OptimalWidth(ow_twb);
-            hCollapse.ConstWidth(true);
-            lineHeader.Add(hCollapse);
-            count++;
-         }
-         if(true)
-         {
-            // Магический номер
-            hmagic = new Button(name_magic, GetPointer(lineHeader));
-            hmagic.OptimalWidth(ow_magic);
-            lineHeader.Add(hmagic);
-            count++;
-         }
-         if(true)
-         {
-            // Символ
-            Button* hSymbol = new Button(name_symbol, GetPointer(lineHeader));
-            hmagic.OptimalWidth(ow_symbol);
-            lineHeader.Add(hSymbol);
-            count++;
-         }
-         if(true)
-         {
-            // Order ID
-            Button* hOrderId = new Button(name_entryOrderId, GetPointer(lineHeader));
-            hOrderId.OptimalWidth(ow_order_id);
-            lineHeader.Add(hOrderId);
-            count++;
-         }
-         
-         if(true)
-         {
-            // Время входа в позицию.
-            Button* hEntryDate = new Button(name_entry_date, GetPointer(lineHeader));
-            hEntryDate.OptimalWidth(ow_entry_date);
-            lineHeader.Add(hEntryDate);
-            count++;
-         }
-         
-         if(true)
-         {
-            // Направление позиции.
-            Button* hTypePos = new Button(name_type, GetPointer(lineHeader));
-            hTypePos.OptimalWidth(ow_type);
-            lineHeader.Add(hTypePos);
-            count++;
-         }
-         
-         if(true)
-         {
-            // Объем
-            Button* hVolume = new Button(name_vol, GetPointer(lineHeader));
-            hVolume.OptimalWidth(ow_vol);
-            lineHeader.Add(hVolume);
-            count++;
-         }
-         
-         if(true)
-         {
-            // Цена входа.
-            Button* hEntryPrice = new Button(name_price, GetPointer(lineHeader));
-            hEntryPrice.OptimalWidth(ow_price);
-            lineHeader.Add(hEntryPrice);
-            count++;
-         }
-         
-         if(true)
-         {
-            // Стоп-лосс
-            Button* hStopLoss = new Button(name_sl, GetPointer(lineHeader));
-            hStopLoss.OptimalWidth(ow_sl);
-            lineHeader.Add(hStopLoss);
-            count++;
-         }
-         
-         if(true)
-         {
-            // Тейк-профит
-            Button* hTakeProfit = new Button(name_tp, GetPointer(lineHeader));
-            hTakeProfit.OptimalWidth(ow_tp);
-            lineHeader.Add(hTakeProfit);
-            count++;
-         }
-         //Флаг управления тралом
-         if(true)
-         {
-            Button* hTralSL = new Button(name_tralSl, GetPointer(lineHeader));
-            hTralSL.Font("Wingdings");
-            //hTralSL.FontColor(clrRed);
-            hTralSL.Text(CharToString(79));
-            hTralSL.OptimalWidth(lineHeader.OptimalHigh());
-            hTralSL.ConstWidth(true);
-            lineHeader.Add(hTralSL);
-            count++;
-         }
-         if(true)
-         {
-            // Текущая цена
-            Button* hCurrentPrice = new Button(name_currprice, GetPointer(lineHeader));
-            hCurrentPrice.OptimalWidth(ow_currprice);
-            lineHeader.Add(hCurrentPrice);
-            nLastPrice = count;
-            count++;
-         }
-         
-         if(true)
-         {
-            // Профит
-            Button* hProfit = new Button(name_profit, GetPointer(lineHeader));
-            hProfit.OptimalWidth(ow_profit);
-            lineHeader.Add(hProfit);
-            nProfit = count;
-            count++;
-         }
-         if(true)
-         {
-            // Комментарий
-            Button* hComment = new Button(name_comment, GetPointer(lineHeader));
-            hComment.OptimalWidth(ow_comment);
-            lineHeader.Add(hComment);
-            count++;
-         }
-         //Изменяем тип рамки для каждого из элементов
-         for(int i = 0; i < lineHeader.ChildsTotal();i++)
-         {
-            ProtoNode* node = lineHeader.ChildElementAt(i);
-            node.BorderColor(clrBlack);
-            node.BackgroundColor(clrWhiteSmoke);
-         }
+         tableType = posType;
+         this.Init();
+      }
+      
+      TablePositions(ProtoNode* parNode):Table("TableOfPosition.", parNode)
+      {
+         tableType = TABLE_POSOPEN;
+         this.Init();
       }
       
       virtual void OnEvent(Event* event)
@@ -372,6 +228,234 @@ class TableOpenPos : public Table
          }
       }
    private:
+      ///
+      /// Инициализация таблицы
+      ///
+      void Init()
+      {
+         nProfit = -1;
+         nLastPrice = -1;
+         ow_twb = 20;
+         ow_magic = 100;
+         ow_symbol = 70;
+         ow_order_id = 80;
+         ow_entry_date = 150;
+         ow_type = 50;
+         ow_vol = 50;
+         ow_price = 70;
+         ow_sl = 70;
+         ow_tp = 70;
+         ow_currprice = 70;
+         //if(tableType == TABLE_POSHISTORY)
+         //   ow_profit = 50;
+         //else
+            ow_profit = 70;
+         if(tableType == TABLE_POSHISTORY)
+            ow_comment = 150;
+         else
+            ow_comment = 350;
+         
+         name_collapse_pos = "CollapsePos.";
+         name_magic = "Magic";
+         name_symbol = "Symbol";
+         name_entryOrderId = "Order ID";
+         name_exitOrderId = "Exit Order ID";
+         name_entry_date = "Entry Date";
+         name_exit_date = "Exit Date";
+         name_type = "Type";
+         name_vol = "Vol.";
+         name_entryPrice = "Price";
+         name_exitPrice = "Exit Price";
+         name_sl = "S/L";
+         name_tp = "T/P";
+         name_currprice = "Last Price";
+         name_profit = "Profit";
+         name_entryComment = "Comment";
+         name_exitComment = "Exit Comment";
+         
+         //ListPos = new CArrayObj();
+         int count = 0;
+         
+         // Первая линия содержит заголовок таблицы (Она есть всегда).
+         //lineHeader = new Line("LineHeader", GetPointer(this));
+         Button* hmagic;
+         // Раскрытие позиции
+         if(true)
+         {
+            TreeViewBox* hCollapse = new TreeViewBox(name_collapse_pos, GetPointer(lineHeader), BOX_TREE_GENERAL);
+            hCollapse.Text("+");
+            hCollapse.OptimalWidth(ow_twb);
+            hCollapse.ConstWidth(true);
+            lineHeader.Add(hCollapse);
+            count++;
+         }
+         // Магический номер
+         if(true)
+         {
+            hmagic = new Button(name_magic, GetPointer(lineHeader));
+            hmagic.OptimalWidth(ow_magic);
+            lineHeader.Add(hmagic);
+            count++;
+         }
+         if(true)
+         {
+            // Символ
+            Button* hSymbol = new Button(name_symbol, GetPointer(lineHeader));
+            hmagic.OptimalWidth(ow_symbol);
+            lineHeader.Add(hSymbol);
+            count++;
+         }
+         // Entry Order ID
+         if(true)
+         {
+            string n;
+            if(tableType == TABLE_POSHISTORY)
+               n = "Entry " + name_entryOrderId;
+            else
+               n = name_entryOrderId;
+            Button* hOrderId = new Button(name_entryOrderId, GetPointer(lineHeader));
+            hOrderId.Text(n);
+            hOrderId.OptimalWidth(ow_order_id);
+            lineHeader.Add(hOrderId);
+            count++;
+         }
+         // Exit Order ID
+         if(true && tableType == TABLE_POSHISTORY)
+         {
+            Button* hOrderId = new Button(name_exitOrderId, GetPointer(lineHeader));
+            hOrderId.OptimalWidth(ow_order_id);
+            lineHeader.Add(hOrderId);
+            count++;
+         }
+         // Время входа в позицию.
+         if(true)
+         {
+            Button* hEntryDate = new Button(name_entry_date, GetPointer(lineHeader));
+            hEntryDate.OptimalWidth(ow_entry_date);
+            lineHeader.Add(hEntryDate);
+            count++;
+         }
+         // Время выхода из позиции.
+         if(true && tableType == TABLE_POSHISTORY)
+         {
+            Button* hExitDate = new Button(name_exit_date, GetPointer(lineHeader));
+            hExitDate.OptimalWidth(ow_entry_date);
+            lineHeader.Add(hExitDate);
+            count++;
+         }
+         // Направление позиции.
+         if(true)
+         {
+            Button* hTypePos = new Button(name_type, GetPointer(lineHeader));
+            hTypePos.OptimalWidth(ow_type);
+            lineHeader.Add(hTypePos);
+            count++;
+         }
+         // Объем
+         if(true)
+         {
+            Button* hVolume = new Button(name_vol, GetPointer(lineHeader));
+            hVolume.OptimalWidth(ow_vol);
+            lineHeader.Add(hVolume);
+            count++;
+         }
+         // Цена входа.
+         if(true)
+         {
+            string n;
+            if(tableType == TABLE_POSHISTORY)
+               n = "Entry " + name_entryPrice;
+            else n = name_entryPrice;
+            Button* hEntryPrice = new Button(name_entryPrice, GetPointer(lineHeader));
+            hEntryPrice.Text(n);
+            hEntryPrice.OptimalWidth(ow_price);
+            lineHeader.Add(hEntryPrice);
+            count++;
+         }
+         //Цена выхода.
+         if(true && tableType == TABLE_POSHISTORY)
+         {
+            Button* hEntryPrice = new Button(name_exitPrice, GetPointer(lineHeader));
+            hEntryPrice.OptimalWidth(ow_price);
+            lineHeader.Add(hEntryPrice);
+            count++;
+         }
+         // Стоп-лосс
+         if(true)
+         {
+            Button* hStopLoss = new Button(name_sl, GetPointer(lineHeader));
+            hStopLoss.OptimalWidth(ow_sl);
+            lineHeader.Add(hStopLoss);
+            count++;
+         }
+         // Тейк-профит
+         if(true)
+         {
+            Button* hTakeProfit = new Button(name_tp, GetPointer(lineHeader));
+            hTakeProfit.OptimalWidth(ow_tp);
+            lineHeader.Add(hTakeProfit);
+            count++;
+         }
+         //Флаг управления тралом
+         if(true && tableType == TABLE_POSOPEN)
+         {
+            Button* hTralSL = new Button(name_tralSl, GetPointer(lineHeader));
+            hTralSL.Font("Wingdings");
+            //hTralSL.FontColor(clrRed);
+            hTralSL.Text(CharToString(79));
+            hTralSL.OptimalWidth(lineHeader.OptimalHigh());
+            hTralSL.ConstWidth(true);
+            lineHeader.Add(hTralSL);
+            count++;
+         }
+         if(true && tableType == TABLE_POSOPEN)
+         {
+            // Текущая цена
+            Button* hCurrentPrice = new Button(name_currprice, GetPointer(lineHeader));
+            hCurrentPrice.OptimalWidth(ow_currprice);
+            lineHeader.Add(hCurrentPrice);
+            nLastPrice = count;
+            count++;
+         }
+         // Профит
+         if(true)
+         {
+            Button* hProfit = new Button(name_profit, GetPointer(lineHeader));
+            hProfit.OptimalWidth(ow_profit);
+            lineHeader.Add(hProfit);
+            nProfit = count;
+            count++;
+         }
+         // Комментарий
+         if(true)
+         {
+            string n;
+            if(tableType == TABLE_POSHISTORY)
+               n = "Entry " + name_entryComment;
+            else
+               n = name_entryComment;
+            Button* hComment = new Button(name_entryComment, GetPointer(lineHeader));
+            hComment.Text(n);
+            hComment.OptimalWidth(ow_comment);
+            lineHeader.Add(hComment);
+            count++;
+         }
+         // Комментарий для выхода.
+         if(true && tableType == TABLE_POSHISTORY)
+         {
+            Button* hComment = new Button(name_exitComment, GetPointer(lineHeader));
+            hComment.OptimalWidth(ow_comment);
+            lineHeader.Add(hComment);
+            count++;
+         }
+         //Изменяем тип рамки для каждого из элементов
+         for(int i = 0; i < lineHeader.ChildsTotal();i++)
+         {
+            ProtoNode* node = lineHeader.ChildElementAt(i);
+            node.BorderColor(clrBlack);
+            node.BackgroundColor(clrWhiteSmoke);
+         }
+      }
       ///
       /// Обработчик события "трал для позиции включен".
       ///
@@ -625,9 +709,9 @@ class TableOpenPos : public Table
                cell.Text(vol);
                isReadOnly = false;
             }
-            else if(node.ShortName() == name_price)
+            else if(node.ShortName() == name_entryPrice)
             {
-               cell = new Label(name_price, GetPointer(nline));
+               cell = new Label(name_entryPrice, GetPointer(nline));
                int digits = (int)SymbolInfoInteger(pos.Symbol(), SYMBOL_DIGITS);
                string price = DoubleToString(pos.EntryPrice(), digits);
                cell.Text(price);
@@ -693,9 +777,9 @@ class TableOpenPos : public Table
                nline.Add(comby);
                continue;
             }
-            else if(node.ShortName() == name_comment)
+            else if(node.ShortName() == name_entryComment)
             {
-               cell = new Label(name_comment, GetPointer(nline));
+               cell = new Label(name_entryComment, GetPointer(nline));
                cell.Text((string)pos.EntryComment());
             }
             else
@@ -1037,7 +1121,7 @@ class TableOpenPos : public Table
                   continue;
                }
                //Цена по которой заключена сделка
-               if(cell.ShortName() == name_price)
+               if(cell.ShortName() == name_entryPrice)
                {
                   Label* entryPrice = new Label("DealEntryPrice", nline);
                   entryPrice.FontSize(fontSize);
@@ -1166,7 +1250,7 @@ class TableOpenPos : public Table
                   continue;
                }
                //Комментарий
-               if(cell.ShortName() == name_comment)
+               if(cell.ShortName() == name_entryComment)
                {
                   Label* comment = new Label("DealComment", nline);
                   comment.FontSize(fontSize);
@@ -1245,16 +1329,20 @@ class TableOpenPos : public Table
       string name_magic;
       string name_symbol;
       string name_entryOrderId;
+      string name_exitOrderId;
       string name_entry_date;
+      string name_exit_date;
       string name_type;
       string name_vol;
-      string name_price;
+      string name_entryPrice;
+      string name_exitPrice;
       string name_sl;
       string name_tp;
       string name_tralSl;
       string name_currprice;
       string name_profit;
-      string name_comment;
+      string name_entryComment;
+      string name_exitComment;
       ///
       /// Номер ячейки в линии, отображающий профит позиции.
       ///
@@ -1268,4 +1356,8 @@ class TableOpenPos : public Table
       /// Количество строк в таблице.
       ///
       int lines;
+      ///
+      /// Тип таблицы позиций.
+      ///
+      ENUM_TABLE_POSTYPE tableType;
 };

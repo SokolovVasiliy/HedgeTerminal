@@ -10,7 +10,6 @@
 #property version   "1.100"
 
 #include  "Globals.mqh"
-
 ///
 /// Скорость обновления панели
 ///

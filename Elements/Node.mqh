@@ -1,5 +1,12 @@
 
 #include <Arrays\ArrayObj.mqh>
+
+#ifndef NODE_MQH
+   #define NODE_MQH
+#endif
+#ifndef EVENTS_MQH
+   #include "..\Events.mqh"
+#endif
 ///
 /// Тип элемента графического интерфейса.
 ///

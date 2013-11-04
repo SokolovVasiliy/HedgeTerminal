@@ -24,11 +24,8 @@ class TabFlat : public Label
          childNodes.Add(activeStub);
          
          //Инициализируем массивы и задаем ширину и высоту каждого таба
-         ArrayButtons = new CArrayObj();
-         ArrayNodes = new CArrayObj();
          btnHigh = 25;
          btnWidth = 70;
-         
          
          //Инициализируем рабочую область таба.
          workArea = new Label(ELEMENT_TYPE_LABEL, "tabWorkArea", GetPointer(this));
@@ -128,6 +125,7 @@ class TabFlat : public Label
             EventVisible* visible = new EventVisible(EVENT_FROM_UP, GetPointer(this), status);
             mnode.Event(visible);
             delete visible;
+            ChartRedraw();
          }
       }
       virtual void OnEvent(Event* event)
@@ -172,12 +170,12 @@ class TabFlat : public Label
       /// кнопки отображающей/скрывающей изображение рабочего узла на
       /// рабочей области табулятора.
       ///
-      CArrayObj* ArrayNodes;
+      CArrayObj ArrayNodes;
       ///
       /// Список кнопок табулятора, отображающих/скрывающих изображение
       /// узлов на рабочей области табулятора, связанных с этими кнопками.
       ///
-      CArrayObj* ArrayButtons;
+      CArrayObj ArrayButtons;
       ///
       /// Список заглушек для каждой из кнопок табулятора.
       ///

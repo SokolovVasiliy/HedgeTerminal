@@ -13,20 +13,13 @@ class MainForm : public ProtoNode
          tabs = new TabFlat(GetPointer(this));
          childNodes.Add(tabs);
          
-         //ƒобавл€ем вкладку активных позиций
-         //Label* label = new Label("label", GetPointer(this));
-         //label.Text("This tab #1");
          //¬недр€ем таблицу открытых позиций в окно вкладок.
-         TableOpenPos* openPos = new TableOpenPos(GetPointer(this));
+         TablePositions* openPos = new TablePositions(GetPointer(this), TABLE_POSOPEN);
          tabs.AddTab("Active", openPos);
          
          //ƒобавл€ем вкладку завершенных (исторических) позиций.
-         Label* label = new Label("label1", GetPointer(this));
-         label.Text("And This tab #2");
-         label.FontColor(clrRed);
-         tabs.AddTab("History", label);
-         
-         
+         openPos = new TablePositions(GetPointer(this), TABLE_POSHISTORY);
+         tabs.AddTab("History", openPos);
          
          allowed = false;
          
