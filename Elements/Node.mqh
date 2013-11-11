@@ -91,7 +91,11 @@ enum ENUM_ELEMENT_TYPE
    ///
    /// Элемент графического интерфейса заголовок таблицы.
    ///
-   ELEMENT_TYPE_TABLE_HEADER
+   ELEMENT_TYPE_TABLE_HEADER,
+   ///
+   /// Элемент графического интерфейса заголовок таблицы позиций.
+   ///
+   ELEMENT_TYPE_TABLE_HEADER_POS
 };
 
 

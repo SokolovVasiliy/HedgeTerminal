@@ -25,6 +25,8 @@ PosLine* GlobalLine;
 ///
 void OnInit(void)
 {  
+   Settings* set = Settings::GetSettings();
+   color clr = set.ColorTheme.GetCursorColor();
    
    EventSetMillisecondTimer(RefreshRate);
    HedgePanel = new MainForm();

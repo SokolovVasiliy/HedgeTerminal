@@ -7,6 +7,7 @@
 #include "Label.mqh"
 #include "Scroll.mqh"
 #include "TableWork.mqh"
+#include "TableAbstrPos.mqh"
 ///
 /// Класс "Таблица" представляет из себя универсальный контейнер, состоящий из трех элементов:
 /// 1. Заголовок таблицы;
@@ -17,26 +18,11 @@
 class Table : public Label
 {
    public:
-      Table(string myName, ProtoNode* parNode):Label(ELEMENT_TYPE_TABLE, myName, parNode)
+      Table(string myName, ProtoNode* parNode, bool isTablePos=false):Label(ELEMENT_TYPE_TABLE, myName, parNode)
       {
-         ReadOnly(true);
-         BorderType(BORDER_FLAT);
-         BorderColor(clrWhite);
-         highLine = 20;
-         lineHeader = new Line("Header", ELEMENT_TYPE_TABLE_HEADER, GetPointer(this));
-         lineHeader.Align(ALIGN_CENTER);
-         workArea = new CWorkArea(GetPointer(this));
-         workArea.ReadOnly(true);
-         workArea.Text("");
-         workArea.BorderColor(BackgroundColor());
-         
-         scroll = new Scroll("Scroll", GetPointer(this));
-         scroll.BorderType(BORDER_FLAT);
-         scroll.BorderColor(clrBlack);
-         
-         childNodes.Add(lineHeader);
-         childNodes.Add(workArea);
-         childNodes.Add(scroll);
+         if(isTablePos)
+            lineHeader = new AbstractPos("header", ELEMENT_TYPE_TABLE_HEADER_POS, GetPointer(this));
+         Init(myName, parNode);
       }
       ///
       /// Возвращает общую высоту всех линий в таблице.
@@ -127,6 +113,7 @@ class Table : public Label
       /// Заголовок таблицы.
       ///
       Line* lineHeader;
+      //Line* lineHeader;
       ///
       /// Рабочая область таблицы
       ///
@@ -135,9 +122,34 @@ class Table : public Label
       /// Скролл.
       ///
       Scroll* scroll;
-      
-      
+      virtual Line* InitHeader()
+      {
+         return new Line("Header", ELEMENT_TYPE_TABLE_HEADER, GetPointer(this));
+      }
    private:
+      void Init(string myName, ProtoNode* parNode)
+      {
+         ReadOnly(true);
+         BorderType(BORDER_FLAT);
+         BorderColor(clrWhite);
+         highLine = 20;
+         if(lineHeader == NULL)
+            lineHeader = new Line("header", GetPointer(this));
+         lineHeader.BackgroundColor(clrWhite);
+         lineHeader.Align(ALIGN_CENTER);
+         workArea = new CWorkArea(GetPointer(this));
+         workArea.ReadOnly(true);
+         workArea.Text("");
+         workArea.BorderColor(BackgroundColor());
+         
+         scroll = new Scroll("Scroll", GetPointer(this));
+         scroll.BorderType(BORDER_FLAT);
+         scroll.BorderColor(clrBlack);
+         
+         childNodes.Add(lineHeader);
+         childNodes.Add(workArea);
+         childNodes.Add(scroll);
+      }
       virtual void OnCommand(EventVisible* event)
       {
          if(!event.Visible())return;
@@ -168,8 +180,6 @@ class Table : public Label
       
 };
 
-class PosLine;
-
 ///
 /// Тип таблицы позиций.
 ///
@@ -191,13 +201,17 @@ enum ENUM_TABLE_POSTYPE
 class TablePositions : public Table
 {
    public:
-      TablePositions(ProtoNode* parNode, ENUM_TABLE_POSTYPE posType):Table("TableOfPosition.", parNode)
+      TablePositions(ProtoNode* parNode, ENUM_TABLE_POSTYPE posType):Table("TableOfPosition.", parNode, true)
       {
          tableType = posType;
+         if(tableType == TABLE_POSHISTORY)
+            defTableType = THISTORY;
+         else
+            defTableType = TACTIVE;
          this.Init();
       }
       
-      TablePositions(ProtoNode* parNode):Table("TableOfPosition.", parNode)
+      TablePositions(ProtoNode* parNode):Table("TableOfPosition.", parNode, true)
       {
          tableType = TABLE_POSOPEN;
          this.Init();
@@ -227,12 +241,18 @@ class TablePositions : public Table
                break;
          }
       }
+      
    private:
       ///
       /// Инициализация таблицы
       ///
       void Init()
       {
+         int type;
+         if(tableType == TABLE_POSOPEN)
+            type = TACTIVE;
+         else
+            type = THISTORY;
          nProfit = -1;
          nLastPrice = -1;
          ow_twb = 20;
@@ -280,13 +300,15 @@ class TablePositions : public Table
          //lineHeader = new Line("LineHeader", GetPointer(this));
          Button* hmagic;
          // Раскрытие позиции
+         AbstractPos* posLine = lineHeader;
          if(true)
          {
-            TreeViewBox* hCollapse = new TreeViewBox(name_collapse_pos, GetPointer(lineHeader), BOX_TREE_GENERAL);
-            hCollapse.Text("+");
-            hCollapse.OptimalWidth(ow_twb);
-            hCollapse.ConstWidth(true);
-            lineHeader.Add(hCollapse);
+            Label* label = posLine.GetCollapseEl(defTableType | THEADER);
+            //TreeViewBox* hCollapse = new TreeViewBox(name_collapse_pos, GetPointer(lineHeader), BOX_TREE_GENERAL);
+            //hCollapse.Text("+");
+            //hCollapse.OptimalWidth(ow_twb);
+            //hCollapse.ConstWidth(true);
+            //lineHeader.Add(label);
             count++;
          }
          // Магический номер
@@ -529,7 +551,7 @@ class TablePositions : public Table
             else AddDeals(event);
          }
          //Требуется развернуть/свернуть все позиции?
-         if(type == ELEMENT_TYPE_TABLE_HEADER)
+         if(type == ELEMENT_TYPE_TABLE_HEADER_POS)
          {
             // Сворачиваем весь список.
             if(event.IsCollapse())
@@ -649,6 +671,7 @@ class TablePositions : public Table
          int total = lineHeader.ChildsTotal();
          Label* cell = NULL;
          CArrayObj* deals = pos.EntryDeals();
+         
          for(int i = 0; i < total; i++)
          {
             bool isReadOnly = true;
@@ -656,14 +679,15 @@ class TablePositions : public Table
             
             if(node.ShortName() == name_collapse_pos)
             {
+               nline.GetCollapseEl(TPOSITION);
                //TreeViewBox* twb = new TreeViewBox(name_collapse_pos, GetPointer(nline), BOX_TREE_GENERAL);
-               TreeViewBoxBorder* twb = new TreeViewBoxBorder(name_collapse_pos, GetPointer(nline), BOX_TREE_GENERAL);
+               /*TreeViewBoxBorder* twb = new TreeViewBoxBorder(name_collapse_pos, GetPointer(nline), BOX_TREE_GENERAL);
                twb.OptimalWidth(20);
                twb.ConstWidth(true);
                twb.BackgroundColor(clrWhite);
                twb.BorderColor(clrWhiteSmoke);
                nline.Add(twb);
-               nline.CellCollapsePos(twb);
+               nline.CellCollapsePos(twb);*/
                continue;
             }
             if(node.ShortName() == name_magic)
@@ -802,148 +826,7 @@ class TablePositions : public Table
          EventSend(er);
          delete er;
       }
-      ///
-      /// Содержит общие свойства и методы позиций и сделок для графического представления.
-      ///
-      class AbstractPos : public Line
-      {
-         public:
-            ///
-            /// Устанавливает ссылку на ячейку строки, отображающую последнюю цену инструмента,
-            /// по которому открыта позиция / совершена сделка.
-            ///
-            void CellLastPrice(Label* label){cellLastPrice = label;}
-            ///
-            /// Возвращает ячейку, отображающую последнюю цену позиции.
-            ///
-            Label* CellLastPrice(){return cellLastPrice;}
-            ///
-            /// Устанавливает ссылку на ячейку строки, отображающую профит.
-            ///
-            void CellProfit(Label* profit)
-            {
-               cellProfit = profit;
-            }
-            ///
-            /// Возвращает ссылку на ячейку, отображающую профит.
-            ///
-            Label* CellProfit(){return cellProfit;}
-            
-            AbstractPos(string nameEl, ENUM_ELEMENT_TYPE el_type, ProtoNode* parNode) : Line(nameEl, el_type, parNode){;}           
-         private:
-            ///
-            /// Указатель на ячейку, отображающую последнюю цену инструмента, по которому открыта позиция/сделка.
-            ///
-            Label* cellLastPrice;
-            ///
-            /// Указатель на ячейку, отображающую профит позиции/сделки.
-            ///
-            Label* cellProfit;
-            
-      };
-      ///
-      /// Графическое представление позиции
-      ///
-      class PosLine : public AbstractPos
-      {
-         public:
-            PosLine(ProtoNode* parNode, Position* pos) : AbstractPos("Position", ELEMENT_TYPE_POSITION, parNode)
-            {
-               //Связываем графическое представление позиции с конкретной позицией.
-               position = pos;
-            }
-            ///
-            /// Возвращает позицию, чье графическое представление реализует текущий экземпляр.
-            ///
-            Position* Position(){return position;}
-            ///
-            /// Возвращает флаг указываютщий, является ли текущая позиция развернутой (true)
-            /// или свернутой.
-            ///
-            bool IsRestore(){return isRestore;}
-            ///
-            /// Устанавливает флаг указывающий, является ли текущая позиция развернутой (true)
-            /// или свернутой.
-            ///
-            void IsRestore(bool status){isRestore = status;}
-            ///
-            /// Возвращает ссылку на кнопку раскрытия позиции.
-            ///
-            TreeViewBoxBorder* CellCollapsePos(){return collapsePos;}
-            ///
-            /// Устанавливает ссылку на ячейку расскрытия позиции
-            ///
-            void CellCollapsePos(TreeViewBoxBorder* collapse){collapsePos = collapse;}
-            ///
-            /// Устанавливает указатель на ячейку отображающую кнопку влкючения/выключения трала.
-            ///
-            void CellTral(CheckBox* tral){cellTral = tral;}
-            ///
-            /// Возвращает указатель на ячейку отображающую кнопку включения/выключения трала.
-            ///
-            CheckBox* CellTral(){return cellTral;}
-         private:
-            ///
-            /// Указатель на раскрывающую кнопку позиции.
-            ///
-            TreeViewBoxBorder* collapsePos;
-            ///
-            /// Указатель на позицию, чье графическое представление реализует текущий экземпляр.
-            ///
-            Position* position;
-            ///
-            /// Истина, если позиция имеет развернутое графическое представление
-            /// (показываются также сделки), ложь - в противном случе.
-            ///
-            bool isRestore;
-            ///
-            /// Указатель на ячейку, отображающую трал для позиции/сделки.
-            ///
-            CheckBox* cellTral;
-      };
-      ///
-      /// Графическое представление трейда
-      ///
-      class DealLine : public AbstractPos
-      {
-         public:
-            DealLine(ProtoNode* parNode, Deal* EntryDeal, Deal* ExitDeal) : AbstractPos("Deal", ELEMENT_TYPE_DEAL, parNode)
-            {
-               //Связываем графическое представление трейда с конкретной позицией.
-               entryDeal = EntryDeal;
-               exitDeal = ExitDeal;
-            }
-            ///
-            /// Возвращает Указатель на трейд инициализирующий позицию.
-            ///
-            Deal* EntryDeal(){return entryDeal;}
-            ///
-            /// Возвращает указатель на трейд закрывающий позицию.
-            ///
-            Deal* ExitDeal(){return exitDeal;}
-            ///
-            /// Устанавливает указатель на ячейку, показывающую статус трала.
-            ///
-            void CellTral(Label* tral){cellTral = tral;}
-            ///
-            /// Возвращает указатель на ячейку, указывающую на статус трала.
-            ///
-            Label* CellTral(){return cellTral;}
-            
-         private:
-            ///
-            /// Указатель на трейд инициализирующий позицию, чье графическое представление реализует текущий экземпляр.
-            ///
-            Deal* entryDeal;
-            ///
-            /// Указатель на трейд закрывающий позицию, чье графическое представление реализует текущий экземпляр.
-            ///
-            Deal* exitDeal;
-            ///
-            /// Указатель на метку, указывающиую, используется ли трал для сделки.
-            ///
-            Label* cellTral;
-      };
+      
       ///
       /// Добавляет визуализацию сделок для позиции
       ///
@@ -990,6 +873,7 @@ class TablePositions : public Table
             for(int c = 0; c < tColumns; c++)
             {
                ProtoNode* cell = posLine.ChildElementAt(c);
+               string n_el = cell.ShortName();
                //Отображение дерева позиции.
                if(cell.ShortName() == name_collapse_pos)
                {
@@ -1000,6 +884,7 @@ class TablePositions : public Table
                   else
                      twb = new TreeViewBox("TreeEndSlave", nline, BOX_TREE_SLAVE);
                   twb.BackgroundColor(cell.BackgroundColor());
+                  twb.BackgroundColor(clrRed);
                   twb.BorderColor(cell.BorderColor());
                   twb.BindingWidth(cell);
                   nline.Add(twb);
@@ -1129,7 +1014,6 @@ class TablePositions : public Table
                   entryPrice.BindingWidth(cell);
                   if(entryDeal != NULL)
                   {
-                     
                      entryPrice.Text((string)entryDeal.Price());
                   }
                   else
@@ -1197,7 +1081,8 @@ class TablePositions : public Table
                   continue;
                }
                //Последняя цена
-               if(cell.ShortName() == name_currprice)
+               if((cell.ShortName() == name_currprice && tableType == TABLE_POSOPEN) ||
+                  ((cell.ShortName() == name_exitPrice || cell.ShortName() == "edit") && tableType == TABLE_POSHISTORY))
                {
                   Label* cprice = new Label("DealLastPrice", nline);
                   cprice.FontSize(fontSize);
@@ -1262,7 +1147,17 @@ class TablePositions : public Table
                   nline.Add(comment);
                   continue;
                }
-               
+               else
+               {
+                  Label* entryPrice = new Label("DealEntryPrice", nline);
+                  entryPrice.FontSize(fontSize);
+                  entryPrice.ReadOnly(true);
+                  entryPrice.BindingWidth(cell);
+                  entryPrice.BackgroundColor(cell.BackgroundColor());
+                  entryPrice.BorderColor(cell.BorderColor());
+                  nline.Add(entryPrice);
+                  continue;
+               }
             }
             int m_total = nline.ChildsTotal();
             /*for(int el = 0; el < m_total; el++)
@@ -1309,6 +1204,47 @@ class TablePositions : public Table
          printf(el); 
          EventSend(event);
       }*/
+      
+      ///
+      /// По-умолчанию, возвращает элемент визуальной позиции раскрытие/закрытие списка для заголовка таблицы.
+      /// \param parTable - Родительская таблица.
+      /// \param isLastDeal - Истина, если сделка, которую требуется отобразить занимает последнюю строку в раскрывающем списке.
+      ///
+      virtual Label* GetCollapseEl(int mode, bool isLastDeal = false)
+      {
+         Label* tbox = NULL;
+         Settings* set = Settings::GetSettings();
+         //Заголовок "Раскрыть/скрыть все сделки". Присутствует всегда.
+         if(mode & THEADER == THEADER)
+         {
+            TreeViewBox* hCollapse = new TreeViewBox(set.ColumnsName.Collapse(), GetPointer(this), BOX_TREE_GENERAL);
+            hCollapse.Text("+");
+            hCollapse.OptimalWidth(20);
+            hCollapse.ConstWidth(true);
+            tbox = hCollapse;
+         }
+         else if(mode & TPOSITION == TPOSITION)
+         {
+            TreeViewBoxBorder* twb = new TreeViewBoxBorder(set.ColumnsName.Collapse(), GetPointer(this), BOX_TREE_GENERAL);
+            twb.OptimalWidth(20);
+            twb.ConstWidth(true);
+            twb.BackgroundColor(clrWhite);
+            twb.BorderColor(clrWhiteSmoke);
+            tbox = twb;
+         }
+         else if(mode & TDEAL == TDEAL)
+         {
+            TreeViewBox* twb; 
+            //последний элемент завершается значком ENDSLAVE
+            if(isLastDeal)
+               twb = new TreeViewBox(set.ColumnsName.Collapse(), GetPointer(this), BOX_TREE_ENDSLAVE);
+            else
+               twb = new TreeViewBox(set.ColumnsName.Collapse(), GetPointer(this), BOX_TREE_SLAVE);
+            tbox = twb;
+         }
+         return tbox;
+      }
+      
       //CArrayObj* ListPos;
       /*Рекомендованные размеры*/
       long ow_twb;
@@ -1360,4 +1296,48 @@ class TablePositions : public Table
       /// Тип таблицы позиций.
       ///
       ENUM_TABLE_POSTYPE tableType;
+      ///
+      /// Тип таблицы позиции выраженный в целочисленной константе. 
+      ///
+      int defTableType;
 };
+
+///
+/// Включает методы генерирующие визуальные элементы.
+///
+class GenElements
+{
+   public:
+      void AddPosition(EventCreatePos* event)
+      {
+         /*Position* pos = event.GetPosition();
+         PosLine* nline = new PosLine(GetPointer(workArea),pos);
+         
+         int total = lineHeader.ChildsTotal();
+         Label* cell = NULL;
+         CArrayObj* deals = pos.EntryDeals();
+         for(int i = 0; i < total; i++)
+         {
+            bool isReadOnly = true;
+            ProtoNode* node = lineHeader.ChildElementAt(i);
+            
+            //if(node.ShortName() == name_collapse_pos)
+         }*/
+      }
+      ///
+      /// Возвращает элемент визуальной позиции раскрытие/закрытие списка.
+      /// \param parNode - Родительский элемент.
+      /// \param state - Тип раскрывающего списка.
+      ///
+      /*TreeViewBoxBorder* GetCollapseEl(ProtoNode* parNode, ENUM_BOX_TREE_STATE state)
+      {
+         //TreeViewBox* twb = new TreeViewBox(name_collapse_pos, GetPointer(nline), BOX_TREE_GENERAL);
+         TreeViewBoxBorder* twb = new TreeViewBoxBorder(name_collapse_pos, GetPointer(parNode), state);
+         twb.OptimalWidth(20);
+         twb.ConstWidth(true);
+         twb.BackgroundColor(clrWhite);
+         twb.BorderColor(clrWhiteSmoke);
+         return twb;
+      }*/
+};
+

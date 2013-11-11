@@ -117,6 +117,9 @@ enum ENUM_BUTTON_STATE
 
 //-------------------------------------------------------------------------------------------------------
 //
+#ifndef SETTINGS_MQH
+   #include "Settings.mqh"
+#endif
 #include "Keys.mqh"
 #include "Time.mqh"
 #include "Log.mqh"
