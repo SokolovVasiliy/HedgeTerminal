@@ -10,24 +10,23 @@
 #property version   "1.100"
 
 #include  "Globals.mqh"
+
 ///
 /// Скорость обновления панели
 ///
-input int RefreshRate = 5000;
+int RefreshRate = 200;
 
 CHedge* api;
 MainForm* HedgePanel;
 
-PosLine* GlobalLine;
 
 ///
 /// Инициализирующая функция.
 ///
 void OnInit(void)
 {  
-   Settings* set = Settings::GetSettings();
-   color clr = set.ColorTheme.GetCursorColor();
-   
+   //Settings* set = Settings::GetSettings1();
+   Settings = PanelSettings::GetSettings();
    EventSetMillisecondTimer(RefreshRate);
    HedgePanel = new MainForm();
    api = new CHedge();
@@ -50,6 +49,7 @@ void OnDeinit(const int reason)
    delete HedgePanel;
    delete api;
    EventKillTimer();
+   delete Settings;
 }
 
 ///

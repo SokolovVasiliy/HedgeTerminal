@@ -199,7 +199,7 @@ class Line : public EditNode
          for(int i = 0; i < total; i++)
          {
             ProtoNode* node = ChildElementAt(i);
-            optWidthTotal += node.OptimalWidth();
+            optWidthTotal += (int)node.OptimalWidth();
          }
          return optWidthTotal;
       }

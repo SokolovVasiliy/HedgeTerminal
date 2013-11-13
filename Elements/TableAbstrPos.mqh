@@ -1,4 +1,4 @@
-#define TABLEABSTRPOS_MQH
+
 #ifndef NODE_MQH
    #include "Node.mqh"
 #endif
@@ -6,15 +6,18 @@
    #include "..\Settings.mqh"
 #endif 
 
-#define THEADER 1
-#define TPOSITION 2
-#define TDEAL 4
-#define TACTIVE 8
-#define THISTORY 16
+#ifndef TABLE_ABSTRPOS_MQH
+   #define TABLE_ABSTRPOS_MQH
+#endif
 
-//#include "Table.mqh"
-class Table;
-class TablePositions;
+#ifndef TABLE_POSITIONS_MQH
+   class TablePositions;
+#endif
+
+#ifndef TABLE_DIRECTIVE_MQH
+   #include "TableDirective.mqh"
+#endif
+//class TablePositions;
 
 ///
 /// Содержит общие свойства и методы позиций и сделок для графического представления.
@@ -22,6 +25,7 @@ class TablePositions;
 class AbstractPos : public Line
 {
    public:
+      AbstractPos(string myName, ENUM_ELEMENT_TYPE elType, ProtoNode* parNode) : Line(myName, elType, parNode){;}
       ///
       /// Устанавливает ссылку на ячейку строки, отображающую последнюю цену инструмента,
       /// по которому открыта позиция / совершена сделка.
@@ -43,44 +47,93 @@ class AbstractPos : public Line
       ///
       Label* CellProfit(){return cellProfit;}
       
-      AbstractPos(string nameEl, ENUM_ELEMENT_TYPE el_type, ProtoNode* parNode) : Line(nameEl, el_type, parNode){;}
       ///
-      /// По-умолчанию, возвращает элемент визуальной позиции раскрытие/закрытие списка для заголовка таблицы.
-      /// \param parTable - Родительская таблица.
-      /// \param isLastDeal - Истина, если сделка, которую требуется отобразить занимает последнюю строку в раскрывающем списке.
+      /// Возвращает элемент визуальной позиции раскрытие/закрытие списка. Конкретный тип элемента, определяется
+      /// на основании свойст таблицы переданных в классе tDir.
+      /// \param tDir - Описывает свойства таблицы и конкретного элемента, который необходимо создать.
       ///
-      virtual Label* GetCollapseEl(int mode, bool isLastDeal = false)
+      virtual Label* AddCollapseEl(TableDirective* tDir, CElement* el)
       {
          Label* tbox = NULL;
-         Settings* set = Settings::GetSettings();
-         //Заголовок "Раскрыть/скрыть все сделки". Присутствует всегда.
-         if((mode & THEADER) == THEADER)
+         string sname = el.Name();
+         // Если элемент генерируется для таблицы не отображающей позиции, то мы не знаем, какой конкретный элемент нужен,
+         // поэтому генерируем заглушку с текстом +.
+         if(!tDir.IsPositionTable())
          {
-            tbox = new TreeViewBox(set.ColumnsName.Collapse(), GetPointer(this), BOX_TREE_GENERAL);
+            tbox = new Label(sname, GetPointer(this));
             tbox.Text("+");
          }
-         else if((mode & TPOSITION) == TPOSITION)
-            tbox = new TreeViewBoxBorder(set.ColumnsName.Collapse(), GetPointer(this), BOX_TREE_GENERAL);
-         
-         else if((mode & TDEAL) == TDEAL)
+         //Нужно сгенерировать элемент для заголовка таблицы?
+         else if(tDir.TableElement() == TABLE_HEADER)
          {
-            //последний элемент завершается значком ENDSLAVE
-            if(isLastDeal)
-               tbox = new TreeViewBox(set.ColumnsName.Collapse(), GetPointer(this), BOX_TREE_ENDSLAVE);
-            else
-               tbox = new TreeViewBox(set.ColumnsName.Collapse(), GetPointer(this), BOX_TREE_SLAVE); 
+            tbox = new TreeViewBox(sname, GetPointer(this), BOX_TREE_GENERAL);
+            tbox.Text("+");
          }
+         //Нужно сгенерировать элемент для позициции?
+         else if(tDir.TableElement() == TABLE_POSITION)
+            tbox = new TreeViewBoxBorder(sname, GetPointer(this), BOX_TREE_GENERAL);
+         //Нужно сгенерировать элемент для сделки?
+         else if(tDir.TableElement() == TABLE_DEAL)
+         {
+            //последний элемент завершается значком ENDSLAVE?
+            ENUM_BOX_TREE_TYPE b_type = tDir.IsLastDeal() ? BOX_TREE_ENDSLAVE : BOX_TREE_SLAVE;
+            tbox = new TreeViewBox(sname, GetPointer(this), b_type); 
+         }
+         // Устанавливаем оставшиеся свойства.
          if(tbox != NULL)
          {
-            tbox.OptimalWidth(20);
-            tbox.ConstWidth(true);
-            tbox.BackgroundColor(clrWhite);
-            tbox.BorderColor(clrWhiteSmoke);
+            tbox.OptimalWidth(el.OptimalWidth());
+            tbox.ConstWidth(el.ConstWidth());
             Add(tbox);
          }
          return tbox;
       }
+      ///
+      /// Возвращает элемент визуального представления магического номера. Конкретный тип элемента, определяется
+      /// на основании свойст таблицы переданных в классе tDir.
+      /// \param tDir - Описывает свойства таблицы и конкретного элемента, который необходимо создать.
+      ///
+      virtual TextNode* AddMagicEl(TableDirective* tDir, CElement* el)
+      {
+         TextNode* textMagic = NULL;
+         if(tDir.TableElement() == TABLE_HEADER)
+            textMagic = new Button(el.Name(), GetPointer(this));
+         else
+            textMagic = new Label(el.Name(), GetPointer(this));
+         textMagic.OptimalWidth(el.OptimalWidth());
+         //Для сделок используем дополнительные настройки визуализации.
+         if(tDir.TableElement() == TABLE_DEAL)
+            SetForDeal(textMagic);
+         Add(textMagic);
+         return textMagic;
+      }
+      ///
+      /// Возвращает элемент визуального представления названия инструмента. Конкретный тип элемента, определяется
+      /// на основании свойст таблицы переданных в классе tDir.
+      /// \param tDir - Описывает свойства таблицы и конкретного элемента, который необходимо создать.
+      ///
+      virtual TextNode* AddSymbolEl(TableDirective* tDir, CElement* el)
+      {
+         TextNode* textMagic = NULL;
+         if(tDir.TableElement() == TABLE_HEADER)
+            textMagic = new Button(el.Name(), GetPointer(this));
+         else
+            textMagic = new Label(el.Name(), GetPointer(this));
+         textMagic.OptimalWidth(el.OptimalWidth());
+         //Для сделок используем дополнительные настройки визуализации.
+         if(tDir.TableElement() == TABLE_DEAL)
+            SetForDeal(textMagic);
+         Add(textMagic);
+         return textMagic;
+      }
    private:
+      ///
+      /// Устанавливает дополнительные настройки для элементов, отображающие сделки.
+      ///
+      void SetForDeal(TextNode* node)
+      {
+         node.FontSize(9);
+      }
       ///
       /// Указатель на ячейку, отображающую последнюю цену инструмента, по которому открыта позиция/сделка.
       ///
@@ -89,7 +142,6 @@ class AbstractPos : public Line
       /// Указатель на ячейку, отображающую профит позиции/сделки.
       ///
       Label* cellProfit;
-      
 };
 ///
 /// Графическое представление позиции
@@ -133,14 +185,9 @@ class PosLine : public AbstractPos
       ///
       CheckBox* CellTral(){return cellTral;}
       
-      virtual void GetCollapseEl(TablePositions* table, ENUM_BOX_TREE_TYPE state)
+      virtual Label* AddCollapseEl(TableDirective* tDir, CElement* el)
       {
-         //AbstractPos::GetCollapseEl(table, state);
-      }
-      
-      virtual Label* GetCollapseEl(int mode, bool isLastDeal = false)
-      {
-         Label* lbl = AbstractPos::GetCollapseEl(mode);
+         Label* lbl = AbstractPos::AddCollapseEl(tDir, el);
          if(lbl == NULL || lbl.TypeElement() != ELEMENT_TYPE_TREE_BORDER)return lbl;
          TreeViewBoxBorder* twb = lbl;
          CellCollapsePos(twb);
@@ -193,7 +240,15 @@ class DealLine : public AbstractPos
       /// Возвращает указатель на ячейку, указывающую на статус трала.
       ///
       Label* CellTral(){return cellTral;}
-      
+      ///
+      /// 
+      ///
+      /*virtual TextNode* AddMagicEl(TableDirective* tDir)
+      {
+         TextNode* node = AbstractPos::AddMagicEl(tDir);
+         //Линия
+         node.FontSize(9);
+      }*/
    private:
       ///
       /// Указатель на трейд инициализирующий позицию, чье графическое представление реализует текущий экземпляр.

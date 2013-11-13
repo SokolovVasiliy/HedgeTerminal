@@ -14,7 +14,7 @@ class MainForm : public ProtoNode
          childNodes.Add(tabs);
          
          //Внедряем таблицу открытых позиций в окно вкладок.
-         TablePositions* openPos = new TablePositions(GetPointer(this), TABLE_POSOPEN);
+         TablePositions* openPos = new TablePositions(GetPointer(this), TABLE_POSACTIVE);
          tabs.AddTab("Active", openPos);
          
          //Добавляем вкладку завершенных (исторических) позиций.

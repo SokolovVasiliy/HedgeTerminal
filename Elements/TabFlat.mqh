@@ -86,9 +86,9 @@ class TabFlat : public Label
          {
             Label* btn = ArrayButtons.At(i);
             int s = i > 0 ? -1 : 0;
-            EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 5+s+i*btnWidth, High()-btnHigh-1, btnWidth, btnHigh);
-            btn.Event(command);
-            delete command;
+            EventNodeCommand* mcommand = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 5+s+i*btnWidth, High()-btnHigh-1, btnWidth, btnHigh);
+            btn.Event(mcommand);
+            delete mcommand;
             if(i != iActive)
             {
                //Скрываем графический узел отображающийся на этой вкладке, если он не скрыт.
@@ -122,9 +122,9 @@ class TabFlat : public Label
       {
          if(mnode.Visible() != status)
          {
-            EventVisible* visible = new EventVisible(EVENT_FROM_UP, GetPointer(this), status);
-            mnode.Event(visible);
-            delete visible;
+            EventVisible* mvisible = new EventVisible(EVENT_FROM_UP, GetPointer(this), status);
+            mnode.Event(mvisible);
+            delete mvisible;
             ChartRedraw();
          }
       }
