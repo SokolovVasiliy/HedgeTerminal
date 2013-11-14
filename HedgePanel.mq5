@@ -26,7 +26,7 @@ MainForm* HedgePanel;
 void OnInit(void)
 {  
    //Settings* set = Settings::GetSettings1();
-   Settings = PanelSettings::GetSettings();
+   Settings = PanelSettings::Init();
    EventSetMillisecondTimer(RefreshRate);
    HedgePanel = new MainForm();
    api = new CHedge();

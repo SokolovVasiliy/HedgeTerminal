@@ -72,21 +72,48 @@ class CWidthColumns
 };
 
 ///
-/// Класс, содержащий все необходимые свойства элемента
+/// Константы колонок.
 ///
-class CElement : public CObject
+enum ENUM_COLUMN_TYPE
+{
+   COLUMN_COLLAPSE,
+   COLUMN_MAGIC,
+   COLUMN_SYMBOL,
+   COLUMN_ENTRY_ORDER_ID,
+   COLUMN_EXIT_ORDER_ID,
+   COLUMN_ENTRY_DATE,
+   COLUMN_EXIT_DATE,
+   COLUMN_VOLUME,
+   COLUMN_TYPE,
+   COLUMN_SL,
+   COLUMN_TP,
+   COLUMN_TRAL,
+   COLUMN_ENTRY_PRICE,
+   COLUMN_EXIT_PRICE,
+   COLUMN_CURRENT_PRICE,
+   COLUMN_PROFIT,
+   COLUMN_ENTRY_COMMENT,
+   COLUMN_EXIT_COMMENT
+};
+
+///
+/// Класс, содержащий все необходимые свойства колнки
+///
+class DefColumn : public CObject
 {
    public:
       ///
       /// По-умолчанию, предоставляется конструктор, который опеределяет все свойства элемента.
       ///
-      CElement(string name, long width, bool constW)
+      DefColumn(ENUM_COLUMN_TYPE cType, string name, long width, bool constW)
       {
+         columnType = cType;
          elementName = name;
          elementEnable = true;
          optimalWidth = width;
          constWidth = constW;
       }
+      ENUM_COLUMN_TYPE ColumnType(){return columnType;}
       ///
       /// Возвращает имя элемента.
       ///
@@ -108,6 +135,10 @@ class CElement : public CObject
       /// Имя элемента.
       ///
       string elementName;
+      ///
+      /// Тип элемента.
+      ///
+      ENUM_COLUMN_TYPE columnType;
       ///
       /// Флаг, указывающий включен ли данный элемент, отображается ли он на форме.
       ///
@@ -132,7 +163,7 @@ class PanelSettings
       /// Если класс был уже ранее создан, будет возвращен указатель на ранее
       /// созданный класс.
       ///
-      static PanelSettings* GetSettings()
+      static PanelSettings* Init()
       {
          if(set == NULL)
             set = new PanelSettings();
@@ -161,13 +192,46 @@ class PanelSettings
       ///
       CArrayObj setForHistoryPos;
       ///
-      /// Конструктор скрыт для создания объекта из вне
+      /// Конструктор скрыт для создания объекта из вне.
       ///
       PanelSettings()
       {
-         setForActivePos.Add(new CElement("CollapsePos.", 20, true));   setForHistoryPos.Add(new CElement("CollapsePos.", 20, true));
-         setForActivePos.Add(new CElement("Magic", 90, false));         setForHistoryPos.Add(new CElement("Magic", 60, false));
-         setForActivePos.Add(new CElement("Symbol", 90, false));        setForHistoryPos.Add(new CElement("Symbol", 90, false));
+         string collapse = "CollapsePos.";
+         string magic = "Magic";
+         string symbol = "Symbol";
+         string entryOrderId = "Entry Order ID";
+         string exitOrderId = "Exit Order ID";
+         string entryDate = "Entry Date";
+         string exitDate = "Exit Date";
+         string type = "Type";
+         string vol = "Vol.";
+         string entryPrice = "Entry Price";
+         string exitPrice = "Exit Price";
+         string sl = "S/L";
+         string tp = "T/P";
+         string tral = "T";
+         string currentPrice = "Price";
+         string profit = "Profit";
+         string entryComment = "Entry Comment";
+         string exitComment = "Exit Comment";
+         
+         setForActivePos.Add(new DefColumn(COLUMN_COLLAPSE ,collapse, 20, true));            setForHistoryPos.Add(new DefColumn(COLUMN_COLLAPSE, collapse, 20, true));
+         setForActivePos.Add(new DefColumn(COLUMN_MAGIC, magic, 90, false));                 setForHistoryPos.Add(new DefColumn(COLUMN_MAGIC, magic, 60, false));
+         setForActivePos.Add(new DefColumn(COLUMN_SYMBOL, symbol, 90, false));               setForHistoryPos.Add(new DefColumn(COLUMN_SYMBOL, symbol, 60, false));
+         setForActivePos.Add(new DefColumn(COLUMN_ENTRY_ORDER_ID, entryOrderId, 90, false)); setForHistoryPos.Add(new DefColumn(COLUMN_ENTRY_ORDER_ID, entryOrderId, 90, false));
+                                                                                             setForHistoryPos.Add(new DefColumn(COLUMN_EXIT_ORDER_ID, exitOrderId, 90, false));
+         setForActivePos.Add(new DefColumn(COLUMN_ENTRY_DATE, entryDate, 90, false));        setForHistoryPos.Add(new DefColumn(COLUMN_ENTRY_DATE, entryDate, 90, false));
+                                                                                             setForHistoryPos.Add(new DefColumn(COLUMN_EXIT_DATE, exitDate, 90, false));
+         setForActivePos.Add(new DefColumn(COLUMN_TYPE, type, 90, false));                   setForHistoryPos.Add(new DefColumn(COLUMN_TYPE, type, 90, false));
+         setForActivePos.Add(new DefColumn(COLUMN_VOLUME, vol, 90, false));                  setForHistoryPos.Add(new DefColumn(COLUMN_VOLUME, vol, 90, false));
+         setForActivePos.Add(new DefColumn(COLUMN_ENTRY_PRICE, entryPrice, 90, false));      setForHistoryPos.Add(new DefColumn(COLUMN_ENTRY_PRICE, entryPrice, 90, false));
+         setForActivePos.Add(new DefColumn(COLUMN_SL, sl, 90, false));                       setForHistoryPos.Add(new DefColumn(COLUMN_SL, sl, 90, false));
+         setForActivePos.Add(new DefColumn(COLUMN_TP, tp, 90, false));                       setForHistoryPos.Add(new DefColumn(COLUMN_TP, tp, 90, false));
+         setForActivePos.Add(new DefColumn(COLUMN_TRAL, tral, 20, true));
+         setForActivePos.Add(new DefColumn(COLUMN_CURRENT_PRICE, currentPrice, 90, false));  setForHistoryPos.Add(new DefColumn(COLUMN_EXIT_PRICE, exitPrice, 90, false));
+         setForActivePos.Add(new DefColumn(COLUMN_PROFIT, profit, 90, false));               setForHistoryPos.Add(new DefColumn(COLUMN_PROFIT, profit, 90, false));
+         setForActivePos.Add(new DefColumn(COLUMN_ENTRY_COMMENT, entryComment, 90, false));  setForHistoryPos.Add(new DefColumn(COLUMN_ENTRY_COMMENT, entryComment, 90, false));
+                                                                                             setForHistoryPos.Add(new DefColumn(COLUMN_EXIT_COMMENT, exitComment, 90, false));
       }
       PanelSettings* operator=(const PanelSettings*);
 };

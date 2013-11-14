@@ -52,7 +52,7 @@ class AbstractPos : public Line
       /// на основании свойст таблицы переданных в классе tDir.
       /// \param tDir - Описывает свойства таблицы и конкретного элемента, который необходимо создать.
       ///
-      virtual Label* AddCollapseEl(TableDirective* tDir, CElement* el)
+      virtual Label* AddCollapseEl(TableDirective* tDir, DefColumn* el)
       {
          Label* tbox = NULL;
          string sname = el.Name();
@@ -89,44 +89,99 @@ class AbstractPos : public Line
          return tbox;
       }
       ///
-      /// Возвращает элемент визуального представления магического номера. Конкретный тип элемента, определяется
+      /// Возвращает элемент визуальной позиции трал стоп-лосса. Конкретный тип элемента, определяется
       /// на основании свойст таблицы переданных в классе tDir.
       /// \param tDir - Описывает свойства таблицы и конкретного элемента, который необходимо создать.
       ///
-      virtual TextNode* AddMagicEl(TableDirective* tDir, CElement* el)
+      virtual TextNode* AddTralEl(TableDirective* tDir, DefColumn* el)
       {
-         TextNode* textMagic = NULL;
+         TextNode* build = NULL;
          if(tDir.TableElement() == TABLE_HEADER)
-            textMagic = new Button(el.Name(), GetPointer(this));
-         else
-            textMagic = new Label(el.Name(), GetPointer(this));
-         textMagic.OptimalWidth(el.OptimalWidth());
-         //Для сделок используем дополнительные настройки визуализации.
-         if(tDir.TableElement() == TABLE_DEAL)
-            SetForDeal(textMagic);
-         Add(textMagic);
-         return textMagic;
+         {
+            build = new Button(el.Name(), GetPointer(this));
+            build.Text(CharToString(79));
+         }
+         else if(tDir.TableElement() == TABLE_POSITION)
+            build = new CheckBox(el.Name(), GetPointer(this));
+         else/* if(tDir.TableElement() == TABLE_DEAL)*/
+            build = new Label(el.Name(), GetPointer(this));
+         if(tDir.TableElement() != TABLE_HEADER)
+            build.Text(CharToString(168));   
+         build.Font("Wingdings");
+         build.OptimalWidth(el.OptimalWidth());
+         build.ConstWidth(el.ConstWidth());
+         Add(build);
+         return build;
+      }
+      virtual TextNode* AddProfitEl(TableDirective* tDir, DefColumn* el)
+      {
+         Line* comby = NULL:
+         if(tDir.TableType() == TABLE_POSACTIVE)
+         {
+            Line* comby = new Line(name_profit, GetPointer(this));
+            comby.AlignType(LINE_ALIGN_CELLBUTTON);
+            Label* profit = new Label(el.Name(), GetPointer(this));
+            ButtonClosePos* btnClose = new ButtonClosePos("btnClosePos.", comby);
+            btnClose.Font("Wingdings");
+            btnClose.FontSize(12);
+            btnClose.Text(CharToString(251));
+            comby.Add(profit);
+            comby.Add(btnClose);
+         }
+         return Line*
+         /*Line* comby = new Line(name_profit, GetPointer(nline));
+         //      comby.BindingWidth(node);
+         comby.AlignType(LINE_ALIGN_CELLBUTTON);
+               cell = new Label(name_profit, comby);
+               //nline.CellProfit(cell);
+               cell.Text(pos.ProfitAsString());
+               cell.BackgroundColor(clrWhite);
+               cell.BorderColor(clrWhiteSmoke);
+               cell.ReadOnly(true);
+               nline.CellProfit(cell);
+               ButtonClosePos* btnClose = new ButtonClosePos("btnClosePos.", comby);
+               btnClose.Font("Wingdings");
+               btnClose.FontSize(12);
+               btnClose.Text(CharToString(251));
+               btnClose.BorderColor(clrWhite);
+               double profit = pos.Profit();
+               if(profit > 0)
+                  btnClose.BackgroundColor(clrMintCream);
+               else
+                  btnClose.BackgroundColor(clrLavenderBlush);
+               comby.Add(cell);
+               comby.Add(btnClose);
+               nline.Add(comby);
+           */
       }
       ///
-      /// Возвращает элемент визуального представления названия инструмента. Конкретный тип элемента, определяется
-      /// на основании свойст таблицы переданных в классе tDir.
-      /// \param tDir - Описывает свойства таблицы и конкретного элемента, который необходимо создать.
+      /// Добавляет елемент по-умолчанию в список, и возвращает ссылку на него.
       ///
-      virtual TextNode* AddSymbolEl(TableDirective* tDir, CElement* el)
+      TextNode* AddDefaultEl(TableDirective* tDir, DefColumn* el)
       {
-         TextNode* textMagic = NULL;
-         if(tDir.TableElement() == TABLE_HEADER)
-            textMagic = new Button(el.Name(), GetPointer(this));
-         else
-            textMagic = new Label(el.Name(), GetPointer(this));
-         textMagic.OptimalWidth(el.OptimalWidth());
-         //Для сделок используем дополнительные настройки визуализации.
-         if(tDir.TableElement() == TABLE_DEAL)
-            SetForDeal(textMagic);
-         Add(textMagic);
-         return textMagic;
+         TextNode* build = DefaultBuilder(tDir, el);
+         Add(build);
+         return build;
       }
+      
    private:
+      ///
+      /// Создает элемент таблицы, на основании информации о таблице и настройках текущего элемента.
+      ///
+      TextNode* DefaultBuilder(TableDirective* tDir, DefColumn* el)
+      {
+         TextNode* build = NULL;
+         if(tDir.TableElement() == TABLE_HEADER)
+            build = new Button(el.Name(), GetPointer(this));
+         else
+            build = new Label(el.Name(), GetPointer(this));
+         build.OptimalWidth(el.OptimalWidth());
+         build.ConstWidth(el.ConstWidth());
+         //Для сделок используем дополнительные настройки визуализации.
+         if(tDir.TableElement() == TABLE_DEAL)
+            SetForDeal(build);
+         return build;
+      }
       ///
       /// Устанавливает дополнительные настройки для элементов, отображающие сделки.
       ///
@@ -185,7 +240,7 @@ class PosLine : public AbstractPos
       ///
       CheckBox* CellTral(){return cellTral;}
       
-      virtual Label* AddCollapseEl(TableDirective* tDir, CElement* el)
+      virtual Label* AddCollapseEl(TableDirective* tDir, DefColumn* el)
       {
          Label* lbl = AbstractPos::AddCollapseEl(tDir, el);
          if(lbl == NULL || lbl.TypeElement() != ELEMENT_TYPE_TREE_BORDER)return lbl;
@@ -193,6 +248,16 @@ class PosLine : public AbstractPos
          CellCollapsePos(twb);
          return twb;
       }
+      virtual TextNode* AddTralEl(TableDirective* tDir, DefColumn* el)
+      {
+         TextNode* build = AbstractPos::AddTralEl(tDir, el);
+         if(build != NULL && build.TypeElement() != ELEMENT_TYPE_CHECK_BOX)
+            return build;
+         CheckBox* cbox = build;
+         CellTral(cbox);
+         return build;
+      }
+      
    private:
       ///
       /// Указатель на раскрывающую кнопку позиции.

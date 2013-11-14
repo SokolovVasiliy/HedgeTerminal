@@ -6,7 +6,10 @@
 class Button : public TextNode
 {
    public:
-      
+      Button(string myName, ENUM_ELEMENT_TYPE elType, ProtoNode* parNode) : TextNode(OBJ_BUTTON, elType, myName, parNode)
+      {
+         BorderColor(clrBlack);
+      }
       Button(string myName, ProtoNode* parNode) : TextNode(OBJ_BUTTON, ELEMENT_TYPE_BOTTON, myName, parNode)
       {
          BorderColor(clrBlack);

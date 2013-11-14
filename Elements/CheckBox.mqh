@@ -1,9 +1,11 @@
+#include "Node.mqh"
 
 class CheckBox : public Button
 {
    public:
-      CheckBox(string nameCheck, ProtoNode* parNode) : Button(nameCheck, parNode)
+      CheckBox(string nameCheck, ProtoNode* parNode) : Button(nameCheck, ELEMENT_TYPE_CHECK_BOX, parNode)
       {
+         
          Font("Wingdings");
          checked = false;
          Text(CharToString(168));

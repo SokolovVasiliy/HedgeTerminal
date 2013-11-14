@@ -7,6 +7,7 @@
    #include "TableAbstrPos.mqh"
 #endif
 
+
 #define TABLEPOSITIONS_MQH
 ///
 /// Таблица открытых позиций.
@@ -99,16 +100,40 @@ class TablePositions : public Table
          // Каждая линия - специальный тип, знающий, какие именно элементы нужно в себя добавлять.
          AbstractPos* posLine = lineHeader;
          tDir.TableElement(TABLE_HEADER);
-         if(true)
+         CArrayObj* Columns = Settings.GetSetForActiveTable();
+         if(Columns == NULL)return;
+         for(int i = 0; i < Columns.Total(); i++)
          {
-            posLine.AddCollapseEl(GetPointer(tDir));
+            DefColumn* el = Columns.At(i);
+            switch(el.ColumnType())
+            {
+               case COLUMN_COLLAPSE:
+                  posLine.AddCollapseEl(GetPointer(tDir), el);
+                  continue;
+               case COLUMN_TRAL:
+                  posLine.AddTralEl(GetPointer(tDir), el);
+                  continue;
+               default:
+                  posLine.AddDefaultEl(GetPointer(tDir), el);
+            }
+            /*if(el.ColumnType() == COLUMN_COLLAPSE)
+               posLine.AddCollapseEl(GetPointer(tDir), el);
+            else
+               posLine.AddDefaultEl(GetPointer(tDir), el);*/
+         }
+         /*for(int i = 0; i < Columns.Total(); i++)
+         {
+         DefColumn* el = Columns.At(i);
+         if(el.ColumnType() == COLUMN_COLLAPSE)
+         {
+            posLine.AddCollapseEl(GetPointer(tDir), el);
          }
          // Магический номер
-         if(true)
+         if(el.ColumnType() == COLUMN_MAGIC)
          {
-            posLine.AddMagicEl(GetPointer(tDir));
+            posLine.AddDefaultEl(GetPointer(tDir), el);
          }
-         if(true)
+         if(el.ColumnType() == COLUMN_SYMBOL)
          {
             // Символ
             Button* hSymbol = new Button(name_symbol, GetPointer(lineHeader));
@@ -117,7 +142,7 @@ class TablePositions : public Table
             //count++;
          }
          // Entry Order ID
-         if(true)
+         if(el.ColumnType() == COLUMN_ENTRY_ORDER_ID)
          {
             string n;
             if(tDir.TableType() == TABLE_POSHISTORY)
@@ -131,7 +156,7 @@ class TablePositions : public Table
             //count++;
          }
          // Exit Order ID
-         if(true && tDir.TableType() == TABLE_POSHISTORY)
+         if(el.ColumnType() == COLUMN_EXIT_ORDER_ID)
          {
             Button* hOrderId = new Button(name_exitOrderId, GetPointer(lineHeader));
             hOrderId.OptimalWidth(ow_order_id);
@@ -139,7 +164,7 @@ class TablePositions : public Table
             //count++;
          }
          // Время входа в позицию.
-         if(true)
+         if(el.ColumnType() == COLUMN_ENTRY_DATE)
          {
             Button* hEntryDate = new Button(name_entry_date, GetPointer(lineHeader));
             hEntryDate.OptimalWidth(ow_entry_date);
@@ -147,7 +172,7 @@ class TablePositions : public Table
             //count++;
          }
          // Время выхода из позиции.
-         if(true && tDir.TableType() == TABLE_POSHISTORY)
+         if(el.ColumnType() == COLUMN_EXIT_DATE)
          {
             Button* hExitDate = new Button(name_exit_date, GetPointer(lineHeader));
             hExitDate.OptimalWidth(ow_entry_date);
@@ -155,7 +180,7 @@ class TablePositions : public Table
             //count++;
          }
          // Направление позиции.
-         if(true)
+         if(el.ColumnType() == COLUMN_TYPE)
          {
             Button* hTypePos = new Button(name_type, GetPointer(lineHeader));
             hTypePos.OptimalWidth(ow_type);
@@ -163,7 +188,7 @@ class TablePositions : public Table
             //count++;
          }
          // Объем
-         if(true)
+         if(el.ColumnType() == COLUMN_VOLUME)
          {
             Button* hVolume = new Button(name_vol, GetPointer(lineHeader));
             hVolume.OptimalWidth(ow_vol);
@@ -171,7 +196,7 @@ class TablePositions : public Table
             //count++;
          }
          // Цена входа.
-         if(true)
+         if(el.ColumnType() == COLUMN_ENTRY_PRICE)
          {
             string n;
             if(tDir.TableType() == TABLE_POSHISTORY)
@@ -185,7 +210,7 @@ class TablePositions : public Table
             //count++;
          }
          //Цена выхода.
-         if(true && tDir.TableType() == TABLE_POSHISTORY)
+         if(el.ColumnType() == COLUMN_EXIT_PRICE)
          {
             Button* hEntryPrice = new Button(name_exitPrice, GetPointer(lineHeader));
             hEntryPrice.OptimalWidth(ow_price);
@@ -193,7 +218,7 @@ class TablePositions : public Table
             //count++;
          }
          // Стоп-лосс
-         if(true)
+         if(el.ColumnType() == COLUMN_SL)
          {
             Button* hStopLoss = new Button(name_sl, GetPointer(lineHeader));
             hStopLoss.OptimalWidth(ow_sl);
@@ -201,7 +226,7 @@ class TablePositions : public Table
             //count++;
          }
          // Тейк-профит
-         if(true)
+         if(el.ColumnType() == COLUMN_TP)
          {
             Button* hTakeProfit = new Button(name_tp, GetPointer(lineHeader));
             hTakeProfit.OptimalWidth(ow_tp);
@@ -209,7 +234,7 @@ class TablePositions : public Table
             //count++;
          }
          //Флаг управления тралом
-         if(true && tDir.TableType() == TABLE_POSACTIVE)
+         if(el.ColumnType() == COLUMN_TRAL)
          {
             Button* hTralSL = new Button(name_tralSl, GetPointer(lineHeader));
             hTralSL.Font("Wingdings");
@@ -220,7 +245,7 @@ class TablePositions : public Table
             lineHeader.Add(hTralSL);
             //count++;
          }
-         if(true && tDir.TableType() == TABLE_POSACTIVE)
+         if(el.ColumnType() == COLUMN_CURRENT_PRICE)
          {
             // Текущая цена
             Button* hCurrentPrice = new Button(name_currprice, GetPointer(lineHeader));
@@ -230,7 +255,7 @@ class TablePositions : public Table
             //count++;
          }
          // Профит
-         if(true)
+         if(el.ColumnType() == COLUMN_PROFIT)
          {
             Button* hProfit = new Button(name_profit, GetPointer(lineHeader));
             hProfit.OptimalWidth(ow_profit);
@@ -239,7 +264,7 @@ class TablePositions : public Table
             //count++;
          }
          // Комментарий
-         if(true)
+         if(el.ColumnType() == COLUMN_ENTRY_COMMENT)
          {
             string n;
             if(tDir.TableType() == TABLE_POSHISTORY)
@@ -253,12 +278,13 @@ class TablePositions : public Table
             //count++;
          }
          // Комментарий для выхода.
-         if(true && tDir.TableType() == TABLE_POSHISTORY)
+         if(el.ColumnType() == COLUMN_EXIT_COMMENT)
          {
             Button* hComment = new Button(name_exitComment, GetPointer(lineHeader));
             hComment.OptimalWidth(ow_comment);
             lineHeader.Add(hComment);
             //count++;
+         }
          }
          //Изменяем тип рамки для каждого из элементов
          for(int i = 0; i < lineHeader.ChildsTotal();i++)
@@ -267,6 +293,7 @@ class TablePositions : public Table
             node.BorderColor(clrBlack);
             node.BackgroundColor(clrWhiteSmoke);
          }
+         */
       }
       ///
       /// Обработчик события "трал для позиции включен".
@@ -459,42 +486,46 @@ class TablePositions : public Table
          PosLine* nline = new PosLine(GetPointer(workArea),pos);
          
          int total = lineHeader.ChildsTotal();
+         
          Label* cell = NULL;
-         CArrayObj* deals = pos.EntryDeals();
+         //CArrayObj* deals = pos.EntryDeals();
          tDir.TableElement(TABLE_POSITION);
+         CArrayObj* Columns = Settings.GetSetForActiveTable();
+         total = Columns.Total();
          for(int i = 0; i < total; i++)
          {
             bool isReadOnly = true;
             ProtoNode* node = lineHeader.ChildElementAt(i);
-            
-            if(node.ShortName() == Settings.ColumnsName.Collapse())
+            DefColumn* el = Columns.At(i);
+            //if(node.ShortName() == name_tralSl)...
+            if(el.ColumnType() == COLUMN_COLLAPSE)
             {
-               nline.AddCollapseEl(GetPointer(tDir));
+               nline.AddCollapseEl(GetPointer(tDir), el);
                continue;
             }
-            if(node.ShortName() == Settings.ColumnsName.Magic())
+            if(el.ColumnType() == COLUMN_MAGIC)
             {
-               TextNode* node = nline.AddMagicEl(GetPointer(tDir));
+               TextNode* node = nline.AddDefaultEl(GetPointer(tDir), el);
                node.Text(pos.Magic());
             }
-            else if(node.ShortName() == name_symbol)
+            else if(el.ColumnType() == COLUMN_SYMBOL)
             {
                cell = new Label(name_symbol, GetPointer(nline));
                cell.Text((string)pos.Symbol());
             }
-            else if(node.ShortName() == name_entryOrderId)
+            else if(el.ColumnType() == COLUMN_ENTRY_ORDER_ID)
             {
                cell = new Label(name_entryOrderId, GetPointer(nline));
                cell.Text((string)pos.EntryOrderID());
             }
-            else if(node.ShortName() == name_entry_date)
+            else if(el.ColumnType() == COLUMN_ENTRY_DATE)
             {
                cell = new Label(name_entry_date, GetPointer(nline));
                CTime* date = pos.EntryDate();
                string sdate = date.TimeToString(TIME_DATE | TIME_MINUTES | TIME_SECONDS);
                cell.Text(sdate);
             }
-            else if(node.ShortName() == name_type)
+            else if(el.ColumnType() == COLUMN_TYPE)
             {
                cell = new Label(name_type, GetPointer(nline));
                string stype = EnumToString(pos.PositionType());
@@ -506,7 +537,7 @@ class TablePositions : public Table
                   node.OptimalWidth(optW);
                cell.Text(stype);
             }
-            else if(node.ShortName() == name_vol)
+            else if(el.ColumnType() == COLUMN_VOLUME)
             {
                cell = new Label(name_vol, GetPointer(nline));
                double step = SymbolInfoDouble(pos.Symbol(), SYMBOL_VOLUME_STEP);
@@ -515,26 +546,26 @@ class TablePositions : public Table
                cell.Text(vol);
                isReadOnly = false;
             }
-            else if(node.ShortName() == name_entryPrice)
+            else if(el.ColumnType() == COLUMN_ENTRY_PRICE)
             {
                cell = new Label(name_entryPrice, GetPointer(nline));
                int digits = (int)SymbolInfoInteger(pos.Symbol(), SYMBOL_DIGITS);
                string price = DoubleToString(pos.EntryPrice(), digits);
                cell.Text(price);
             }
-            else if(node.ShortName() == name_sl)
+            else if(el.ColumnType() == COLUMN_SL)
             {
                cell = new Label(name_sl, GetPointer(nline));
                cell.Text((string)pos.StopLoss());
                isReadOnly = false;
             }
-            else if(node.ShortName() == name_tp)
+            else if(el.ColumnType() == COLUMN_TP)
             {
                cell = new Label(name_tp, GetPointer(nline));
                cell.Text((string)pos.TakeProfit());
                isReadOnly = false; 
             }
-            else if(node.ShortName() == name_tralSl)
+            else if(el.ColumnType() == COLUMN_TRAL)
             {
                CheckBox* btnTralSL = new CheckBox(name_tralSl, GetPointer(nline));
                btnTralSL.BorderColor(clrWhite);
@@ -546,7 +577,7 @@ class TablePositions : public Table
                nline.CellTral(btnTralSL);
                continue;
             }
-            else if(node.ShortName() == name_currprice)
+            else if(el.ColumnType() == COLUMN_CURRENT_PRICE)
             {
                cell = new Label(name_currprice, GetPointer(nline));
                nline.CellLastPrice(cell);
@@ -556,7 +587,7 @@ class TablePositions : public Table
                nline.CellLastPrice(cell);
             }
             
-            else if(node.ShortName() == name_profit)
+            else if(el.ColumnType() == COLUMN_PROFIT)
             {
                Line* comby = new Line(name_profit, GetPointer(nline));
                comby.BindingWidth(node);
@@ -583,7 +614,7 @@ class TablePositions : public Table
                nline.Add(comby);
                continue;
             }
-            else if(node.ShortName() == name_entryComment)
+            else if(el.ColumnType() == COLUMN_ENTRY_COMMENT)
             {
                cell = new Label(name_entryComment, GetPointer(nline));
                cell.Text((string)pos.EntryComment());
@@ -614,7 +645,7 @@ class TablePositions : public Table
       ///
       void AddDeals(EventCollapseTree* event)
       {
-         ProtoNode* node = event.Node();
+         /*ProtoNode* node = event.Node();
          //Функция умеет развертывать только позиции, и с другими элеменатми работать не может.
          if(node.TypeElement() != ELEMENT_TYPE_POSITION)return;
          PosLine* posLine = node;
@@ -658,7 +689,7 @@ class TablePositions : public Table
                ProtoNode* cell = posLine.ChildElementAt(c);
                string n_el = cell.ShortName();
                //Отображение дерева позиции.
-               if(cell.ShortName() == Settings.ColumnsName.Collapse())
+               if(el.ColumnType() == COLUMN_COLLAPSE)
                {
                   if(i == total - 1)tDir.IsLastDeal(true);
                   else tDir.IsLastDeal(false);
@@ -666,14 +697,14 @@ class TablePositions : public Table
                   continue;
                }
                //Magic номер сделки
-               if(cell.ShortName() == Settings.ColumnsName.Magic())
+               if(el.ColumnType() == COLUMN_MAGIC)
                {
                   TextNode* node = nline.AddMagicEl(GetPointer(tDir));
                   node.Text(pos.Magic());
                   continue;
                }
                //Инструмент, по которому совершена сделка.
-               if(cell.ShortName() == name_symbol)
+               if(el.ColumnType() == COLUMN_SYMBOL)
                {
                   Label* symbol = new Label("deal symbol", nline);
                   symbol.FontSize(fontSize);
@@ -690,7 +721,7 @@ class TablePositions : public Table
                   continue;
                }
                //Идентификатор сделки.
-               if(cell.ShortName() == name_entryOrderId)
+               if(el.ColumnType() == COLUMN_ENTRY_ORDER_ID)
                {
                   Label* entry_id = new Label("EntryDealsID", nline);
                   entry_id.FontSize(fontSize);
@@ -709,7 +740,7 @@ class TablePositions : public Table
                   continue;
                }
                //Время входа в сделку
-               if(cell.ShortName() == name_entry_date)
+               if(el.ColumnType() == COLUMN_ENTRY_DATE)
                {
                   Label* entryDate = new Label("EntryDealsTime", nline);
                   entryDate.FontSize(fontSize);
@@ -728,7 +759,7 @@ class TablePositions : public Table
                   continue;
                }
                //Тип сделки
-               if(cell.ShortName() == name_type)
+               if(el.ColumnType() == COLUMN_TYPE)
                {
                   Label* entryType = new Label("EntryDealsType", nline);
                   entryType.FontSize(fontSize);
@@ -750,7 +781,7 @@ class TablePositions : public Table
                   continue;
                }
                //Объем
-               if(cell.ShortName() == name_vol)
+               if(el.ColumnType() == COLUMN_VOLUME)
                {
                   Label* dealVol = new Label("EntryDealsVol", nline);
                   dealVol.FontSize(fontSize);
@@ -771,7 +802,7 @@ class TablePositions : public Table
                   continue;
                }
                //Цена по которой заключена сделка
-               if(cell.ShortName() == name_entryPrice)
+               if(el.ColumnType() == COLUMN_ENTRY_PRICE)
                {
                   Label* entryPrice = new Label("DealEntryPrice", nline);
                   entryPrice.FontSize(fontSize);
@@ -789,7 +820,7 @@ class TablePositions : public Table
                   continue;
                }
                //Стоп-Лосс.
-               if(cell.ShortName() == name_sl)
+               if(el.ColumnType() == COLUMN_SL)
                {
                   Label* sl = new Label("DealStopLoss", nline);
                   sl.FontSize(fontSize);
@@ -806,7 +837,7 @@ class TablePositions : public Table
                   continue;
                }
                //Тейк-Профит.
-               if(cell.ShortName() == name_tp)
+               if(el.ColumnType() == COLUMN_TP)
                {
                   Label* tp = new Label("DealTakeProfit", nline);
                   tp.FontSize(fontSize);
@@ -823,7 +854,7 @@ class TablePositions : public Table
                   continue;
                }
                //Трал
-               if(cell.ShortName() == name_tralSl)
+               if(el.ColumnType() == COLUMN_TRAL)
                {
                   
                   Label* tral = new Label("DealTralSL", nline);
@@ -925,15 +956,15 @@ class TablePositions : public Table
                }
             }
             int m_total = nline.ChildsTotal();
-            /*for(int el = 0; el < m_total; el++)
+            for(int el = 0; el < m_total; el++)
             {
                Label* label = nline.ChildElementAt(el);
                label.FontColor(clrDimGray);
-            }*/
+            }
             int n = event.NLine();
             workArea.Add(nline, event.NLine()+1);
          }
-         posLine.IsRestore(true);
+         posLine.IsRestore(true);*/
       }
       ///
       /// Удаляет визуализацию трейдов позиции

@@ -29,6 +29,10 @@ enum ENUM_ELEMENT_TYPE
    ///
    ELEMENT_TYPE_BOTTON,
    ///
+   /// Элемент графического интерфейса CheckBox.
+   ///
+   ELEMENT_TYPE_CHECK_BOX,
+   ///
    /// Элемент графического интерфейса "Вкладка".
    ///
    ELEMENT_TYPE_TAB,
