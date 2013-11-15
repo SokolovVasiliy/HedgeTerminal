@@ -29,6 +29,7 @@ class Table : public Label
          //Для таблиц, представляющих позиции, формируем специальный заголовок.
          if(tDir.IsPositionTable())
             lineHeader = new AbstractPos("header", ELEMENT_TYPE_TABLE_HEADER_POS, GetPointer(this));
+         
          Init(myName, parNode);
       }
       

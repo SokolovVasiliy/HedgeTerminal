@@ -115,10 +115,10 @@ class AbstractPos : public Line
       }
       virtual TextNode* AddProfitEl(TableDirective* tDir, DefColumn* el)
       {
-         Line* comby = NULL:
+         Line* comby = NULL;
          if(tDir.TableType() == TABLE_POSACTIVE)
          {
-            Line* comby = new Line(name_profit, GetPointer(this));
+            Line* comby = new Line(el.Name(), GetPointer(this));
             comby.AlignType(LINE_ALIGN_CELLBUTTON);
             Label* profit = new Label(el.Name(), GetPointer(this));
             ButtonClosePos* btnClose = new ButtonClosePos("btnClosePos.", comby);
@@ -127,8 +127,10 @@ class AbstractPos : public Line
             btnClose.Text(CharToString(251));
             comby.Add(profit);
             comby.Add(btnClose);
+            comby.OptimalWidth(el.OptimalWidth());
+            comby.ConstWidth(el.ConstWidth());
          }
-         return Line*
+         return comby;
          /*Line* comby = new Line(name_profit, GetPointer(nline));
          //      comby.BindingWidth(node);
          comby.AlignType(LINE_ALIGN_CELLBUTTON);

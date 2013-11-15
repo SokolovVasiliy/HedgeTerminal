@@ -79,9 +79,22 @@ class Deal : CObject
       ulong Ticket(){return ticket;}
       CTime* Date(){return date;}
       double Volume(){return volume;}
+      
+      string VolumeAsString()
+      {
+         double step = SymbolInfoDouble(symbol, SYMBOL_VOLUME_STEP);
+         double mylog = MathLog10(step);
+         string vol = mylog < 0 ? DoubleToString(volume,(int)(mylog*(-1.0))) : DoubleToString(volume, 0);
+         return vol;
+      }
       double Comission(){return commission;}
       double Price(){return price;}
       ENUM_DEAL_TYPE DealType(){return type;}
+      string StrDealType()
+      {
+         string str = EnumToString(type);
+         return str;
+      }
       string Symbol(){return symbol;}
       ///
       /// Возвращает прибыль сделки.
@@ -124,6 +137,12 @@ class Deal : CObject
          double point = SymbolInfoDouble(symbol, SYMBOL_POINT);
          string points = DoubleToString(Profit()/point, 0) + "p.";
          return points;
+      }
+      string PriceToString(double price)
+      {
+         int digits = (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS);
+         string sprice = DoubleToString(price, digits);
+         return sprice;
       }
    private:
       ///
@@ -201,6 +220,11 @@ class Position : CObject
       /// Возвращает направление позиции.
       ///
       ENUM_ORDER_TYPE PositionType(){return type;}
+      string StrPositionType()
+      {
+         string str = EnumToString(type);
+         return str;
+      }
       ///
       /// Возвращает магический номер эксперта, открывшего позицию.
       ///
@@ -210,13 +234,25 @@ class Position : CObject
       ///
       string Symbol(){return symbol;}
       ///
-      /// Возвращает идентификатор позиции.
+      /// Возвращает идентификатор входа позиции.
       ///
       ulong EntryOrderID(){return entryOrderId;}
+      ///
+      /// Возвращает идентификатор выхода позиции.
+      ///
+      ulong ExitOrderID(){return exitOrderId;}
       ///
       /// Возвращает объем позиции.
       ///
       double Volume(){return volume;}
+      
+      string VolumeAsString()
+      {
+         double step = SymbolInfoDouble(symbol, SYMBOL_VOLUME_STEP);
+         double mylog = MathLog10(step);
+         string vol = mylog < 0 ? DoubleToString(volume,(int)(mylog*(-1.0))) : DoubleToString(volume, 0);
+         return vol;
+      }
       ///
       /// Возвращает время входа в позицию.
       ///
@@ -255,6 +291,63 @@ class Position : CObject
          else
             last_price = SymbolInfoDouble(symbol, SYMBOL_ASK);
          return last_price;
+      }
+      string PriceToString(double price)
+      {
+         int digits = (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS);
+         string sprice = DoubleToString(price, digits);
+         return sprice;
+      }
+      ///
+      /// Устанавливает стоп-лосс на новую цену sl
+      ///
+      bool SetStopLoss(double sl)
+      {
+         stopLoss = sl;
+         return true;
+      }
+      double GetStopLoss(){return stopLoss;}
+      ///
+      /// Удаляет стоп лосс.
+      ///
+      bool DeleteStopLoss()
+      {
+         stopLoss = 0.0;
+         return true;
+      }
+      ///
+      /// Возвращает истину, если используется стоп-лосс и ложь в противном случае.
+      ///
+      bool UsingStopLoss()
+      {
+         if(stopLoss != NormalizeDouble(0.0, 5))
+            return true;
+         return false;
+      }
+      ///
+      /// Устанавливает тейк профит на новую цену sl
+      ///
+      bool SetTakeProfit(double tp)
+      {
+         takeProfit = tp;
+         return true;
+      }
+      ///
+      /// Удаляет тейк профит.
+      ///
+      bool DeleteTakeProfit()
+      {
+         takeProfit = 0.0;
+         return true;
+      }
+      ///
+      /// Возвращает истину, если используется тейк профит, и ложь в противном случае.
+      ///
+      bool UsingTakeProfit()
+      {
+         if(takeProfit != NormalizeDouble(0.0, 5))
+            return true;
+         return false;
       }
       ///
       /// Возвращает накопленный своп позиции.
@@ -444,6 +537,7 @@ class Position : CObject
       double profit;
       string entryComment;
       string exitComment;
+      
       ///
       /// Список сделок, открывающих текущую позицию.
       ///

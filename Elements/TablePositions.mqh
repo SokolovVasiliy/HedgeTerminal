@@ -100,7 +100,27 @@ class TablePositions : public Table
          //  ажда€ лини€ - специальный тип, знающий, какие именно элементы нужно в себ€ добавл€ть.
          AbstractPos* posLine = lineHeader;
          tDir.TableElement(TABLE_HEADER);
-         CArrayObj* Columns = Settings.GetSetForActiveTable();
+         int index = -1;
+         for(int i = 0; i < ChildsTotal(); i++)
+         {
+            ProtoNode* node = ChildElementAt(i);
+            if(lineHeader == node){
+               index = i;
+               break;
+               //node = CreateLine(GetPointer(tDir), NULL);
+               //lineHeader = node;
+            }
+         }
+         if(index != -1)
+         {
+            childNodes.Delete(index);
+            lineHeader = CreateLine(GetPointer(tDir), NULL);
+            childNodes.Insert(lineHeader, index);
+         }
+         //lineHeader = CreateLine(GetPointer(tDir), NULL);
+         
+         int total = lineHeader.ChildsTotal();
+         /*CArrayObj* Columns = Settings.GetSetForActiveTable();
          if(Columns == NULL)return;
          for(int i = 0; i < Columns.Total(); i++)
          {
@@ -116,11 +136,7 @@ class TablePositions : public Table
                default:
                   posLine.AddDefaultEl(GetPointer(tDir), el);
             }
-            /*if(el.ColumnType() == COLUMN_COLLAPSE)
-               posLine.AddCollapseEl(GetPointer(tDir), el);
-            else
-               posLine.AddDefaultEl(GetPointer(tDir), el);*/
-         }
+         }*/
          /*for(int i = 0; i < Columns.Total(); i++)
          {
          DefColumn* el = Columns.At(i);
@@ -474,7 +490,166 @@ class TablePositions : public Table
             }
          }
       }
-
+      
+      ///
+      /// —оздает визуальное представление строки, котора€ отображает: заголовок таблицы позиций, или
+      /// саму позицию или сделку, св€занную с позицией. ѕосле того, как строка представлени€ будет 
+      /// создана, она будет возвращена вызывающему методу.
+      ///
+      Line* CreateLine(TableDirective* tDir, Position* pos, Deal* entryDeal=NULL, Deal* exitDeal=NULL)
+      {
+         AbstractPos* posLine = NULL;
+         
+         //ѕолучаем указатель на tDir
+         TableDirective* pDir = GetPointer(tDir);
+         ENUM_TABLE_TYPE elType = pDir.TableType();
+         
+         //ѕолучаем список колонок, которые надо сгенерировать.
+         CArrayObj* columns = NULL;
+         switch(pDir.TableType())
+         {
+            case TABLE_POSACTIVE:
+               columns = Settings.GetSetForActiveTable();
+               break;
+            case TABLE_POSHISTORY:
+               columns = Settings.GetSetForActiveTable();
+               break;
+            default:
+               //≈сли тип таблицы неизвестен, то и генерировать нечего.
+               return posLine; 
+         }
+         //ќпредел€ем какой тип линии будем использовать.
+         
+         switch(pDir.TableElement())
+         {
+            case TABLE_HEADER:
+            case TABLE_POSITION:
+               posLine = new PosLine(GetPointer(this), pos);
+               break;
+            case TABLE_DEAL:
+               posLine = new DealLine(GetPointer(this), entryDeal, exitDeal);
+               break;
+            default:
+               //≈сли тип строки неизвестен, то и сгенерировать ее мы не можем.
+               return posLine;
+         }
+         //‘ормируем линию.
+         int total = columns.Total();
+         for(int i = 0; i < total; i++)
+         {
+            //Ёлемент, значени€ которого мы определим
+            TextNode* element = NULL;
+            DefColumn* el = columns.At(i);
+            ENUM_COLUMN_TYPE elType = el.ColumnType();
+            if(elType == COLUMN_COLLAPSE)
+               posLine.AddCollapseEl(pDir, el);
+            else if(elType == COLUMN_TRAL)
+               element = posLine.AddTralEl(pDir, el);
+            else if(elType == COLUMN_PROFIT)
+               posLine.AddProfitEl(pDir, el);
+            else
+               element = posLine.AddDefaultEl(pDir, el);
+            //“еперь, когда элемент получен, осталось его заполнить.
+            if(element != NULL && pos != NULL)
+               LineBuilder(pDir.TableElement(), element, el, pos, entryDeal, exitDeal);
+         }
+         return posLine;
+      }
+      void LineBuilder(ENUM_TABLE_TYPE_ELEMENT elType, TextNode* element, DefColumn* el, Position* pos, Deal* entryDeal=NULL, Deal* exitDeal=NULL)
+      {
+         //»нформаци€ о позиции должна быть всегда
+         if(pos == NULL) return;
+         switch(el.ColumnType())
+         {
+            case COLUMN_MAGIC:
+               if(elType == TABLE_POSITION || elType == TABLE_DEAL)
+                  element.Text(pos.Magic());
+               break;
+            case COLUMN_SYMBOL:
+               if(elType == TABLE_POSITION || elType == TABLE_DEAL)
+                  element.Text(pos.Symbol());
+               break;
+            case COLUMN_ENTRY_ORDER_ID:
+               if(elType == TABLE_POSITION)
+                  element.Text(pos.EntryOrderID());
+               if(elType == TABLE_DEAL && entryDeal != NULL)
+                  element.Text(entryDeal.Ticket());
+               break;
+            case COLUMN_EXIT_ORDER_ID:
+               if(elType == TABLE_POSITION)
+                  element.Text(pos.ExitOrderID());
+               if(elType == TABLE_DEAL && exitDeal != NULL)
+                  element.Text(exitDeal.Ticket());
+               break;
+            case COLUMN_ENTRY_DATE:
+               if(elType == TABLE_POSITION)
+               {
+                  CTime ctime = pos.EntryDate();   
+                  element.Text(ctime.TimeToString(TIME_DATE | TIME_MINUTES));
+               }
+               if(elType == TABLE_DEAL && entryDeal != NULL)
+               {
+                  CTime ctime = entryDeal.Date();   
+                  element.Text(ctime.TimeToString(TIME_DATE | TIME_MINUTES));
+               }
+               break;
+            case COLUMN_EXIT_DATE:
+               if(elType == TABLE_POSITION)
+               {
+                  CTime ctime = pos.ExitDate();   
+                  element.Text(ctime.TimeToString(TIME_DATE | TIME_MINUTES));
+               }
+               if(elType == TABLE_DEAL && exitDeal != NULL)
+               {
+                  CTime ctime = exitDeal.Date();   
+                  element.Text(ctime.TimeToString(TIME_DATE | TIME_MINUTES));
+               }
+               break;
+            case COLUMN_TYPE:
+               if(elType == TABLE_POSITION)
+                  element.Text(pos.StrPositionType());
+               if(elType == TABLE_DEAL && entryDeal != NULL)
+                  element.Text(entryDeal.StrDealType());
+               break;
+            case COLUMN_VOLUME:
+               if(elType == TABLE_POSITION)
+                  element.Text(pos.VolumeAsString());
+               if(elType == TABLE_DEAL && entryDeal != NULL)
+                  element.Text(entryDeal.StrDealType());
+               break;
+            case COLUMN_ENTRY_PRICE:
+               if(elType == TABLE_POSITION)
+                  element.Text(pos.PriceToString(pos.EntryPrice()));
+               if(elType == TABLE_DEAL && entryDeal != NULL)
+                  element.Text(entryDeal.PriceToString(entryDeal.Price()));
+               break;
+            case COLUMN_SL:
+               if(elType == TABLE_POSITION || elType == TABLE_DEAL)
+                  element.Text(pos.PriceToString((string)pos.StopLoss()));
+               break;
+            case COLUMN_TP:
+               if(elType == TABLE_POSITION || elType == TABLE_DEAL)
+                  element.Text(pos.PriceToString((string)pos.TakeProfit()));
+               break;
+            case COLUMN_TRAL:
+               if(elType == TABLE_POSITION || elType == TABLE_DEAL)
+               {
+                  if(pos.UsingStopLoss())
+                     element.Text(CharToString(254));
+                  else
+                     element.Text(CharToString(168));
+               }
+               break;
+            case COLUMN_ENTRY_COMMENT:
+               if(elType == TABLE_POSITION)
+                  element.Text(pos.EntryComment());
+               break;
+            case COLUMN_EXIT_COMMENT:
+               if(elType == TABLE_POSITION)
+                  element.Text(pos.ExitComment());
+               break;
+         }
+      }
       ///
       /// ƒобавл€ем новую созданную таблицу, либо раскрывает позицию
       ///
@@ -483,10 +658,9 @@ class TablePositions : public Table
          Position* pos = event.GetPosition();
          //ƒобавл€ем только активные позиции.
          //if(pos.Status == POSITION_STATUS_CLOSED)return;
-         PosLine* nline = new PosLine(GetPointer(workArea),pos);
-         
-         int total = lineHeader.ChildsTotal();
-         
+         tDir.TableElement(TABLE_POSITION);
+         PosLine* nline = CreateLine(GetPointer(tDir), pos);
+         /*int total = lineHeader.ChildsTotal();
          Label* cell = NULL;
          //CArrayObj* deals = pos.EntryDeals();
          tDir.TableElement(TABLE_POSITION);
@@ -630,7 +804,7 @@ class TablePositions : public Table
                nline.Add(cell);
                cell = NULL;
             }
-         }
+         }*/
          
          workArea.Add(nline);
          //„то бы нова€ позици€ тут же отобразилась в таблице активных позиций

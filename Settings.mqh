@@ -209,7 +209,7 @@ class PanelSettings
          string exitPrice = "Exit Price";
          string sl = "S/L";
          string tp = "T/P";
-         string tral = "T";
+         string tral = "Tral";
          string currentPrice = "Price";
          string profit = "Profit";
          string entryComment = "Entry Comment";
