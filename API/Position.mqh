@@ -223,6 +223,8 @@ class Position : CObject
       string StrPositionType()
       {
          string str = EnumToString(type);
+         str = StringSubstr(str, 11);
+         StringReplace(str, "_", " ");
          return str;
       }
       ///

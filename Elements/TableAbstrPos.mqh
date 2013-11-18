@@ -30,11 +30,11 @@ class AbstractPos : public Line
       /// ”станавливает ссылку на €чейку строки, отображающую последнюю цену инструмента,
       /// по которому открыта позици€ / совершена сделка.
       ///
-      void CellLastPrice(Label* label){cellLastPrice = label;}
+      void CellLastPrice(TextNode* label){cellLastPrice = label;}
       ///
       /// ¬озвращает €чейку, отображающую последнюю цену позиции.
       ///
-      Label* CellLastPrice(){return cellLastPrice;}
+      TextNode* CellLastPrice(){return cellLastPrice;}
       ///
       /// ”станавливает ссылку на €чейку строки, отображающую профит.
       ///
@@ -116,11 +116,12 @@ class AbstractPos : public Line
       virtual TextNode* AddProfitEl(TableDirective* tDir, DefColumn* el)
       {
          Line* comby = NULL;
-         if(tDir.TableType() == TABLE_POSACTIVE)
+         if(tDir.TableType() == TABLE_POSACTIVE && tDir.TableElement() == TABLE_POSITION)
          {
-            Line* comby = new Line(el.Name(), GetPointer(this));
+            comby = new Line(el.Name(), GetPointer(this));
             comby.AlignType(LINE_ALIGN_CELLBUTTON);
-            Label* profit = new Label(el.Name(), GetPointer(this));
+            Label* profit = new Label(el.Name(), comby);
+            cellProfit = profit;
             ButtonClosePos* btnClose = new ButtonClosePos("btnClosePos.", comby);
             btnClose.Font("Wingdings");
             btnClose.FontSize(12);
@@ -129,32 +130,21 @@ class AbstractPos : public Line
             comby.Add(btnClose);
             comby.OptimalWidth(el.OptimalWidth());
             comby.ConstWidth(el.ConstWidth());
+            Add(comby);
          }
          return comby;
-         /*Line* comby = new Line(name_profit, GetPointer(nline));
-         //      comby.BindingWidth(node);
-         comby.AlignType(LINE_ALIGN_CELLBUTTON);
-               cell = new Label(name_profit, comby);
-               //nline.CellProfit(cell);
-               cell.Text(pos.ProfitAsString());
-               cell.BackgroundColor(clrWhite);
-               cell.BorderColor(clrWhiteSmoke);
-               cell.ReadOnly(true);
-               nline.CellProfit(cell);
-               ButtonClosePos* btnClose = new ButtonClosePos("btnClosePos.", comby);
-               btnClose.Font("Wingdings");
-               btnClose.FontSize(12);
-               btnClose.Text(CharToString(251));
-               btnClose.BorderColor(clrWhite);
-               double profit = pos.Profit();
-               if(profit > 0)
-                  btnClose.BackgroundColor(clrMintCream);
-               else
-                  btnClose.BackgroundColor(clrLavenderBlush);
-               comby.Add(cell);
-               comby.Add(btnClose);
-               nline.Add(comby);
-           */
+      }
+      virtual TextNode* AddLastPrice(TableDirective* tDir, DefColumn* el)
+      {
+         TextNode* build = AddDefaultEl(tDir, el);
+         cellLastPrice = build;
+         return build;
+      }
+      virtual TextNode* AddProfitDealEl(TableDirective* tDir, DefColumn* el)
+      {
+         TextNode* build = AddDefaultEl(tDir, el);
+         cellProfit = build;
+         return build;
       }
       ///
       /// ƒобавл€ет елемент по-умолчанию в список, и возвращает ссылку на него.
@@ -194,7 +184,7 @@ class AbstractPos : public Line
       ///
       /// ”казатель на €чейку, отображающую последнюю цену инструмента, по которому открыта позици€/сделка.
       ///
-      Label* cellLastPrice;
+      TextNode* cellLastPrice;
       ///
       /// ”казатель на €чейку, отображающую профит позиции/сделки.
       ///

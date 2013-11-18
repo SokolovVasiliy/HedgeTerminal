@@ -114,7 +114,7 @@ class TablePositions : public Table
          if(index != -1)
          {
             childNodes.Delete(index);
-            lineHeader = CreateLine(GetPointer(tDir), NULL);
+            lineHeader = CreateLine(GetPointer(this), GetPointer(tDir), NULL);
             childNodes.Insert(lineHeader, index);
          }
          //lineHeader = CreateLine(GetPointer(tDir), NULL);
@@ -463,7 +463,7 @@ class TablePositions : public Table
                //Обновляем последнюю цену
                PosLine* posLine = node;
                Position* pos = posLine.Position();
-               Label* lastPrice = posLine.CellLastPrice();
+               TextNode* lastPrice = posLine.CellLastPrice();
                double price = pos.CurrentPrice();
                if(lastPrice != NULL)
                {
@@ -496,7 +496,7 @@ class TablePositions : public Table
       /// саму позицию или сделку, связанную с позицией. После того, как строка представления будет 
       /// создана, она будет возвращена вызывающему методу.
       ///
-      Line* CreateLine(TableDirective* tDir, Position* pos, Deal* entryDeal=NULL, Deal* exitDeal=NULL)
+      Line* CreateLine(ProtoNode* parNode, TableDirective* tDir, Position* pos, Deal* entryDeal=NULL, Deal* exitDeal=NULL)
       {
          AbstractPos* posLine = NULL;
          
@@ -519,15 +519,14 @@ class TablePositions : public Table
                return posLine; 
          }
          //Определяем какой тип линии будем использовать.
-         
          switch(pDir.TableElement())
          {
             case TABLE_HEADER:
             case TABLE_POSITION:
-               posLine = new PosLine(GetPointer(this), pos);
+               posLine = new PosLine(GetPointer(parNode), pos);
                break;
             case TABLE_DEAL:
-               posLine = new DealLine(GetPointer(this), entryDeal, exitDeal);
+               posLine = new DealLine(GetPointer(parNode), entryDeal, exitDeal);
                break;
             default:
                //Если тип строки неизвестен, то и сгенерировать ее мы не можем.
@@ -545,13 +544,20 @@ class TablePositions : public Table
                posLine.AddCollapseEl(pDir, el);
             else if(elType == COLUMN_TRAL)
                element = posLine.AddTralEl(pDir, el);
-            else if(elType == COLUMN_PROFIT)
+            else if(elType == COLUMN_CURRENT_PRICE)
+               element = posLine.AddLastPrice(pDir, el);
+            else if(elType == COLUMN_PROFIT && pDir.TableElement() == TABLE_POSITION &&
+               pDir.TableType() == TABLE_POSACTIVE)
                posLine.AddProfitEl(pDir, el);
+            else if(elType == COLUMN_PROFIT && pDir.TableElement() == TABLE_DEAL &&
+               pDir.TableType() == TABLE_POSACTIVE)
+               posLine.AddProfitDealEl(pDir, el);
             else
                element = posLine.AddDefaultEl(pDir, el);
             //Теперь, когда элемент получен, осталось его заполнить.
             if(element != NULL && pos != NULL)
                LineBuilder(pDir.TableElement(), element, el, pos, entryDeal, exitDeal);
+            
          }
          return posLine;
       }
@@ -641,11 +647,11 @@ class TablePositions : public Table
                }
                break;
             case COLUMN_ENTRY_COMMENT:
-               if(elType == TABLE_POSITION)
+               if(elType == TABLE_POSITION || elType == TABLE_DEAL)
                   element.Text(pos.EntryComment());
                break;
             case COLUMN_EXIT_COMMENT:
-               if(elType == TABLE_POSITION)
+               if(elType == TABLE_POSITION || elType == TABLE_DEAL)
                   element.Text(pos.ExitComment());
                break;
          }
@@ -659,7 +665,7 @@ class TablePositions : public Table
          //Добавляем только активные позиции.
          //if(pos.Status == POSITION_STATUS_CLOSED)return;
          tDir.TableElement(TABLE_POSITION);
-         PosLine* nline = CreateLine(GetPointer(tDir), pos);
+         PosLine* nline = CreateLine(workArea, GetPointer(tDir), pos);
          /*int total = lineHeader.ChildsTotal();
          Label* cell = NULL;
          //CArrayObj* deals = pos.EntryDeals();
@@ -819,7 +825,7 @@ class TablePositions : public Table
       ///
       void AddDeals(EventCollapseTree* event)
       {
-         /*ProtoNode* node = event.Node();
+         ProtoNode* node = event.Node();
          //Функция умеет развертывать только позиции, и с другими элеменатми работать не может.
          if(node.TypeElement() != ELEMENT_TYPE_POSITION)return;
          PosLine* posLine = node;
@@ -853,6 +859,20 @@ class TablePositions : public Table
             Deal* exitDeal = NULL;
             if(exitDeals != NULL && i < exitDeals.Total())
                exitDeal = exitDeals.At(i);
+            Line* nline = CreateLine(workArea, GetPointer(tDir), pos, entryDeal, exitDeal);
+            workArea.Add(nline, event.NLine()+1);
+         }
+         posLine.IsRestore(true);
+         /*for(int i = 0; i < total; i++)
+         {
+            //Текущая сделка
+            Deal* entryDeal = NULL;
+            if(entryDeals != NULL && i < entryDeals.Total())
+               entryDeal = entryDeals.At(i);
+            Deal* exitDeal = NULL;
+            if(exitDeals != NULL && i < exitDeals.Total())
+               exitDeal = exitDeals.At(i);
+            Line* nline = CreateLine(workArea, GetPointer(tDir), pos, entryDeal, exitDeal);
             DealLine* nline = new DealLine(GetPointer(workArea), entryDeal, exitDeal);
             nline.BorderType(BORDER_FLAT);
             nline.BorderColor(BackgroundColor());
@@ -1137,8 +1157,8 @@ class TablePositions : public Table
             }
             int n = event.NLine();
             workArea.Add(nline, event.NLine()+1);
-         }
-         posLine.IsRestore(true);*/
+         }*/
+         //posLine.IsRestore(true);
       }
       ///
       /// Удаляет визуализацию трейдов позиции
