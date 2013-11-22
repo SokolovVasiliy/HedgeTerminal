@@ -1,4 +1,5 @@
 #include <Arrays\ArrayObj.mqh>
+#include <Arrays\ArrayLong.mqh>
 #include "..\Time.mqh"
 ///
 /// Тип транзакции.
@@ -196,11 +197,25 @@ class Position : Transaction
 {
    public:
       ///
-      /// Создает позицию, чей входящий идентификатор ордера равен entryId.
+      /// Инициирует отложенную позицию.
       ///
-      Position(ulong entryId) : Transaction(TRANS_POSITION)
+      Position(ulong in_ticket) : Transaction(TRANS_POSITION)
       {
-         ;
+         InitPosition(in_ticket);
+      }
+      ///
+      /// Инициирует активную позицию.
+      ///
+      Position(ulong in_ticket, CArrayLong* in_deals) : Transaction(TRANS_POSITION)
+      {
+         InitPosition(in_ticket, in_deals);
+      }
+      ///
+      /// Инициирует завершенную позицию.
+      ///
+      Position(ulong in_ticket, CArrayLong* in_deals, ulong out_ticket, CArrayLong* out_deals) : Transaction(TRANS_POSITION)
+      {
+         InitPosition(in_ticket, in_deals);
       }
       ///
       /// Возвращает магический номер позиции/сделки.
@@ -407,7 +422,7 @@ class Position : Transaction
       {
          double price = 0.0;
          //Имеем дело с покупками?
-         if(PositionType() % 2)
+         if(PositionType() % 2 == 0)
             price = SymbolInfoDouble(Symbol(), SYMBOL_BID);
          else
             price = SymbolInfoDouble(Symbol(), SYMBOL_ASK);
@@ -465,7 +480,44 @@ class Position : Transaction
          TRANS_OUT
       };
       ///
-      /// Возвращает время установки ордера. Если время установки ордера не известно, например, ордер не инициализирован,
+      /// Инициализирует новую отрытую позицию
+      ///
+      void InitPosition(ulong in_ticket, CArrayLong* in_deals = NULL, ulong out_ticket = 0, CArrayLong* out_deals = NULL)
+      {
+         if(in_ticket == 0) return;
+         if(in_deals == NULL || in_deals.Total() == 0)
+            posStatus = POSITION_STATUS_PENDING;
+         else if(out_ticket == 0 || out_deals == NULL)
+            posStatus = POSITION_STATUS_OPEN;
+         else if(out_deals.Total() != 0)
+            posStatus = POSITION_STATUS_CLOSED;
+         inOrderId = in_ticket;
+         
+         //Добавляем сделки инициирующего ордера.
+         if(posStatus == POSITION_STATUS_OPEN ||
+            posStatus == POSITION_STATUS_CLOSED)
+         {
+            for(int i = 0; i < in_deals.Total(); i++)
+            {
+               ulong id = in_deals.At(i);
+               Deal* deal = new Deal(id);
+               entryDeals.Add(deal);
+            }
+         }
+         //Добавляем сделки закрывающего ордера.
+         if(posStatus == POSITION_STATUS_CLOSED)
+         {
+            for(int i = 0; i < out_deals.Total(); i++)
+            {
+               ulong id = out_deals.At(i);
+               Deal* deal = new Deal(id);
+               exitDeals.Add(deal);
+            }
+         }
+      }
+      
+      ///
+      /// Возвращает время установки открывающего/закрывающего ордера. Если время установки ордера не известно, например, ордер не инициализирован,
       /// будет возвращено NULL.
       ///
       CTime* SetupTime()
@@ -567,7 +619,7 @@ class Deal : Transaction
    public:
       Deal(ulong inId) : Transaction(TRANS_DEAL)
       {
-         ;
+         SetId(inId);
       }
       ///
       /// Возвращает уникальный идентификатор эксперта, которому принадлежит данная сделка.
@@ -641,8 +693,10 @@ class Deal : Transaction
       }
 };
 
-void foo()
+/*void foo()
 {
-   Position posit;
-   ;
-}
+   Transaction trans = new Transaction(TRANS_POSITION);
+   //trans.
+}*/
+
+
