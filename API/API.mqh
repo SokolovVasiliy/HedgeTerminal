@@ -1,3 +1,3 @@
 #include "Order.mqh"
-#include "Position.mqh"
+#include "Transaction.mqh"
 #include "Hedge.mqh"

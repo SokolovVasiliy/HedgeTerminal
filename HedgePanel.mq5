@@ -14,7 +14,7 @@
 ///
 /// Скорость обновления панели
 ///
-int RefreshRate = 200;
+input int RefreshRate = 200;
 
 CHedge* api;
 MainForm* HedgePanel;

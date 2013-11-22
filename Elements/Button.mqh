@@ -95,10 +95,9 @@ class ButtonClosePos : public Button
       {
          //bool state = ObjectGetInteger(MAIN_WINDOW, NameID(), OBJPROP_STATE);
          ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_STATE, false);
-         //prinf("MSC: " + );
-         //if(state)
-         //   printf("Кнокпа нажата");
-         //else
-         //   printf("Кнокпа отжата");
+         //Генерируем событие "Поступила команда закрыть позицию"
+         EventClosePos* event = new EventClosePos(0, ShortName());
+         EventSend(event);
+         delete event;
       }
 };

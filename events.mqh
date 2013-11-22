@@ -143,7 +143,11 @@ enum ENUM_EVENT
    ///
    ///  лавиша нажати€
    ///
-   EVENT_KEYDOWN
+   EVENT_KEYDOWN,
+   ///
+   ///
+   ///
+   //EVENT_CLOSE_
 };
 
 
@@ -496,7 +500,7 @@ class EventObjectClick : public Event
 };
 
 ///
-///  оманда на закрытие позиции.
+/// Ёто событие приходит в ответ, на команду закрыть позицию.
 ///
 class EventDelPos : public Event
 {
@@ -513,6 +517,34 @@ class EventDelPos : public Event
       ulong positionId;
 };
 
+///
+/// Ёто событие посылает команду закрыть позицию.
+///
+class EventClosePos : public Event
+{
+   public:
+      EventClosePos(ulong posId, string nodeId) : Event(EVENT_FROM_DOWN, EVENT_CLOSE_POS, nodeId)
+      {
+         positionId = posId;
+      }
+      ///
+      /// ”станавливает идентификатор позиции, которую требуетс€ закрыть.
+      ///
+      void PositionId(ulong pos){positionId = pos;}
+      ///
+      /// ¬озвращает идентификатор позиции, которую требуетс€ закрыть.
+      ///
+      ulong PositionId(){return positionId;}
+      virtual Event* Clone()
+      {
+         return new EventDelPos(positionId, NameNodeId());
+      }
+   private:
+      ///
+      /// »дентификатор позиции, которую требуетс€ закрыть.
+      ///
+      ulong positionId;
+};
 class EventCollapseTree : public Event
 {
    public:

@@ -196,6 +196,11 @@ class AbstractPos : public Line
 class PosLine : public AbstractPos
 {
    public:
+      PosLine(ProtoNode* parNode, ENUM_ELEMENT_TYPE elType, Position* pos) : AbstractPos("Position", elType, parNode)
+      {
+         //—в€зываем графическое представление позиции с конкретной позицией.
+         position = pos;
+      }
       PosLine(ProtoNode* parNode, Position* pos) : AbstractPos("Position", ELEMENT_TYPE_POSITION, parNode)
       {
          //—в€зываем графическое представление позиции с конкретной позицией.
@@ -249,7 +254,17 @@ class PosLine : public AbstractPos
          CellTral(cbox);
          return build;
       }
-      
+      virtual void OnEvent(Event* event)
+      {
+         if(event.Direction() == EVENT_FROM_DOWN && event.EventId() == EVENT_CLOSE_POS)
+         {
+            EventClosePos* cevent = event;
+            if(CheckPointer(position) == POINTER_INVALID)return;
+            cevent.PositionId(position.EntryOrderID());
+            EventSend(cevent);
+         }
+         else EventSend(event);
+      }
    private:
       ///
       /// ”казатель на раскрывающую кнопку позиции.
@@ -292,20 +307,21 @@ class DealLine : public AbstractPos
       ///
       /// ”станавливает указатель на €чейку, показывающую статус трала.
       ///
-      void CellTral(Label* tral){cellTral = tral;}
+      void CellTral(TextNode* tral){cellTral = tral;}
       ///
       /// ¬озвращает указатель на €чейку, указывающую на статус трала.
       ///
-      Label* CellTral(){return cellTral;}
+      TextNode* CellTral(){return cellTral;}
       ///
-      /// 
+      /// ƒобавл€ет €чейку трала
       ///
-      /*virtual TextNode* AddMagicEl(TableDirective* tDir)
+      virtual TextNode* AddTralEl(TableDirective* tDir, DefColumn* el)
       {
-         TextNode* node = AbstractPos::AddMagicEl(tDir);
-         //Ћини€
-         node.FontSize(9);
-      }*/
+         TextNode* build = AddDefaultEl(tDir, el);
+         build.Font("Wingdings");
+         CellTral(build);
+         return build;
+      }
    private:
       ///
       /// ”казатель на трейд инициализирующий позицию, чье графическое представление реализует текущий экземпл€р.
@@ -318,6 +334,6 @@ class DealLine : public AbstractPos
       ///
       /// ”казатель на метку, указывающиую, используетс€ ли трал дл€ сделки.
       ///
-      Label* cellTral;
+      TextNode* cellTral;
 };
 

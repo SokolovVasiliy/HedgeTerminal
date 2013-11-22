@@ -15,6 +15,15 @@ enum ENUM_TRANSACTION_TYPE
    ///
    TRANS_DEAL
 };
+
+///
+/// Направление в котором совершена транзакция.
+///
+enum ENUM_DIRECTION_TYPE
+{
+   DIRECTION_LONG,
+   DIRECTION_SHORT
+};
 ///
 /// Предоставляет абстрактную транзакцию: сделку, ордер, либо любую другую операцию на счете.
 ///
@@ -46,7 +55,62 @@ class Transaction : public CObject
       {
          return 0.0;
       }
+      ///
+      /// Возвращает профит в пунктах инструмента.
+      ///
+      double ProfitInPips()
+      {
+         double delta = CurrentPrice() - EntryPriceExecuted();
+         if(Direction() == DIRECTION_SHORT)
+            delta *= -1.0;
+         return delta;
+      }
+      virtual ENUM_DIRECTION_TYPE Direction()
+      {
+         return DIRECTION_LONG;
+      }
+      ///
+      /// Возвращает профит в виде текстового представления.
+      ///
+      string ProfitAsString()
+      {
+         double d = ProfitInPips();
+         int digits = (int)SymbolInfoInteger(Symbol(), SYMBOL_DIGITS);
+         double point = SymbolInfoDouble(Symbol(), SYMBOL_POINT);
+         string points = DoubleToString(d/point, 0) + "p.";
+         return points;
+      }
+      ///
+      /// Возвращает цену инструмента в виде строки.
+      ///
+      string PriceToString(double price)
+      {
+         int digits = (int)SymbolInfoInteger(Symbol(), SYMBOL_DIGITS);
+         string sprice = DoubleToString(price, digits);
+         return sprice;
+      }
+      string VolumeToString(double vol)
+      {
+         double step = SymbolInfoDouble(Symbol(), SYMBOL_VOLUME_STEP);
+         double mylog = MathLog10(step);
+         string vol = mylog < 0 ? DoubleToString(vol,(int)(mylog*(-1.0))) : DoubleToString(vol, 0);
+         return vol;
+      }
+      ///
+      /// Возвращает количество знаков после запятой в цене инструмента, по которому была совершена транзакция.
+      ///
+      int InstrumentDigits()
+      {
+         return (int)SymbolInfoInteger(Symbol(), SYMBOL_DIGITS);
+      }
    protected:
+      ///
+      /// Возвращает цену входа трназакции на рынок.
+      ///
+      virtual double EntryPriceExecuted(){return 0.0;}
+      ///
+      /// Возвращает тип транзакции.
+      ///
       Transaction(ENUM_TRANSACTION_TYPE trType){transType = trType;}
       ///
       /// Получает уникальный идентификатор транзакции.
@@ -129,21 +193,24 @@ class Transaction : public CObject
          if(transType == TRANS_POSITION)
             OrderSelect(currId);
       }
-      ///
-      /// Возвращает профит в пунктах инструмента.
-      ///
-      double ProfitInPips(double entryPrice, double exitPrice, double vol, string m_smb)
-      {
-         return 0.0;
-      }
-      ///
-      /// Возвращает профит в виде текстового представления.
-      ///
-      string ProfitAsString()
-      {
-         return "";
-      }
       
+      /*Для ускореня рассчетов, запоминает ранее рассчитанные цены, которые в дальнейшем будут неизменны*/
+      ///
+      /// Средняя эффективная цена по которой была совершена сделка/транзакция.
+      ///
+      double entryPriceExecuted;
+      ///
+      /// Истина, если цена совершения транзакции была рассчитана.
+      ///
+      bool isEntryPriceExecuted;
+      ///
+      /// Символ, по которому совершена тразакция (запоминается для производительности).
+      ///
+      string symbol;
+      ///
+      /// Истина, если название инструмента было получено ранее и запомнено.
+      ///
+      bool isSymbol;
    private:
       
       ///
@@ -161,10 +228,10 @@ class Transaction : public CObject
       /// Текущий идентификатор транзакции, с которым работают функции.
       ///
       ulong currId;
-      ///
-      /// Символ, по которому совершена тразакция (запоминается для производительности).
-      ///
-      string symbol;
+      
+      
+      
+      
 };
 
 ///
@@ -193,7 +260,7 @@ enum ENUM_POSITION_STATUS
 ///
 /// Класс представляет позицию.
 ///
-class Position : Transaction
+class Position : public Transaction
 {
    public:
       ///
@@ -218,6 +285,29 @@ class Position : Transaction
          InitPosition(in_ticket, in_deals);
       }
       ///
+      /// Возвращает направление, в котором совершена транзакция
+      ///
+      virtual ENUM_DIRECTION_TYPE Direction()
+      {
+         if(PositionType() % 2 == 0)
+            return DIRECTION_LONG;
+         return DIRECTION_SHORT;
+      }
+      ///
+      /// Возвращает сделки совершенные при входе в позицию.
+      ///
+      CArrayObj* EntryDeals()
+      {
+         return GetPointer(entryDeals);
+      }
+      ///
+      /// Возвращает сделки совершенные при выходе из позиции.
+      ///
+      CArrayObj* ExitDeals()
+      {
+         return GetPointer(exitDeals);
+      }
+      ///
       /// Возвращает магический номер позиции/сделки.
       ///
       virtual ulong Magic()
@@ -240,15 +330,20 @@ class Position : Transaction
       ///
       virtual string Symbol()
       {
+         if(isSymbol)return symbol;
          if(posStatus == POSITION_STATUS_PENDING)
          {
             SelectPendingTransaction();
-            return OrderGetString(ORDER_SYMBOL);
+            symbol = OrderGetString(ORDER_SYMBOL);
+            isSymbol = true;
+            return symbol;
          }
          else if(posStatus != POSITION_STATUS_NULL)
          {
             SelectHistoryTransaction();
-            return HistoryOrderGetString(GetId(), ORDER_SYMBOL);
+            symbol = HistoryOrderGetString(GetId(), ORDER_SYMBOL);
+            isSymbol = true;
+            return symbol;
          }
          return "";
       }
@@ -270,6 +365,21 @@ class Position : Transaction
             return (ENUM_ORDER_TYPE)HistoryOrderGetInteger(GetId(), ORDER_TYPE);
          }
          return (ENUM_ORDER_TYPE)0;
+      }
+      ///
+      /// Возвращает тип позиции в виде текстовой строки.
+      ///
+      string PositionTypeAsString()
+      {
+         ENUM_ORDER_TYPE posType = PositionType();
+         string type = EnumToString(posType);
+         type = StringSubstr(type, 11);
+         StringReplace(type, "_", " ");
+         //StringReplace(type, "STOP LIMIT", "SL");
+         //StringReplace(type, "STOP", "S");
+         //StringReplace(type, "LIMIT", "L");
+         return type;
+         //ORDER_TYPE_
       }
       ///
       /// Возвращает статус позиции.
@@ -297,7 +407,7 @@ class Position : Transaction
       ///
       /// Возвращает идентификатор ордера, открывающего позицию.
       ///
-      ulong EntryOrderId()
+      ulong EntryOrderID()
       {
          Context(TRANS_IN);
          return GetId();
@@ -305,18 +415,27 @@ class Position : Transaction
       ///
       /// Возвращает идентификатор ордера, закрывающего позицию.
       ///
-      ulong ExitOrderId()
+      ulong ExitOrderID()
       {
          Context(TRANS_OUT);
          return GetId();
       }
       ///
-      /// Возвращает цену, по которой был размещен ордер на вход в позицию.
+      /// Возвращает цену, по которой был размещен ОТЛОЖЕННЫЙ ордер на вход в позицию.
+      /// Если ордер на вход в позицию рыночный будет возвращено 0.0.
       ///
       double EntryPricePlaced()
       {
          Context(TRANS_IN);
          return GetPricePlaced();
+      }
+      ///
+      /// Возвращает цену, по которой фактически произошло срабатывания ордера.
+      ///
+      virtual double EntryPriceExecuted()
+      {
+         Context(TRANS_IN);
+         return GetPriceExecuted();
       }
       ///
       /// Возвращает цену, по которой был размещен ордер на выход из позиции.
@@ -428,7 +547,20 @@ class Position : Transaction
             price = SymbolInfoDouble(Symbol(), SYMBOL_ASK);
          return price;
       }
-      
+      ///
+      /// Возвращает позицию, ассоциированную с защитной остановкой StopLoss
+      ///
+      Position* StopLoss()
+      {
+         return stopLoss;
+      }
+      ///
+      /// Возвращает позицию, ассоциированную с защитной остановкой TakeProfit
+      ///
+      Position* TakeProfit()
+      {
+         return takeProfit;
+      }
       ///
       /// Возвращает истину, если используется стоп-лосс.
       ///
@@ -446,18 +578,34 @@ class Position : Transaction
          return false;
       }
       ///
+      /// Возвращает уровень защитной остановки stoploss.
+      ///
+      double StopLossLevel()
+      {
+         if(CheckPointer(stopLoss) == POINTER_INVALID)return 0.0;
+         return stopLoss.EntryPricePlaced();
+      }
+      ///
       /// Устанавливает новый уровень защитной остановки stoploss.
       ///
-      void SetStopLoss(double level)
+      void StopLossLevel(double level)
       {
          ;
       }
       ///
       /// Устанавливает новый уровень взятия прибыли takeprofit.
       ///
-      void SetTakeProfit(double level)
+      void TakeProfitLevel(double level)
       {
          ;
+      }
+      ///
+      /// Возвращает уровень защитной остановки takeprofit.
+      ///
+      double TakeProfitLevel()
+      {
+         if(CheckPointer(takeProfit) == POINTER_INVALID)return 0.0;
+         return takeProfit.EntryPricePlaced();
       }
       ///
       /// Удаляет защитную остановку stoploss.
@@ -567,6 +715,35 @@ class Position : Transaction
             return Price(true);
       }
       ///
+      /// Возвращает цену, по которой был размещен ордер.
+      ///
+      double GetPriceExecuted()
+      {
+         if(Context() == TRANS_IN && isEntryPriceExecuted)
+            return entryPriceExecuted;
+         //Считаем среднюю эффективную цену входа
+         CArrayObj* deals = NULL;
+         if(Context() == TRANS_IN)
+            deals = GetPointer(entryDeals);
+         else
+            deals = GetPointer(exitDeals);
+         double vol_total = 0.0;
+         double price_total = 0.0;
+         for(int i = 0; i < deals.Total(); i++)
+         {
+            Deal* deal = deals.At(i);
+            vol_total += deal.VolumeExecuted();
+            price_total += deal.VolumeExecuted() * deal.EntryPriceExecuted();
+         }
+         double avrg_price = vol_total == 0 ? 0.0 : price_total / vol_total;
+         if(Context() == TRANS_IN)
+         {
+            entryPriceExecuted = avrg_price;
+            isEntryPriceExecuted = true;
+         }
+         return avrg_price;
+      }
+      ///
       /// Устанавливает контекст - идентификатор входящей или исходящей транзакции, с которым производится работа.
       ///
       void Context(ENUM_TRANSACTION_CONTEXT context)
@@ -614,7 +791,7 @@ class Position : Transaction
    
 };
 
-class Deal : Transaction
+class Deal : public Transaction
 {
    public:
       Deal(ulong inId) : Transaction(TRANS_DEAL)
@@ -634,8 +811,11 @@ class Deal : Transaction
       ///
       virtual string Symbol()
       {
+         if(isSymbol)return symbol;
          SelectHistoryTransaction();
-         return HistoryDealGetString(GetId(), DEAL_SYMBOL);
+         symbol = HistoryDealGetString(GetId(), DEAL_SYMBOL);
+         isSymbol = true;
+         return symbol;
       }
       ///
       /// Возвращает тип сделки.
@@ -646,23 +826,48 @@ class Deal : Transaction
          return (ENUM_DEAL_TYPE)HistoryDealGetInteger(GetId(), DEAL_TYPE);
       }
       ///
+      /// Возвращает направление, в котором совершена транзакция
+      ///
+      virtual ENUM_DIRECTION_TYPE Direction()
+      {
+         if(DealType() == DEAL_TYPE_BUY)
+            return DIRECTION_LONG;
+         else
+            return DIRECTION_SHORT;
+      }
+      ///
+      /// Возвращает тип сделки, в виде строки.
+      ///
+      string DealTypeAsString()
+      {
+         ENUM_DEAL_TYPE eType = DealType();
+         string type = EnumToString(eType);
+         type = StringSubstr(type, 10);
+         StringReplace(type, "_", " ");
+         return type;
+      }
+      ///
       /// Возвращает цену, по которой была выполнина сделка.
       ///
-      double PriceExecuted()
+      virtual double EntryPriceExecuted()
       {
-         return Price();
+         if(isEntryPriceExecuted)
+            return entryPriceExecuted;
+         entryPriceExecuted = Price();
+         isEntryPriceExecuted = true;
+         return entryPriceExecuted;
       }
       ///
       /// Возвращает время совершения сделки.
       ///
-      CTime* DateExecuted()
+      CTime* Date()
       {
          return TimeExecuted();
       }
       ///
       /// Возвращает уникальный идентификатор сделки.
       ///
-      ulong DealId(){return GetId();}
+      ulong Ticket(){return GetId();}
       ///
       /// Объем сделки.
       ///

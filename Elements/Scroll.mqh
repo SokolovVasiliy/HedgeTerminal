@@ -153,11 +153,16 @@ class Toddler : public Label
             if(size < 5)size = 5;
             //Положение полузнка - это отношение первой видимой строки к общему количеству строк.
             int fl = table.LineVisibleFirst();
-            double p2 = ((double)table.LineVisibleFirst())/((double)table.LinesTotal());
+            int ltotal = table.LinesTotal();
+            double p2 = 0.0; 
+            bool vis = true;
+            if(ltotal > 0)
+               p2 = ((double)table.LineVisibleFirst())/((double)table.LinesTotal());
+            else vis = false;
             long yMyDist = (long)(p2*High());
             //long yMyDist = labToddle.YLocalDistance();
             if(yMyDist == 0)yMyDist = 1;
-            EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 1, yMyDist, Width()-2, size);
+            EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), vis, 1, yMyDist, Width()-2, size);
             labToddle.Event(command);
             delete command;
          }
