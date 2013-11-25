@@ -27,6 +27,8 @@ class EventRefresh;
 class EventButtonPush;
 /// Событие "Позиция удалена".
 class EventDelPos;
+/// Приказ - закрыть активную позицию.
+class EventClosePos;
 /// Событие "Элемент TreeViewBox раскрыт/закрыт".
 class EventCollapseTree;
 /// Событие "Приход нового времени".

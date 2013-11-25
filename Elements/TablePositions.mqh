@@ -1,4 +1,5 @@
 #include "..\Settings.mqh"
+#include <Arrays\ArrayInt.mqh>
 #ifndef TABLE_MQH
    #include "Table.mqh"
 #endif
@@ -27,6 +28,14 @@ class TablePositions : public Table
       
       virtual void OnEvent(Event* event)
       {
+         if(event.EventId() == EVENT_DEL_POS)
+         {
+            //Добавляем в список;
+         }
+         else
+         {
+            //Иначе проверяем список. И если он есть;
+         }
          switch(event.EventId())
          {
             case EVENT_CREATE_NEWPOS:
@@ -44,6 +53,9 @@ class TablePositions : public Table
             case EVENT_NODE_CLICK:
                OnNodeClick(event);
                break;
+            //case EVENT_DEL_POS:
+            //   OnDelPos(event);
+            //   break;
             default:
                EventSend(event);
                break;
@@ -78,6 +90,7 @@ class TablePositions : public Table
             childNodes.Insert(lineHeader, index);
          }
       }
+      
       ///
       /// Обработчик события "трал для позиции включен".
       ///
@@ -115,7 +128,20 @@ class TablePositions : public Table
          ProtoNode* parNode = node.ParentNode();
          if(parNode == NULL || parNode != lineHeader)
             return;
-         //Обрабатываем включение трала для всех позиций.
+         // Определяем имя ячейки отвечающей за трал, если оно еще не определено.
+         if(name_tralSl == NULL)
+         {
+            CArrayObj* columns = Settings.GetSetForActiveTable();
+            for(int i = 0; i < columns.Total(); i++)
+            {
+               DefColumn* dcol = columns.At(i);
+               if(dcol.ColumnType() == COLUMN_TRAL)
+               {
+                  name_tralSl = dcol.Name();
+                  break;
+               }
+            }
+         }
          if(node.ShortName() == name_tralSl)
          {
             if(node.TypeElement() != ELEMENT_TYPE_BOTTON)return;
@@ -135,8 +161,6 @@ class TablePositions : public Table
                }
             }
          }
-         //Пробуем идентифицировать строку, по которой было осуществленно нажатие
-         //if(parentNode.TypeElement() == ELEMENT)
       }
       void OnCollapse(EventCollapseTree* event)
       {
@@ -223,6 +247,7 @@ class TablePositions : public Table
       ///
       void RefreshPrices()
       {
+         if(tDir.TableType() == TABLE_POSHISTORY)return;
          int total = workArea.ChildsTotal();
          for(int i = 0; i < total; i++)
          {
@@ -398,8 +423,10 @@ class TablePositions : public Table
             case COLUMN_TYPE:
                if(elType == TABLE_POSITION)
                   element.Text(pos.PositionTypeAsString());
-               if(elType == TABLE_DEAL && entryDeal != NULL)
-                  element.Text(entryDeal.DealTypeAsString());
+               //if(elType == TABLE_DEAL && entryDeal != NULL)
+               //   element.Text(entryDeal.DealTypeAsString());
+               if(elType == TABLE_DEAL)
+                  element.Text("-");
                break;
             case COLUMN_VOLUME:
                if(elType == TABLE_POSITION)
@@ -416,12 +443,16 @@ class TablePositions : public Table
                   element.Text(entryDeal.PriceToString(entryDeal.EntryPriceExecuted()));
                break;
             case COLUMN_SL:
-               if(elType == TABLE_POSITION || elType == TABLE_DEAL)
+               if(elType == TABLE_POSITION/* || elType == TABLE_DEAL*/)
                   element.Text(pos.PriceToString((string)pos.StopLossLevel()));
+               if(elType == TABLE_DEAL)
+                  element.Text("-");   
                break;
             case COLUMN_TP:
-               if(elType == TABLE_POSITION || elType == TABLE_DEAL)
+               if(elType == TABLE_POSITION/* || elType == TABLE_DEAL*/)
                   element.Text(pos.PriceToString((string)pos.TakeProfitLevel()));
+               if(elType == TABLE_DEAL)
+                  element.Text("-");
                break;
             case COLUMN_TRAL:
                if(elType == TABLE_POSITION || elType == TABLE_DEAL)
@@ -438,6 +469,10 @@ class TablePositions : public Table
                   element.FontSize(11);
                   element.FontColor(clrSlateGray);
                }
+               break;
+            case COLUMN_EXIT_PRICE:
+               if(elType == TABLE_POSITION || elType == TABLE_DEAL)
+                  element.Text(pos.PriceToString(pos.ExitPriceExecuted()));
                break;
             case COLUMN_CURRENT_PRICE:
                if(elType == TABLE_POSITION || elType == TABLE_DEAL)
@@ -501,7 +536,7 @@ class TablePositions : public Table
          int exitTotal = exitDeals != NULL ? exitDeals.Total() : 0;
          int total;
          int fontSize = 8;
-         if(entryTotal > 0 && entryTotal > exitTotal)
+         if(entryTotal > 0 && entryTotal >= exitTotal)
             total = entryTotal;
          else if(exitTotal > 0 && exitTotal > exitTotal)
             total = exitTotal;
@@ -544,37 +579,8 @@ class TablePositions : public Table
          PosLine* posLine = node;
          posLine.IsRestore(false);
       }
-      /*Рекомендованные размеры*/
-      long ow_twb;
-      long ow_magic;
-      long ow_symbol;
-      long ow_order_id;
-      long ow_entry_date;
-      long ow_type;
-      long ow_vol;
-      long ow_price;
-      long ow_sl;
-      long ow_tp;
-      long ow_currprice;
-      long ow_profit;
-      long ow_comment;
-      /*Названия колонок*/
-      string name_symbol;
-      string name_entryOrderId;
-      string name_exitOrderId;
-      string name_entry_date;
-      string name_exit_date;
-      string name_type;
-      string name_vol;
-      string name_entryPrice;
-      string name_exitPrice;
-      string name_sl;
-      string name_tp;
+      
       string name_tralSl;
-      string name_currprice;
-      string name_profit;
-      string name_entryComment;
-      string name_exitComment;
       ///
       /// Номер ячейки в линии, отображающий профит позиции.
       ///
@@ -588,7 +594,25 @@ class TablePositions : public Table
       /// Количество строк в таблице.
       ///
       int lines;
-      
+      ///
+      /// Структура, содержащая определенные флаги и доп. информацию, определяющую
+      /// последовательность действий при удалении позиции.
+      ///
+      struct STarget
+      {
+         public:
+            ///
+            /// Возвращает истину, если выполнение функции нажатия кнопки "закрытие позиции" завершено.
+            ///
+            bool ExecutionComplete();
+            ///
+            /// Возвращает идентификатор ордера, который необходимо закрыть.
+            ///
+            int OrderId();
+         private:
+            bool contextBusy;
+            int orderId;
+      };
 };
 
 

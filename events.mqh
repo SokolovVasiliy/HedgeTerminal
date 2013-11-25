@@ -505,7 +505,7 @@ class EventObjectClick : public Event
 class EventDelPos : public Event
 {
    public:
-      EventDelPos(ulong posId, string nodeId) : Event(EVENT_FROM_DOWN, EVENT_DEL_POS, nodeId)
+      EventDelPos(ulong posId, string nodeId) : Event(EVENT_FROM_UP, EVENT_DEL_POS, nodeId)
       {
          positionId = posId;
       }
@@ -523,10 +523,7 @@ class EventDelPos : public Event
 class EventClosePos : public Event
 {
    public:
-      EventClosePos(ulong posId, string nodeId) : Event(EVENT_FROM_DOWN, EVENT_CLOSE_POS, nodeId)
-      {
-         positionId = posId;
-      }
+      EventClosePos(string nodeId) : Event(EVENT_FROM_DOWN, EVENT_CLOSE_POS, nodeId){;}
       ///
       /// Устанавливает идентификатор позиции, которую требуется закрыть.
       ///
@@ -535,15 +532,44 @@ class EventClosePos : public Event
       /// Возвращает идентификатор позиции, которую требуется закрыть.
       ///
       ulong PositionId(){return positionId;}
+      ///
+      /// Устанавливает номер строки, являющимся визуальным представлением позиции.
+      ///
+      void NLine(int n)
+      {
+         n_line = n;
+      }
+      ///
+      /// Возвращает номер строки, являющимся визуальным представлением позиции.
+      ///
+      int NLine(){return n_line;}
+      ///
+      /// Возвращает закрывающий комментарий.
+      ///
+      string CloseComment(){return comment;}
+      ///
+      /// Возвращает закрывающий комментарий.
+      ///
+      void CloseComment(string comm){comment = comm;}
+      
       virtual Event* Clone()
       {
          return new EventDelPos(positionId, NameNodeId());
       }
+      
    private:
       ///
       /// Идентификатор позиции, которую требуется закрыть.
       ///
       ulong positionId;
+      ///
+      /// номер позиции в списке визуальных позиций.
+      ///
+      int n_line;
+      ///
+      /// Закрывающий комментарий.
+      ///
+      string comment;
 };
 class EventCollapseTree : public Event
 {

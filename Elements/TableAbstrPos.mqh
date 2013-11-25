@@ -46,6 +46,20 @@ class AbstractPos : public Line
       /// Возвращает ссылку на ячейку, отображающую профит.
       ///
       Label* CellProfit(){return cellProfit;}
+      ///
+      /// Возвращает тип текущей ячейки.
+      ///
+      /*ENUM_COLUMN_TYPE ColumnType()
+      {
+         return columnType;;
+      }
+      ///
+      /// Возвращает тип текущей ячейки.
+      ///
+      void ColumnType(ENUM_COLUMN_TYPE cType)
+      {
+         columnType = cType;
+      }*/
       
       ///
       /// Возвращает элемент визуальной позиции раскрытие/закрытие списка. Конкретный тип элемента, определяется
@@ -189,6 +203,10 @@ class AbstractPos : public Line
       /// Указатель на ячейку, отображающую профит позиции/сделки.
       ///
       Label* cellProfit;
+      ///
+      /// Содержит идентификатор ячейки.
+      ///
+      ENUM_COLUMN_TYPE columnType;
 };
 ///
 /// Графическое представление позиции
@@ -256,12 +274,14 @@ class PosLine : public AbstractPos
       }
       virtual void OnEvent(Event* event)
       {
-         if(event.Direction() == EVENT_FROM_DOWN && event.EventId() == EVENT_CLOSE_POS)
+         if(event.EventId() == EVENT_CLOSE_POS)
          {
             EventClosePos* cevent = event;
             if(CheckPointer(position) == POINTER_INVALID)return;
             cevent.PositionId(position.EntryOrderID());
-            EventSend(cevent);
+            cevent.NLine(NLine());
+            //Отправляем событие прямяком в API на обработку.
+            EventExchange::PushEvent(cevent);
          }
          else EventSend(event);
       }

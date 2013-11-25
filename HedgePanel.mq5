@@ -71,6 +71,14 @@ void OnTimer(void)
    HedgePanel.Event(command);
    delete command;*/
 }
+
+///
+/// 
+///
+void OnTrade()
+{
+   ;
+}
 ///
 /// Подстраиваем размер главной формы панели под размер текущего окна
 ///

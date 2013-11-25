@@ -1,5 +1,6 @@
 #include <Arrays\ArrayObj.mqh>
 #include <Arrays\ArrayLong.mqh>
+#include <Trade\Trade.mqh>
 #include "..\Time.mqh"
 ///
 /// Тип транзакции.
@@ -58,9 +59,10 @@ class Transaction : public CObject
       ///
       /// Возвращает профит в пунктах инструмента.
       ///
-      double ProfitInPips()
+      virtual double ProfitInPips()
       {
-         double delta = CurrentPrice() - EntryPriceExecuted();
+         double delta = 0.0;
+         delta = CurrentPrice() - EntryPriceExecuted();
          if(Direction() == DIRECTION_SHORT)
             delta *= -1.0;
          return delta;
@@ -93,8 +95,8 @@ class Transaction : public CObject
       {
          double step = SymbolInfoDouble(Symbol(), SYMBOL_VOLUME_STEP);
          double mylog = MathLog10(step);
-         string vol = mylog < 0 ? DoubleToString(vol,(int)(mylog*(-1.0))) : DoubleToString(vol, 0);
-         return vol;
+         string svol = mylog < 0 ? DoubleToString(vol,(int)(mylog*(-1.0))) : DoubleToString(vol, 0);
+         return svol;
       }
       ///
       /// Возвращает количество знаков после запятой в цене инструмента, по которому была совершена транзакция.
@@ -282,7 +284,7 @@ class Position : public Transaction
       ///
       Position(ulong in_ticket, CArrayLong* in_deals, ulong out_ticket, CArrayLong* out_deals) : Transaction(TRANS_POSITION)
       {
-         InitPosition(in_ticket, in_deals);
+         InitPosition(in_ticket, in_deals, out_ticket, out_deals);
       }
       ///
       /// Возвращает направление, в котором совершена транзакция
@@ -326,6 +328,19 @@ class Position : public Transaction
          return 0;
       }
       ///
+      /// Закрывает текущую позицию асинхронно.
+      ///
+      void AsynchClose(string comment = NULL)
+      {
+         trading.SetAsyncMode(true);
+         trading.SetExpertMagicNumber(EntryOrderID());
+         if(Direction() == DIRECTION_LONG)
+            trading.Sell(VolumeExecuted(), NULL, 0.0, 0.0, 0.0, comment);
+         else if(Direction() == DIRECTION_SHORT)
+            trading.Buy(VolumeExecuted(), Symbol(), 0.0, 0.0, 0.0, comment);
+         
+      }
+      ///
       /// Возвращает название символа, по которому была совершена сделка.
       ///
       virtual string Symbol()
@@ -347,7 +362,24 @@ class Position : public Transaction
          }
          return "";
       }
-      
+      ///
+      /// Возвращает профит в пунктах инструмента.
+      ///
+      virtual double ProfitInPips()
+      {
+         
+         double delta = 0.0;
+         if(posStatus == POSITION_STATUS_NULL ||
+            posStatus == POSITION_STATUS_PENDING)
+            return 0.0;
+         if(posStatus == POSITION_STATUS_OPEN)
+            delta = CurrentPrice() - EntryPriceExecuted();
+         if(posStatus == POSITION_STATUS_CLOSED)
+            delta = ExitPriceExecuted() - EntryPriceExecuted();
+         if(Direction() == DIRECTION_SHORT)
+            delta *= -1.0;
+         return delta;
+      }
       ///
       /// Возвращает тип позиции.
       ///
@@ -444,6 +476,15 @@ class Position : public Transaction
       {
          Context(TRANS_OUT);
          return GetPricePlaced();
+      }
+      ///
+      /// Возвращает цену, по которой фактически произошло срабатывания ордера.
+      ///
+      virtual double ExitPriceExecuted()
+      {
+         if(posStatus != POSITION_STATUS_CLOSED)return 0.0;
+         Context(TRANS_OUT);
+         return GetPriceExecuted();
       }
       ///
       /// Возвращает время установки ордера.
@@ -632,10 +673,14 @@ class Position : public Transaction
       ///
       void InitPosition(ulong in_ticket, CArrayLong* in_deals = NULL, ulong out_ticket = 0, CArrayLong* out_deals = NULL)
       {
-         if(in_ticket == 0) return;
-         if(in_deals == NULL || in_deals.Total() == 0)
+         if(in_ticket == 0)
+         {
+            posStatus = POSITION_STATUS_NULL;
+            return;
+         }
+         if(CheckPointer(in_deals) == POINTER_INVALID || in_deals.Total() == 0)
             posStatus = POSITION_STATUS_PENDING;
-         else if(out_ticket == 0 || out_deals == NULL)
+         else if(out_ticket == 0 || CheckPointer(out_deals) == POINTER_INVALID)
             posStatus = POSITION_STATUS_OPEN;
          else if(out_deals.Total() != 0)
             posStatus = POSITION_STATUS_CLOSED;
@@ -662,6 +707,7 @@ class Position : public Transaction
                exitDeals.Add(deal);
             }
          }
+         outOrderId = out_ticket;
       }
       
       ///
@@ -788,6 +834,10 @@ class Position : public Transaction
       /// Содержит сделки инициирующие выход из позиции.
       ///
       CArrayObj exitDeals;
+      ///
+      /// Класс, для совершения торговых операций.
+      ///
+      CTrade trading;
    
 };
 
