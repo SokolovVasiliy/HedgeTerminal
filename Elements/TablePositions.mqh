@@ -392,6 +392,10 @@ class TablePositions : public Table
                if(elType == TABLE_DEAL && exitDeal != NULL)
                   element.Text(exitDeal.Ticket());
                break;
+            case COLUMN_EXIT_MAGIC:
+               if(elType == TABLE_POSITION)
+                  element.Text(pos.ExitMagic());
+                  break;
             case COLUMN_ENTRY_DATE:
                if(elType == TABLE_POSITION)
                {

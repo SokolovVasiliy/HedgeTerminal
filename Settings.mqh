@@ -81,6 +81,7 @@ enum ENUM_COLUMN_TYPE
    COLUMN_SYMBOL,
    COLUMN_ENTRY_ORDER_ID,
    COLUMN_EXIT_ORDER_ID,
+   COLUMN_EXIT_MAGIC,
    COLUMN_ENTRY_DATE,
    COLUMN_EXIT_DATE,
    COLUMN_VOLUME,
@@ -201,6 +202,7 @@ class PanelSettings
          string symbol = "Symbol";
          string entryOrderId = "Entry ID";
          string exitOrderId = "Exit ID";
+         string exitMagic = "Exit Mg.";
          string entryDate = "Entry Date";
          string exitDate = "Exit Date";
          string type = "Type";
@@ -221,6 +223,7 @@ class PanelSettings
          setForActivePos.Add(new DefColumn(COLUMN_MAGIC, magic, 100, false));                setForHistoryPos.Add(new DefColumn(COLUMN_MAGIC, magic, 100, false));
          setForActivePos.Add(new DefColumn(COLUMN_SYMBOL, symbol, 70, false));               setForHistoryPos.Add(new DefColumn(COLUMN_SYMBOL, symbol, 70, false));
          setForActivePos.Add(new DefColumn(COLUMN_ENTRY_ORDER_ID, entryOrderId, 80, false)); setForHistoryPos.Add(new DefColumn(COLUMN_ENTRY_ORDER_ID, entryOrderId, 80, false));
+                                                                                             setForHistoryPos.Add(new DefColumn(COLUMN_EXIT_MAGIC, exitMagic, 80, false));
                                                                                              setForHistoryPos.Add(new DefColumn(COLUMN_ENTRY_DATE, entryDate, 110, false));
                                                                                              setForHistoryPos.Add(new DefColumn(COLUMN_ENTRY_PRICE, entryPrice, 50, false));
                                                                                              setForHistoryPos.Add(new DefColumn(COLUMN_VOLUME, entryVol, 30, false));

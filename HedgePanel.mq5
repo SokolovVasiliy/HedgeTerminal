@@ -72,12 +72,16 @@ void OnTimer(void)
    delete command;*/
 }
 
-///
-/// 
-///
-void OnTrade()
+void  OnTradeTransaction(
+      const MqlTradeTransaction&    trans,
+      const MqlTradeRequest&        request,
+      const MqlTradeResult&         result
+   )
 {
-   ;
+   printf("Type: " + EnumToString(trans.type) + " Ticket: " + trans.deal);  
+   if(trans.type != TRADE_TRANSACTION_DEAL_ADD)return;
+   //api.
+   //COrder* order = new COrder();
 }
 ///
 /// Подстраиваем размер главной формы панели под размер текущего окна

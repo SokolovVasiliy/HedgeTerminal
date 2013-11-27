@@ -328,6 +328,24 @@ class Position : public Transaction
          return 0;
       }
       ///
+      /// Возвращает магический номер позиции/сделки.
+      ///
+      virtual ulong ExitMagic()
+      {
+         Context(TRANS_OUT);
+         if(posStatus == POSITION_STATUS_PENDING)
+         {
+            SelectPendingTransaction();
+            return OrderGetInteger(ORDER_MAGIC);
+         }
+         else if(posStatus != POSITION_STATUS_NULL)
+         {
+            SelectHistoryTransaction();
+            return HistoryOrderGetInteger(GetId(), ORDER_MAGIC);
+         }
+         return 0;
+      }
+      ///
       /// Закрывает текущую позицию асинхронно.
       ///
       void AsynchClose(string comment = NULL)

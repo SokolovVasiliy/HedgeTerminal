@@ -12,6 +12,20 @@ enum ENUM_SORT_ORDER
    SORT_ORDER_ID
 };
 ///
+/// ќпредел€ет тип ордера.
+///
+enum ENUM_ORDER_DIRECTION
+{
+   ///
+   /// ќрдер открывает позицию.
+   ///
+   ORDER_IN,
+   ///
+   /// ќрдер закрывает позицию.
+   ///
+   ORDER_OUT
+};
+///
 ///  ласс, предоставл€ющий ордер и его сделки.
 ///
 class COrder : public CObject
@@ -27,11 +41,62 @@ class COrder : public CObject
          listDeals.Sort();
          order_id = order;
          magic = HistoryOrderGetInteger(order, ORDER_MAGIC);
+         orderDir = ORDER_IN;
       }
       ~COrder()
       {
          listDeals.Shutdown();
       }
+      ///
+      /// ¬озвращает ссылку на открыающий ордер,
+      /// если этот ордер €вл€етс€ закрывающим, в противном
+      /// случае возвращает NULL.
+      ///
+      COrder* InOrder()
+      {
+         // ” открывающего ордера нет другого открывающего ордера.
+         if(orderDir == ORDER_IN)
+            return NULL;
+         return inOrder;
+      }
+      ///
+      /// ”станавливает ссылку на открывающий ордер. ѕосле установки
+      /// ссылки, текущий ордер автоматически становитьс€ закрывающим.
+      ///
+      void InOrder(COrder* order)
+      {
+         if(CheckPointer(order) == POINTER_INVALID)return;
+         if(orderDir == ORDER_IN)
+            orderDir = ORDER_OUT;
+         inOrder = order;
+      }
+      ///
+      /// ¬озвращает ссылку на закрывающий ордер,
+      /// если этот ордер €вл€етс€ открывающим, в противном
+      /// случае возвращает NULL.
+      ///
+      COrder* OutOrder()
+      {
+         // ” открывающего ордера нет другого открывающего ордера.
+         if(orderDir == ORDER_OUT)
+            return NULL;
+         return outOrder;
+      }
+      ///
+      /// ”станавливает ссылку на закрывающий ордер. ѕосле установки
+      /// ссылки, текущий ордер автоматически становитьс€ открывающим.
+      ///
+      void OutOrder(COrder* order)
+      {
+         if(CheckPointer(order) == POINTER_INVALID)return;
+         if(orderDir == ORDER_OUT)
+            orderDir = ORDER_IN;
+         outOrder = order;
+      }
+      ///
+      /// ¬озвращает направление текущего ордера.
+      ///
+      ENUM_ORDER_DIRECTION Direction(){return orderDir;}
       ///
       /// ¬озвращает идентификатор ордера.
       ///
@@ -88,4 +153,24 @@ class COrder : public CObject
       /// —писок сделок, которые ассоциированы с этим ордером.
       ///
       CArrayLong listDeals;
+      ///
+      /// ”казатель на закрывающий ордер.
+      ///
+      COrder* out_order;
+      ///
+      /// ”казатель на открывающий ордер.
+      ///
+      COrder* in_order;
+      ///
+      /// Ќаправление ордера.
+      ///
+      ENUM_ORDER_DIRECTION orderDir;
+      ///
+      /// —сылка на открывающий ордер.
+      ///
+      COrder* inOrder;
+      ///
+      /// —ыллка на закрывающий ордер.
+      ///
+      COrder* outOrder;
 };

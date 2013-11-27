@@ -53,8 +53,7 @@ class CHedge
          }
          HistoryPos.Clear();
          delete HistoryPos;
-         
-         //listOrder
+         listOrders.Clear();
       }
       
       void Init()
@@ -68,6 +67,14 @@ class CHedge
       void AddNewPos(ulong ticket)
       {
          //ListTickets;
+      }
+      ///
+      /// Обрабатывает новую сделку. Добавляет
+      ///
+      void AddNewDeal(ulong ticket)
+      {
+         
+         //listOrders.Search();
       }
       ///
       /// Возвращает количество активных позиций
@@ -144,15 +151,14 @@ class CHedge
       }
       
       ///
-      /// Создает позиции из исторических сделок и ордеров.
+      /// Создает из списка ордеров позиции. 
       ///
       void LoadPosition()
       {
          LoadHistory();
          int total = HistoryDealsTotal();
-         ulong prev_order = -1;
-         CArrayObj listOrders;
-         listOrders.Sort(1);
+         //ulong prev_order = -1;
+         listOrders.Sort(SORT_ORDER_ID);
          //Перебираем все доступные трейды и формируем на их основе прототипы будущих позиций типа COrder
          for(int i = 0; i < total; i++)
          {  
@@ -166,141 +172,96 @@ class CHedge
             ENUM_DEAL_TYPE op_type = (ENUM_DEAL_TYPE)HistoryDealGetInteger(ticket, DEAL_TYPE);
             if(op_type != DEAL_TYPE_BUY && op_type != DEAL_TYPE_SELL)
                continue;
-            //Находим тикет ордера, совершивгего сделку
-            ulong order_id;
-            if(!HistoryDealGetInteger(ticket, DEAL_ORDER, order_id))continue;
-            
-            COrder* order = new COrder(order_id);
-            order.AddDeal(ticket);
-            int pos = listOrders.Search(order);
-            // В списке ордеров уже есть такой ордер?
-            if(pos != -1)
-            {
-               delete order;
-               order = listOrders.At(pos);
-            }
-            //Если нет, создаем новый
-            else
-               listOrders.InsertSort(order);
+            //Находим тикет ордера, совершившего сделку
+            //ulong order_id;
+            //if(!HistoryDealGetInteger(ticket, DEAL_ORDER, order_id))continue;
+            CreateOrder(ticket);
          }
-         //На основе списка ордеров собираем позиции.
-         MergeOrders(GetPointer(listOrders));
-         /*total = listOrders.Total();
+         //Теперь, когда список ордеров готов, мы можем создать список позиций на их основе.
+         total = listOrders.Total();
          for(int i = 0; i < total; i++)
          {
-            Position* npos = NULL;
-            COrder* order = listOrders.At(i);
-            ulong id = order.OrderId();
-            // Если ордер закрывающий, то он закрывает ордер с этим тикетом.
-            ulong open_ticket = FaeryMagic(order.Magic(), MAGIC_TO_TICKET);
-            // Если ордер открывающий, то его закрывающим ордером будет ордер выставленный с этим магиком:
-            ulong close_magic = FaeryMagic(order.OrderId(), TICKET_TO_MAGIC);
-            int pos = -1;
-            //Если тикет может существовать - ищем ордер с этим тикетом.
-            if(open_ticket != -1)
+            COrder* in_order = listOrders.At(i);
+            int dbg = 4;
+            if(in_order.OrderId() == 1006304669)
+               dbg = 3;
+            COrder* out_order = in_order.OutOrder();
+            Position* pos = NULL;
+            //ulong out_id = out_order.OrderId();
+            if(CheckPointer(in_order.InOrder()) != POINTER_INVALID)
+               continue;
+            if(CheckPointer(out_order) == POINTER_INVALID)
             {
-               COrder* sorder = new COrder(open_ticket);
-               pos = listOrders.Search(sorder);
-               //Открывающий ордер найден? - Создаем историческую позицию.
-               if(pos != -1)
-               {
-                  COrder* in_order = listOrders.At(pos);
-                  npos = new Position(in_order.OrderId(), in_order.Deals(), order.OrderId(), order.Deals());
-                  HistoryPos.Add(npos);     
-               }
-               delete sorder;
+               pos = new Position(in_order.OrderId(), in_order.Deals());
+               ActivePos.Add(pos);
             }
-            if(close_magic != -1)
+            else
             {
-               COrder* sorder = new COrder(close_magic);
-               pos = listOrders.Search(sorder);
-               //Открывающий ордер найден? - Создаем историческую позицию.
-               if(pos != -1)
-               {
-                  COrder* out_order = listOrders.At(pos);
-                  npos = new Position(order.OrderId(), order.Deals(), out_order.OrderId(), out_order.Deals());
-                  HistoryPos.Add(npos);     
-               }
-               delete sorder;
+               pos = new Position(in_order.OrderId(), in_order.Deals(), out_order.OrderId(), out_order.Deals());
+               ulong dMagic = out_order.Magic();
+               ulong exMagic = pos.ExitMagic();
+               HistoryPos.Add(pos);
             }
-            //Открывающий ордер не найден? - Значит это открытая позиция
-            if(close_magic == -1 || pos == -1)
-            {
-               npos = new Position(order.OrderId(), order.Deals());
-               ActivePos.Add(npos);
-            }
-            //Уведомляем о создании новой позиции
-            if(npos != NULL)
-            {
-               EventCreatePos* create_pos = new EventCreatePos(EVENT_FROM_UP, "HP API", npos);
-               EventExchange::PushEvent(create_pos);
-               delete create_pos;
-            }
-         }*/
-         for(int i = 0; i < ActivePos.Total(); i++)
-         {
-            Position* pos = ActivePos.At(i);
-            EventCreatePos* create_pos = new EventCreatePos(EVENT_FROM_UP, "HP API", pos);
-            EventExchange::PushEvent(create_pos);
-            delete create_pos;
-         }
-         for(int i = 0; i < HistoryPos.Total(); i++)
-         {
-            Position* pos = HistoryPos.At(i);
             EventCreatePos* create_pos = new EventCreatePos(EVENT_FROM_UP, "HP API", pos);
             EventExchange::PushEvent(create_pos);
             delete create_pos;
          }
       }
       ///
-      /// Создает из списка ордеров позиции. 
+      /// Создает ордер на основе идентификатора сделки.
       ///
-      void MergeOrders(CArrayObj* listOrders)
+      void CreateOrder(ulong ticket)
       {
-         int total = listOrders.Total();
-         for(int i = 0; i < total; i++)
+         ulong order_id;
+         LoadHistory();
+         if(!HistoryDealGetInteger(ticket, DEAL_ORDER, order_id))return;
+         int dbg = 4;
+         if(order_id == 1008611488)
+            dbg = 5;
+         //LoadHistory();
+         COrder* order = new COrder(order_id);
+         
+         //Если ордер уже в списке, то повторно создавать его не надо.
+         int el = listOrders.Search(order);
+         if(el != -1)
          {
-            COrder* order = listOrders.At(i);
-            // Если ордер закрывающий, то он закрывает ордер с этим тикетом.
-            ulong open_ticket = FaeryMagic(order.Magic(), MAGIC_TO_TICKET);
-            int index = -1;
-            if(open_ticket > 0)
+            delete order;
+            order = listOrders.At(el);
+         }
+         else
+            listOrders.InsertSort(order);
+         order.AddDeal(ticket);
+         //Текущий ордер может быть либо открывающим либо закрывающим.
+         //Если это закрывающий ордер у него должен быть открывающий ордер
+         //иначе он все равно открывающий.
+         ulong in_ticket = el != -1 ? 0 : FaeryMagic(order.Magic(), MAGIC_TO_TICKET);
+         //Пытаемся найти открывающий ордер по его тикету
+         if(in_ticket > 0)
+         {
+            COrder* in_order = new COrder(in_ticket);
+            int index = listOrders.Search(in_order);
+            delete in_order;
+            //Ордер уже есть в нашем списке?
+            if(index != -1)
+               in_order = listOrders.At(index);
+            //Возможно он еще не попал с список.
+            //Тогда ищем тикет в БД и создаем новый ордер на его основе.
+            else
             {
-               COrder* sorder = new COrder(open_ticket);
-               index = listOrders.Search(sorder);
-               //Открывающий ордер найден? - Создаем историческую позицию.
-               if(index != -1)
+               LoadHistory();
+               //Открывающий ордер есть в базе?
+               if(HistoryOrderSelect(in_ticket))
                {
-                  //Цикл практически всегда будет завершатся при первой же итерации,
-                  //поэтому на производительности этот перебор не сказывается.
-                  for(int p = index; p < listPos.Total(); p++)
-                  {
-                     Position* entry_pos = listPos.At(p);
-                     if(entry_pos.EntryOrderID() != open_ticket)continue;
-                     listPos.Delete(p);
-                     COrder* in_order = listOrders.At(p);
-                     Position* close_pos = new Position(in_order.OrderId(), in_order.Deals(), order.OrderId(), order.Deals());
-                     listPos.Add(close_pos);
-                     break;
-                  }
+                  in_order = new COrder(in_ticket);
+                  listOrders.Add(in_order);
                }
             }
-            //Создаем активную позицию.
-            if(open_ticket <= 0 || index == -1)
+            //Открывающий ордер найден
+            if(CheckPointer(in_order) != POINTER_INVALID)
             {
-               Position* pos = new Position(order.OrderId(), order.Deals());
-               listPos.Add(pos);
+               in_order.OutOrder(order);
+               order.InOrder(in_order);
             }
-         }
-         //Теперь, когда все позиции созданы, разносим их по разным спискам
-         total = listPos.Total();
-         for(int i = 0; i < total; i++)
-         {
-            Position* pos = listPos.At(i);
-            if(pos.PositionStatus() == POSITION_STATUS_OPEN)
-               ActivePos.Add(pos);
-            if(pos.PositionStatus() == POSITION_STATUS_CLOSED)
-               HistoryPos.Add(pos);
          }
       }
       ///
@@ -319,5 +280,9 @@ class CHedge
       /// Список всех позиций.
       ///
       CArrayObj listPos;
+      ///
+      /// Список ордеров и их сделок.
+      ///
+      CArrayObj listOrders;
 
 };
