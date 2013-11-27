@@ -20,6 +20,9 @@ class CHedge
             case EVENT_CLOSE_POS:
                OnClosePos(event);
                break;
+            case EVENT_ADD_DEAL:
+               OnAddDeal(event);
+               break;
          }
       }
       ///
@@ -30,6 +33,9 @@ class CHedge
          ListTickets = new CArrayLong();
          ActivePos = new CArrayObj();
          HistoryPos = new CArrayObj();
+         listOrders.Sort(SORT_ORDER_ID);
+         ActivePos.Sort(SORT_ORDER_ID);
+         HistoryPos.Sort(SORT_ORDER_ID);
       }
       
       ~CHedge()
@@ -97,7 +103,7 @@ class CHedge
       ///
       void OnClosePos(EventClosePos* event)
       {
-         int id = event.PositionId();
+         ulong id = event.PositionId();
          string comment = event.CloseComment();
          //Ќаходим позицию которую необходимо закрыть по ее уникальному id.
          for(int i = 0; ActivePos.Total(); i++)
@@ -108,6 +114,32 @@ class CHedge
                pos.AsynchClose(comment);
                break;
             }
+         }
+      }
+      void OnAddDeal(EventAddDeal* event)
+      {
+         COrder* order = CreateOrder(event.DealID());
+         // «акрывающа€ сделка?
+         if(order.Direction() == ORDER_OUT)
+         {
+            //Ёто сделка принадлежит ранее установленному закрывающему ордеру?
+            COrder* in_order = order.InOrder();
+            Position* pos = new Position(in_order.OrderId(), in_order.Deals(), order.OrderId(), order.Deals());
+            int index = HistoryPos.Search(pos);
+            //ƒа? - тогда сделка принадлежит к уже существующей позиции.
+            if(index != -1)
+            {
+               delete pos;
+               pos = HistoryPos.At(index);
+            }
+            else
+               HistoryPos.InsertSort(pos);
+            Deal* deal = new Deal(event.DealID());
+            pos.AddExitDeal(deal);
+            // ќбновл€ем отображение о позиции в существующей
+            EventRefreshPos* refresh_pos = new EventRefreshPos(pos);
+            EventExchange::PushEvent(refresh_pos);
+            delete event;
          }
       }
       ///
@@ -172,9 +204,7 @@ class CHedge
             ENUM_DEAL_TYPE op_type = (ENUM_DEAL_TYPE)HistoryDealGetInteger(ticket, DEAL_TYPE);
             if(op_type != DEAL_TYPE_BUY && op_type != DEAL_TYPE_SELL)
                continue;
-            //Ќаходим тикет ордера, совершившего сделку
-            //ulong order_id;
-            //if(!HistoryDealGetInteger(ticket, DEAL_ORDER, order_id))continue;
+            //—оздаем ордер, к которому принадлежит сделка.
             CreateOrder(ticket);
          }
          //“еперь, когда список ордеров готов, мы можем создать список позиций на их основе.
@@ -193,14 +223,14 @@ class CHedge
             if(CheckPointer(out_order) == POINTER_INVALID)
             {
                pos = new Position(in_order.OrderId(), in_order.Deals());
-               ActivePos.Add(pos);
+               ActivePos.InsertSort(pos);
             }
             else
             {
                pos = new Position(in_order.OrderId(), in_order.Deals(), out_order.OrderId(), out_order.Deals());
                ulong dMagic = out_order.Magic();
                ulong exMagic = pos.ExitMagic();
-               HistoryPos.Add(pos);
+               HistoryPos.InsertSort(pos);
             }
             EventCreatePos* create_pos = new EventCreatePos(EVENT_FROM_UP, "HP API", pos);
             EventExchange::PushEvent(create_pos);
@@ -210,17 +240,13 @@ class CHedge
       ///
       /// —оздает ордер на основе идентификатора сделки.
       ///
-      void CreateOrder(ulong ticket)
+      COrder* CreateOrder(ulong ticket)
       {
          ulong order_id;
          LoadHistory();
-         if(!HistoryDealGetInteger(ticket, DEAL_ORDER, order_id))return;
-         int dbg = 4;
-         if(order_id == 1008611488)
-            dbg = 5;
+         if(!HistoryDealGetInteger(ticket, DEAL_ORDER, order_id))return NULL;
          //LoadHistory();
          COrder* order = new COrder(order_id);
-         
          //≈сли ордер уже в списке, то повторно создавать его не надо.
          int el = listOrders.Search(order);
          if(el != -1)
@@ -263,6 +289,7 @@ class CHedge
                order.InOrder(in_order);
             }
          }
+         return order;
       }
       ///
       /// —писок активных позиций.

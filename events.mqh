@@ -145,9 +145,13 @@ enum ENUM_EVENT
    ///
    EVENT_KEYDOWN,
    ///
+   /// Идентификатор события "Совершена новая сделка".
    ///
+   EVENT_ADD_DEAL,
    ///
-   //EVENT_CLOSE_
+   /// Идентификатор события-приказа "Обновить представление позиции".
+   ///
+   EVENT_REFRESH_POS
 };
 
 
@@ -474,6 +478,15 @@ class EventRefresh : public Event
       EventRefresh(ENUM_EVENT_DIRECTION Dir, string nodeId):
       Event(Dir, EVENT_REFRESH, nodeId){;}
 };
+//class Position;
+class EventRefreshPos : public Event
+{
+   public:
+      EventRefreshPos(Position* pos) : Event(EVENT_FROM_UP, EVENT_REFRESH_POS, "API"){;}
+      Position* Position(){return m_pos;}
+   private:
+      Position* m_pos;
+};
 ///
 /// Это событие генерируется терминалом 
 ///
@@ -783,5 +796,23 @@ class EventKeyDown : public Event
       /// Код нажатой клавиши.
       ///
       int code;
+};
+
+///
+/// Это событие возникает при совершении новой сделки.
+///
+class EventAddDeal : public Event
+{
+   public:
+      EventAddDeal(ulong deal_id) : Event(EVENT_FROM_UP, EVENT_ADD_DEAL, "API"){;}
+      ///
+      /// Возвращает уникальный идентификатор сделки.
+      ///
+      ulong DealID(){return dealId;}
+   private:
+      ///
+      /// Уникальный идентификатор сделки.
+      ///
+      ulong dealId;
 };
 

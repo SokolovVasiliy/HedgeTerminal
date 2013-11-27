@@ -78,10 +78,12 @@ void  OnTradeTransaction(
       const MqlTradeResult&         result
    )
 {
-   printf("Type: " + EnumToString(trans.type) + " Ticket: " + trans.deal);  
-   if(trans.type != TRADE_TRANSACTION_DEAL_ADD)return;
-   //api.
-   //COrder* order = new COrder();
+   if(trans.type == TRADE_TRANSACTION_DEAL_ADD)
+   {
+      EventAddDeal* deal = new EventAddDeal(trans.deal);  
+      api.Event(deal);
+      delete deal;
+   }
 }
 ///
 /// Подстраиваем размер главной формы панели под размер текущего окна

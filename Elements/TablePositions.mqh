@@ -44,6 +44,8 @@ class TablePositions : public Table
             case EVENT_REFRESH:
                RefreshPrices();
                break;
+            case EVENT_REFRESH_POS:
+               OnRefreshPos(event);
             case EVENT_CHECK_BOX_CHANGED:
                OnCheckBoxChanged(event);
                break;
@@ -290,18 +292,57 @@ class TablePositions : public Table
             }
          }
       }
-      
+      ///
+      /// ќбновл€ет все свойства позиции
+      ///
+      void OnRefreshPos(EventRefreshPos* event)
+      {
+         //ƒл€ начала нужно найти визуальное представление позиции, которую требуетс€ обновить
+         Position* npos = event.Position();
+         if(!IsItForMe(npos))return;
+         int n = npos.NPos();
+         //ѕозици€ есть в списке?
+         if(n > 0)
+         {
+            ProtoNode* node = workArea.ChildElementAt(n);
+            if(node.TypeElement() != ELEMENT_TYPE_POSITION)return;
+            PosLine* pline = node;
+            //ѕолучаем список колонок, которые надо сгенерировать.
+            /*CArrayObj* columns = NULL;
+            switch(tDir.TableType())
+            {
+               case TABLE_POSACTIVE:
+                  columns = Settings.GetSetForActiveTable();
+                  break;
+               case TABLE_POSHISTORY:
+                  columns = Settings.GetSetForHistoryTable();
+                  break;
+               default:
+                  //≈сли тип таблицы неизвестен, то и генерировать нечего.
+                  return; 
+            }
+            int total = pline.ChildsTotal();
+            if(total != columns.Total())return;
+            for(int i = 0; i < total; i++)
+            {
+               DefColumn* el = columns.At(i);
+               ENUM_COLUMN_TYPE colType = el.ColumnType();
+               TextNode* node
+               LineBuilder(tDir.TableType(), 
+            }*/
+         }
+      }
       ///
       /// —оздает визуальное представление строки, котора€ отображает: заголовок таблицы позиций, или
       /// саму позицию или сделку, св€занную с позицией. ѕосле того, как строка представлени€ будет 
       /// создана, она будет возвращена вызывающему методу.
       ///
-      Line* CreateLine(ProtoNode* parNode, TableDirective* tDir, Position* pos, Deal* entryDeal=NULL, Deal* exitDeal=NULL)
+      Line* CreateLine(ProtoNode* parNode, TableDirective* sDir, Position* pos, Deal* entryDeal=NULL, Deal* exitDeal=NULL)
       {
          AbstractPos* posLine = NULL;
          
          //ѕолучаем указатель на tDir
-         TableDirective* pDir = GetPointer(tDir);
+         TableDirective* pDir = GetPointer(sDir);
          ENUM_TABLE_TYPE elType = pDir.TableType();
          
          //ѕолучаем список колонок, которые надо сгенерировать.
@@ -341,17 +382,17 @@ class TablePositions : public Table
             //Ёлемент, значени€ которого мы определим
             TextNode* element = NULL;
             DefColumn* el = columns.At(i);
-            ENUM_COLUMN_TYPE elType = el.ColumnType();
-            if(elType == COLUMN_COLLAPSE)
+            ENUM_COLUMN_TYPE el_Type = el.ColumnType();
+            if(el_Type == COLUMN_COLLAPSE)
                element = posLine.AddCollapseEl(pDir, el);
-            else if(elType == COLUMN_TRAL)
+            else if(el_Type == COLUMN_TRAL)
                element = posLine.AddTralEl(pDir, el);
-            else if(elType == COLUMN_CURRENT_PRICE)
+            else if(el_Type == COLUMN_CURRENT_PRICE)
                element = posLine.AddLastPrice(pDir, el);
-            else if(elType == COLUMN_PROFIT && pDir.TableElement() == TABLE_POSITION &&
+            else if(el_Type == COLUMN_PROFIT && pDir.TableElement() == TABLE_POSITION &&
                pDir.TableType() == TABLE_POSACTIVE)
                element = posLine.AddProfitEl(pDir, el);
-            else if(elType == COLUMN_PROFIT && pDir.TableElement() == TABLE_DEAL &&
+            else if(el_Type == COLUMN_PROFIT && pDir.TableElement() == TABLE_DEAL &&
                pDir.TableType() == TABLE_POSACTIVE)
                element = posLine.AddProfitDealEl(pDir, el);
             else
@@ -374,7 +415,7 @@ class TablePositions : public Table
          {
             case COLUMN_MAGIC:
                if(elType == TABLE_POSITION || elType == TABLE_DEAL)
-                  element.Text(pos.Magic());
+                  element.Text((string)pos.Magic());
                break;
             case COLUMN_SYMBOL:
                if(elType == TABLE_POSITION || elType == TABLE_DEAL)
@@ -382,19 +423,19 @@ class TablePositions : public Table
                break;
             case COLUMN_ENTRY_ORDER_ID:
                if(elType == TABLE_POSITION)
-                  element.Text(pos.EntryOrderID());
+                  element.Text((string)pos.EntryOrderID());
                if(elType == TABLE_DEAL && entryDeal != NULL)
-                  element.Text(entryDeal.Ticket());
+                  element.Text((string)entryDeal.Ticket());
                break;
             case COLUMN_EXIT_ORDER_ID:
                if(elType == TABLE_POSITION)
-                  element.Text(pos.ExitOrderID());
+                  element.Text((string)pos.ExitOrderID());
                if(elType == TABLE_DEAL && exitDeal != NULL)
-                  element.Text(exitDeal.Ticket());
+                  element.Text((string)exitDeal.Ticket());
                break;
             case COLUMN_EXIT_MAGIC:
                if(elType == TABLE_POSITION)
-                  element.Text(pos.ExitMagic());
+                  element.Text((string)pos.ExitMagic());
                   break;
             case COLUMN_ENTRY_DATE:
                if(elType == TABLE_POSITION)
@@ -448,13 +489,13 @@ class TablePositions : public Table
                break;
             case COLUMN_SL:
                if(elType == TABLE_POSITION/* || elType == TABLE_DEAL*/)
-                  element.Text(pos.PriceToString((string)pos.StopLossLevel()));
+                  element.Text(pos.PriceToString(pos.StopLossLevel()));
                if(elType == TABLE_DEAL)
                   element.Text("-");   
                break;
             case COLUMN_TP:
                if(elType == TABLE_POSITION/* || elType == TABLE_DEAL*/)
-                  element.Text(pos.PriceToString((string)pos.TakeProfitLevel()));
+                  element.Text(pos.PriceToString(pos.TakeProfitLevel()));
                if(elType == TABLE_DEAL)
                   element.Text("-");
                break;
@@ -503,14 +544,13 @@ class TablePositions : public Table
       {
          
          Position* pos = event.GetPosition();
-         bool rs = (pos.PositionStatus() == POSITION_STATUS_OPEN && tDir.TableType() == TABLE_POSACTIVE) ||
-                   (pos.PositionStatus() == POSITION_STATUS_CLOSED && tDir.TableType() == TABLE_POSHISTORY);
-         if(!rs)return;
+         if(!IsItForMe(pos))return;
          //ƒобавл€ем только активные позиции.
          //if(pos.Status == POSITION_STATUS_CLOSED)return;
          tDir.TableElement(TABLE_POSITION);
          PosLine* nline = CreateLine(workArea, GetPointer(tDir), pos);
          workArea.Add(nline);
+         pos.NPos(workArea.ChildsTotal()-1);
          //„то бы нова€ позици€ тут же отобразилась в таблице активных позиций
          //уведомл€ем родительский элемент, что необходимо сделать refresh
          EventRefresh* er = new EventRefresh(EVENT_FROM_DOWN, NameID());
@@ -583,7 +623,15 @@ class TablePositions : public Table
          PosLine* posLine = node;
          posLine.IsRestore(false);
       }
-      
+      ///
+      /// ¬озвращает истину, если текуща€ позици€ относитс€ к текущему контексту таблицы.
+      ///
+      bool IsItForMe(Position* pos)
+      {
+         bool rs = (pos.PositionStatus() == POSITION_STATUS_OPEN && tDir.TableType() == TABLE_POSACTIVE) ||
+                   (pos.PositionStatus() == POSITION_STATUS_CLOSED && tDir.TableType() == TABLE_POSHISTORY);
+         return rs;
+      }
       string name_tralSl;
       ///
       /// Ќомер €чейки в линии, отображающий профит позиции.

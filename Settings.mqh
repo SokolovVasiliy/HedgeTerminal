@@ -223,8 +223,9 @@ class PanelSettings
          setForActivePos.Add(new DefColumn(COLUMN_MAGIC, magic, 100, false));                setForHistoryPos.Add(new DefColumn(COLUMN_MAGIC, magic, 100, false));
          setForActivePos.Add(new DefColumn(COLUMN_SYMBOL, symbol, 70, false));               setForHistoryPos.Add(new DefColumn(COLUMN_SYMBOL, symbol, 70, false));
          setForActivePos.Add(new DefColumn(COLUMN_ENTRY_ORDER_ID, entryOrderId, 80, false)); setForHistoryPos.Add(new DefColumn(COLUMN_ENTRY_ORDER_ID, entryOrderId, 80, false));
-                                                                                             setForHistoryPos.Add(new DefColumn(COLUMN_EXIT_MAGIC, exitMagic, 80, false));
+                                                                                             //setForHistoryPos.Add(new DefColumn(COLUMN_EXIT_MAGIC, exitMagic, 80, false));
                                                                                              setForHistoryPos.Add(new DefColumn(COLUMN_ENTRY_DATE, entryDate, 110, false));
+                                                                                             setForHistoryPos.Add(new DefColumn(COLUMN_TYPE, type, 80, false));
                                                                                              setForHistoryPos.Add(new DefColumn(COLUMN_ENTRY_PRICE, entryPrice, 50, false));
                                                                                              setForHistoryPos.Add(new DefColumn(COLUMN_VOLUME, entryVol, 30, false));
                                                                                              setForHistoryPos.Add(new DefColumn(COLUMN_VOLUME, exitVol, 30, false));
@@ -233,7 +234,7 @@ class PanelSettings
                                                                                              setForHistoryPos.Add(new DefColumn(COLUMN_EXIT_ORDER_ID, exitOrderId, 80, false));
          setForActivePos.Add(new DefColumn(COLUMN_ENTRY_DATE, entryDate, 110, false));       
                                                                                              
-         setForActivePos.Add(new DefColumn(COLUMN_TYPE, type, 80, false));                   setForHistoryPos.Add(new DefColumn(COLUMN_TYPE, type, 80, false));
+         setForActivePos.Add(new DefColumn(COLUMN_TYPE, type, 80, false));                   
          setForActivePos.Add(new DefColumn(COLUMN_VOLUME, vol, 30, false));                  
          setForActivePos.Add(new DefColumn(COLUMN_ENTRY_PRICE, entryPrice, 50, false));      
          setForActivePos.Add(new DefColumn(COLUMN_SL, sl, 50, false));                       setForHistoryPos.Add(new DefColumn(COLUMN_SL, sl, 50, false));

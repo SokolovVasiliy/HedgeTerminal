@@ -2,6 +2,7 @@
 #include <Arrays\ArrayLong.mqh>
 #include <Trade\Trade.mqh>
 #include "..\Time.mqh"
+//#include "..\Elements\TablePositions.mqh"
 ///
 /// Тип транзакции.
 ///
@@ -25,6 +26,8 @@ enum ENUM_DIRECTION_TYPE
    DIRECTION_LONG,
    DIRECTION_SHORT
 };
+class Deal;
+class Position;
 ///
 /// Предоставляет абстрактную транзакцию: сделку, ордер, либо любую другую операцию на счете.
 ///
@@ -105,6 +108,29 @@ class Transaction : public CObject
       {
          return (int)SymbolInfoInteger(Symbol(), SYMBOL_DIGITS);
       }
+      virtual int Compare(const CObject *node, const int mode=0) const
+      {
+         const Transaction* my_order = node;
+         int LESS = -1;
+         int GREATE = 1;
+         int EQUAL = 0;
+         switch(mode)
+         {
+            case SORT_ORDER_ID:
+            default:
+               if(currId > my_order.GetId())
+                  return GREATE;
+               if(currId < my_order.GetId())
+                  return LESS;
+               if(currId == my_order.GetId())
+                  return EQUAL;
+         }
+         return EQUAL;
+      }
+      ///
+      /// Получает уникальный идентификатор транзакции.
+      ///
+      ulong GetId(){return currId;}
    protected:
       ///
       /// Возвращает цену входа трназакции на рынок.
@@ -114,10 +140,7 @@ class Transaction : public CObject
       /// Возвращает тип транзакции.
       ///
       Transaction(ENUM_TRANSACTION_TYPE trType){transType = trType;}
-      ///
-      /// Получает уникальный идентификатор транзакции.
-      ///
-      ulong GetId(){return currId;}
+      
       ///
       /// Устанавливает уникальный идентификатор транзакции.
       ///
@@ -353,7 +376,7 @@ class Position : public Transaction
          trading.SetAsyncMode(true);
          trading.SetExpertMagicNumber(EntryOrderID());
          if(Direction() == DIRECTION_LONG)
-            trading.Sell(VolumeExecuted(), NULL, 0.0, 0.0, 0.0, comment);
+            trading.Sell(VolumeExecuted(), Symbol(), 0.0, 0.0, 0.0, comment);
          else if(Direction() == DIRECTION_SHORT)
             trading.Buy(VolumeExecuted(), Symbol(), 0.0, 0.0, 0.0, comment);
          
@@ -680,6 +703,30 @@ class Position : public Transaction
       {
          ;
       }
+      ///
+      /// Добавляет новую входящую сделку в список входящих сделок.
+      ///
+      void AddEntryDeal(Deal* deal)
+      {
+         entryDeals.Add(deal);
+      }
+      ///
+      /// Добавляет новую исходящую сделку в список исходящих сделок.
+      ///
+      void AddExitDeal(Deal* deal)
+      {
+         //Добавить исходящую сделку можно только в закрытую позицию.
+         if(posStatus != POSITION_STATUS_CLOSED)return;
+         entryDeals.Add(deal);
+      }
+      ///
+      /// Устанавливает номер элемента в списке элементов, отображающего данную позицию.
+      ///
+      void NPos(int n){npos = n;}
+      ///
+      /// Возвращает номер элемента в списке элементов, отображающего данную позицию.
+      ///
+      int NPos(){return npos;}
    private:
       enum ENUM_TRANSACTION_CONTEXT
       {
@@ -691,6 +738,7 @@ class Position : public Transaction
       ///
       void InitPosition(ulong in_ticket, CArrayLong* in_deals = NULL, ulong out_ticket = 0, CArrayLong* out_deals = NULL)
       {
+         npos = -1;
          if(in_ticket == 0)
          {
             posStatus = POSITION_STATUS_NULL;
@@ -856,7 +904,10 @@ class Position : public Transaction
       /// Класс, для совершения торговых операций.
       ///
       CTrade trading;
-   
+      ///
+      /// Номер элемента в списке элементов, отображающий данную позицию.
+      ///
+      int npos;
 };
 
 class Deal : public Transaction
