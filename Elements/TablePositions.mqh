@@ -6,6 +6,7 @@
 
 #ifndef TABLE_ABSTRPOS_MQH
    #include "TableAbstrPos.mqh"
+   #include "TableAbstrPos2.mqh"
 #endif
 
 
@@ -542,7 +543,6 @@ class TablePositions : public Table
       ///
       void AddPosition(EventCreatePos* event)
       {
-         
          Position* pos = event.GetPosition();
          if(!IsItForMe(pos))return;
          //Добавляем только активные позиции.

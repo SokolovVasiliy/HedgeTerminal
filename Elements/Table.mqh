@@ -29,7 +29,6 @@ class Table : public Label
          //Для таблиц, представляющих позиции, формируем специальный заголовок.
          if(tDir.IsPositionTable())
             lineHeader = new AbstractPos("header", ELEMENT_TYPE_TABLE_HEADER_POS, GetPointer(this));
-         
          Init(myName, parNode);
       }
       
@@ -116,6 +115,10 @@ class Table : public Label
          EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), Width()-21, 1, 20, High()-2);
          scroll.Event(command);
          delete command;
+      }
+      TableDirective* SetTable()
+      {
+         return GetPointer(tDir);
       }
    protected:
       ///
