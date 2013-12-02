@@ -151,8 +151,8 @@ class Table : public Label
          highLine = 20;
          if(lineHeader == NULL)
             lineHeader = new Line("header", GetPointer(this));
-         lineHeader.BackgroundColor(clrWhite);
-         lineHeader.Align(ALIGN_CENTER);
+         //lineHeader.BackgroundColor(clrWhite);
+         //lineHeader.Align(ALIGN_CENTER);
          workArea = new CWorkArea(GetPointer(this));
          workArea.ReadOnly(true);
          workArea.Text("");

@@ -331,7 +331,7 @@ class PosLine : public AbstractPos
    public:
       PosLine(ProtoNode* parNode, ENUM_ELEMENT_TYPE elType, Position* pos) : AbstractPos("Position", elType, parNode)
       {
-         position = pos;
+         /*position = pos;
          //»щем указатель на таблицу позиций.
          if(!FindPointToSetTable())return;
          
@@ -357,7 +357,7 @@ class PosLine : public AbstractPos
          for(int i = 0; i < total; i++)
          {
             AddColumn(scolumns.At(i));
-         }
+         }*/
       }
       PosLine(ProtoNode* parNode, Position* pos) : AbstractPos("Position", ELEMENT_TYPE_POSITION, parNode)
       {
