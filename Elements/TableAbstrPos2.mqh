@@ -3,7 +3,7 @@
 /// Абстрактный класс одной из строк таблицы позиций. Строка может быть заголовком таблицы, позицией или сделкой.
 /// Ее тип должен быть определен в момент создания.
 ///
-class AbstractPos2 : public Line
+class AbstractPos : public Line
 {
    public:
       ///
@@ -32,7 +32,7 @@ class AbstractPos2 : public Line
       }
    protected:
       
-      AbstractPos2(string myName, ENUM_ELEMENT_TYPE elType, ProtoNode* parNode, ENUM_TABLE_TYPE tType) : Line(myName, elType, parNode)
+      AbstractPos(string myName, ENUM_ELEMENT_TYPE elType, ProtoNode* parNode, ENUM_TABLE_TYPE tType) : Line(myName, elType, parNode)
       {
          tblType = tType;
       }
@@ -70,7 +70,10 @@ class AbstractPos2 : public Line
          build.ConstWidth(el.ConstWidth());
          return build;
       }
-   private:      
+      ///
+      /// Наполняет линию элементами используя переопределенный GetColumn().
+      /// Вызов функции должен осуществлятся ПОСЛЕ инициализации конструктора базового класса.
+      ///
       void BuilderLine()
       {
          if(CheckPointer(Settings) == POINTER_INVALID)return;
@@ -106,6 +109,7 @@ class AbstractPos2 : public Line
             }
          }
       }
+   private:
       ENUM_TABLE_TYPE tblType;
       ///
       /// Для быстрого доступа к значениям строки также храним ссылки на ячейки.
@@ -116,10 +120,13 @@ class AbstractPos2 : public Line
 ///
 /// Класс реализует строку-заголовок таблицы позиций.
 ///
-class HeaderPos : public AbstractPos2
+class HeaderPos : public AbstractPos
 {
    public:
-      HeaderPos(ProtoNode* parNode, ENUM_TABLE_TYPE tType) : AbstractPos2("header", ELEMENT_TYPE_TABLE_HEADER_POS, parNode, tType){;}
+      HeaderPos(ProtoNode* parNode, ENUM_TABLE_TYPE tType) : AbstractPos("header", ELEMENT_TYPE_TABLE_HEADER_POS, parNode, tType)
+      {
+         BuilderLine();
+      }
    private:
       virtual TextNode* GetDefaultEl(DefColumn* el)
       {
@@ -133,6 +140,7 @@ class HeaderPos : public AbstractPos2
       ///
       /// Создает элемент по-умолчанию.
       ///
+      
       virtual TextNode* GetColumn(DefColumn* el, TextNode* value)
       {
          ENUM_COLUMN_TYPE cType = el.ColumnType();
@@ -184,10 +192,15 @@ class HeaderPos : public AbstractPos2
 ///
 /// Класс реализует строку-позицию таблицы позиций.
 ///
-class PosLine2 : AbstractPos2
+class PosLine : AbstractPos
 {
    public:
-      PosLine2(ProtoNode* parNode, ENUM_TABLE_TYPE tType, Position* m_pos) : AbstractPos2("header", ELEMENT_TYPE_POSITION, parNode, tType){;}
+      PosLine(ProtoNode* parNode, ENUM_TABLE_TYPE tType, Position* m_pos) : AbstractPos("header", ELEMENT_TYPE_POSITION, parNode, tType)
+      {
+         if(CheckPointer(m_pos) != POINTER_INVALID)
+            pos = m_pos;
+         BuilderLine();
+      }
    private:
       ///
       /// 
@@ -258,7 +271,6 @@ class PosLine2 : AbstractPos2
             comby.Add(btnClose);
             comby.OptimalWidth(el.OptimalWidth());
             comby.ConstWidth(el.ConstWidth());
-            Add(comby);
          }
          else
             comby = GetDefaultEl(el);
@@ -351,18 +363,18 @@ class PosLine2 : AbstractPos2
 ///
 /// Класс реализует строку-позицию таблицы позиций.
 ///
-class DealLine2 : public AbstractPos2
+class DealLine : public AbstractPos
 {
    public:
-      DealLine2(ProtoNode* parNode, ENUM_TABLE_TYPE tType, Position* mpos, Deal* EntryDeal, Deal* ExitDeal, bool IsLastLine):
-      AbstractPos2("Deal", ELEMENT_TYPE_DEAL, parNode, tType)
+      DealLine(ProtoNode* parNode, ENUM_TABLE_TYPE tType, Position* mpos, Deal* EntryDeal, Deal* ExitDeal, bool IsLastLine):
+      AbstractPos("Deal", ELEMENT_TYPE_DEAL, parNode, tType)
       {
-         ;
+         BuilderLine();
       }
    private:
       virtual TextNode* GetDefaultEl(DefColumn* el)
       {
-         TextNode* build = AbstractPos2::GetDefaultEl(el);
+         TextNode* build = AbstractPos::GetDefaultEl(el);
          build.FontSize(build.FontSize()-1);
          return build;
       }

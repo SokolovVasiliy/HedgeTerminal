@@ -5,7 +5,7 @@
 #endif
 
 #ifndef TABLE_ABSTRPOS_MQH
-   #include "TableAbstrPos.mqh"
+   //#include "TableAbstrPos.mqh"
    #include "TableAbstrPos2.mqh"
 #endif
 
@@ -19,7 +19,8 @@ class TablePositions : public Table
    public:
       TablePositions(ProtoNode* parNode, ENUM_TABLE_TYPE posType = TABLE_POSACTIVE):Table("TableOfPosition.", parNode, posType)
       {
-         this.Init();
+         lineHeader = new HeaderPos(GetPointer(this), posType);
+         childNodes.Add(lineHeader);
       }
       
       /*TablePositions(ProtoNode* parNode):Table("TableOfPosition.", parNode, )
@@ -69,11 +70,11 @@ class TablePositions : public Table
       ///
       /// Инициализация таблицы
       ///
-      void Init()
+      /*void Init()
       {
          // Каждая линия - специальный тип, знающий, какие именно элементы нужно в себя добавлять.
          AbstractPos* posLine = lineHeader;
-         tDir.TableElement(TABLE_HEADER);
+         //tDir.TableElement(TABLE_HEADER);
          int index = -1;
          //Заменяем через хук заголовок на другой, поддерживающий методы AbstractPos
          //Находим индекс старого заголовка.
@@ -89,17 +90,17 @@ class TablePositions : public Table
          if(index != -1)
          {
             childNodes.Delete(index);
-            lineHeader = CreateLine(GetPointer(this), GetPointer(tDir), NULL);
+            //lineHeader = CreateLine(GetPointer(this), GetPointer(tDir), NULL);
             childNodes.Insert(lineHeader, index);
          }
-      }
+      }*/
       
       ///
       /// Обработчик события "трал для позиции включен".
       ///
       void OnCheckBoxChanged(EventCheckBoxChanged* event)
       {
-         ProtoNode* node = event.Node();
+         /*ProtoNode* node = event.Node();
          if(node.TypeElement() != ELEMENT_TYPE_CHECK_BOX)return;
          Button* btn = node;
          ENUM_BUTTON_STATE state = btn.State();
@@ -120,14 +121,14 @@ class TablePositions : public Table
                tral.Text(CharToString(254));
             else
                tral.Text(CharToString(168));
-         }
+         }*/
       }
       ///
       /// Обрабатываем событие нажатие кнопки мыши.
       ///
       void OnNodeClick(EventNodeClick* event)
       {
-         ProtoNode* node = event.Node();
+         /*ProtoNode* node = event.Node();
          ProtoNode* parNode = node.ParentNode();
          if(parNode == NULL || parNode != lineHeader)
             return;
@@ -163,11 +164,11 @@ class TablePositions : public Table
                      checkBox.State(state);
                }
             }
-         }
+         }*/
       }
       void OnCollapse(EventCollapseTree* event)
       {
-         ProtoNode* node = event.Node();
+         /*ProtoNode* node = event.Node();
          ENUM_ELEMENT_TYPE type = node.TypeElement();
          if(type == ELEMENT_TYPE_POSITION)
          {
@@ -192,7 +193,8 @@ class TablePositions : public Table
          AllocationWorkTable();
          
          //Скролл реагирует на разворачивания списка
-         AllocationScroll();      
+         AllocationScroll();
+         */
       }
       
       
@@ -201,7 +203,7 @@ class TablePositions : public Table
       ///
       void RestoreAll()
       {
-         for(int i = 0; i < workArea.ChildsTotal(); i++)
+         /*for(int i = 0; i < workArea.ChildsTotal(); i++)
          {
             ProtoNode* node = workArea.ChildElementAt(i);
             if(node.TypeElement() != ELEMENT_TYPE_POSITION)
@@ -210,14 +212,14 @@ class TablePositions : public Table
             TreeViewBoxBorder* twb = posLine.CellCollapsePos();
             if(twb == NULL || twb.State() != BOX_TREE_COLLAPSE)continue;
             twb.OnPush();
-         }
+         }*/
       }
       ///
       /// Сворачивает весь список позиций
       ///
       void CollapseAll()
       {
-         for(int i = 0; i < workArea.ChildsTotal(); i++)
+         /*for(int i = 0; i < workArea.ChildsTotal(); i++)
          {
             ProtoNode* node = workArea.ChildElementAt(i);
             if(node.TypeElement() != ELEMENT_TYPE_POSITION)continue;
@@ -225,7 +227,7 @@ class TablePositions : public Table
             TreeViewBoxBorder* twb = posLine.CellCollapsePos();
             if(twb != NULL && twb.State() != BOX_TREE_RESTORE)continue;
             twb.OnPush();
-         }
+         }*/
       }
       ///
       /// Меняет значок раскрывающейся позиции в зависимости от
@@ -233,10 +235,10 @@ class TablePositions : public Table
       ///
       void ChangeCollapse(PosLine* pos, bool isCollapse)
       {
-         TreeViewBoxBorder* twb = pos.CellCollapsePos();
+         /*TreeViewBoxBorder* twb = pos.CellCollapsePos();
          if(isCollapse)
             twb.Text("-");
-         else twb.Text("+");
+         else twb.Text("+");*/
       }
       ///
       /// Обрабатываем комманду на закрытие позиции.
@@ -250,7 +252,7 @@ class TablePositions : public Table
       ///
       void RefreshPrices()
       {
-         if(tDir.TableType() == TABLE_POSHISTORY)return;
+         /*if(tDir.TableType() == TABLE_POSHISTORY)return;
          int total = workArea.ChildsTotal();
          for(int i = 0; i < total; i++)
          {
@@ -291,7 +293,7 @@ class TablePositions : public Table
                if(profit != NULL)
                   profit.Text(deal.ProfitAsString());
             }
-         }
+         }*/
       }
       ///
       /// Обновляет все свойства позиции
@@ -299,7 +301,7 @@ class TablePositions : public Table
       void OnRefreshPos(EventRefreshPos* event)
       {
          //Для начала нужно найти визуальное представление позиции, которую требуется обновить
-         Position* npos = event.Position();
+         /*Position* npos = event.Position();
          if(!IsItForMe(npos))return;
          int n = npos.NPos();
          //Позиция есть в списке?
@@ -309,7 +311,7 @@ class TablePositions : public Table
             if(node.TypeElement() != ELEMENT_TYPE_POSITION)return;
             PosLine* pline = node;
             //Получаем список колонок, которые надо сгенерировать.
-            /*CArrayObj* columns = NULL;
+            CArrayObj* columns = NULL;
             switch(tDir.TableType())
             {
                case TABLE_POSACTIVE:
@@ -330,15 +332,15 @@ class TablePositions : public Table
                ENUM_COLUMN_TYPE colType = el.ColumnType();
                TextNode* node
                LineBuilder(tDir.TableType(), 
-            }*/
-         }
+            }
+         }*/
       }
       ///
       /// Создает визуальное представление строки, которая отображает: заголовок таблицы позиций, или
       /// саму позицию или сделку, связанную с позицией. После того, как строка представления будет 
       /// создана, она будет возвращена вызывающему методу.
       ///
-      Line* CreateLine(ProtoNode* parNode, TableDirective* sDir, Position* pos, Deal* entryDeal=NULL, Deal* exitDeal=NULL)
+      /*Line* CreateLine(ProtoNode* parNode, TableDirective* sDir, Position* pos, Deal* entryDeal=NULL, Deal* exitDeal=NULL)
       {
          AbstractPos* posLine = NULL;
          
@@ -407,8 +409,8 @@ class TablePositions : public Table
             
          }
          return posLine;
-      }
-      void LineBuilder(ENUM_TABLE_TYPE_ELEMENT elType, TextNode* element, DefColumn* el, Position* pos, Deal* entryDeal=NULL, Deal* exitDeal=NULL)
+      }*/
+      /*void LineBuilder(ENUM_TABLE_TYPE_ELEMENT elType, TextNode* element, DefColumn* el, Position* pos, Deal* entryDeal=NULL, Deal* exitDeal=NULL)
       {
          //Информация о позиции должна быть всегда
          if(pos == NULL) return;
@@ -489,13 +491,13 @@ class TablePositions : public Table
                   element.Text(entryDeal.PriceToString(entryDeal.EntryPriceExecuted()));
                break;
             case COLUMN_SL:
-               if(elType == TABLE_POSITION/* || elType == TABLE_DEAL*/)
+               if(elType == TABLE_POSITION || elType == TABLE_DEAL)
                   element.Text(pos.PriceToString(pos.StopLossLevel()));
                if(elType == TABLE_DEAL)
                   element.Text("-");   
                break;
             case COLUMN_TP:
-               if(elType == TABLE_POSITION/* || elType == TABLE_DEAL*/)
+               if(elType == TABLE_POSITION || elType == TABLE_DEAL)
                   element.Text(pos.PriceToString(pos.TakeProfitLevel()));
                if(elType == TABLE_DEAL)
                   element.Text("-");
@@ -537,7 +539,8 @@ class TablePositions : public Table
                   element.Text(pos.ExitComment());
                break;
          }
-      }
+         
+      }*/
       ///
       /// Добавляем новую созданную таблицу, либо раскрывает позицию
       ///
@@ -545,10 +548,7 @@ class TablePositions : public Table
       {
          Position* pos = event.GetPosition();
          if(!IsItForMe(pos))return;
-         //Добавляем только активные позиции.
-         //if(pos.Status == POSITION_STATUS_CLOSED)return;
-         tDir.TableElement(TABLE_POSITION);
-         PosLine* nline = CreateLine(workArea, GetPointer(tDir), pos);
+         PosLine* nline = new PosLine(workArea, TableType(), pos);
          workArea.Add(nline);
          pos.NPos(workArea.ChildsTotal()-1);
          //Что бы новая позиция тут же отобразилась в таблице активных позиций
@@ -563,7 +563,7 @@ class TablePositions : public Table
       ///
       void AddDeals(EventCollapseTree* event)
       {
-         ProtoNode* node = event.Node();
+         /*ProtoNode* node = event.Node();
          //Функция умеет развертывать только позиции, и с другими элеменатми работать не может.
          if(node.TypeElement() != ELEMENT_TYPE_POSITION)return;
          PosLine* posLine = node;
@@ -600,7 +600,7 @@ class TablePositions : public Table
             Line* nline = CreateLine(workArea, GetPointer(tDir), pos, entryDeal, exitDeal);
             workArea.Add(nline, event.NLine()+1);
          }
-         posLine.IsRestore(true);
+         posLine.IsRestore(true);*/
       }
       ///
       /// Удаляет визуализацию трейдов позиции
@@ -608,7 +608,7 @@ class TablePositions : public Table
       void DeleteDeals(EventCollapseTree* event)
       {
          //Имеем дело с визуализированной позицией?
-         ProtoNode* node = event.Node();
+         /*ProtoNode* node = event.Node();
          if(node.TypeElement() != ELEMENT_TYPE_POSITION)return;
          int sn_line = node.NLine();
          // Визуализация трейдов идет вслед за самой позицией.
@@ -621,15 +621,17 @@ class TablePositions : public Table
          }
          workArea.DeleteRange(sn_line+1, count);
          PosLine* posLine = node;
-         posLine.IsRestore(false);
+         posLine.IsRestore(false);*/
       }
       ///
       /// Возвращает истину, если текущая позиция относится к текущему контексту таблицы.
       ///
       bool IsItForMe(Position* pos)
       {
-         bool rs = (pos.PositionStatus() == POSITION_STATUS_OPEN && tDir.TableType() == TABLE_POSACTIVE) ||
-                   (pos.PositionStatus() == POSITION_STATUS_CLOSED && tDir.TableType() == TABLE_POSHISTORY);
+         ENUM_POSITION_STATUS pType = pos.PositionStatus();
+         ENUM_TABLE_TYPE tType = TableType();
+         bool rs = (pos.PositionStatus() == POSITION_STATUS_OPEN && TableType() == TABLE_POSACTIVE) ||
+                   (pos.PositionStatus() == POSITION_STATUS_CLOSED && TableType() == TABLE_POSHISTORY);
          return rs;
       }
       string name_tralSl;
@@ -650,7 +652,7 @@ class TablePositions : public Table
       /// Структура, содержащая определенные флаги и доп. информацию, определяющую
       /// последовательность действий при удалении позиции.
       ///
-      struct STarget
+      /*struct STarget
       {
          public:
             ///
@@ -664,7 +666,7 @@ class TablePositions : public Table
          private:
             bool contextBusy;
             int orderId;
-      };
+      };*/
 };
 
 

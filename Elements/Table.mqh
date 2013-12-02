@@ -8,6 +8,7 @@
 #include "Scroll.mqh"
 #include "TableWork.mqh"
 #include "TableDirective.mqh"
+#include "TableAbstrPos2.mqh"
 
 #ifndef TABLE_MQH
    #define TABLE_MQH
@@ -22,16 +23,7 @@
 ///
 class Table : public Label
 {
-   public:
-      Table(string myName, ProtoNode* parNode, ENUM_TABLE_TYPE tableType = TABLE_POSACTIVE):Label(ELEMENT_TYPE_TABLE, myName, parNode)
-      {
-         tDir.TableType(tableType);
-         //Для таблиц, представляющих позиции, формируем специальный заголовок.
-         if(tDir.IsPositionTable())
-            lineHeader = new AbstractPos("header", ELEMENT_TYPE_TABLE_HEADER_POS, GetPointer(this));
-         Init(myName, parNode);
-      }
-      
+   public:      
       ///
       /// Возвращает общую высоту всех линий в таблице.
       ///
@@ -116,15 +108,28 @@ class Table : public Label
          scroll.Event(command);
          delete command;
       }
-      TableDirective* SetTable()
+      /*TableDirective* SetTable()
       {
          return GetPointer(tDir);
-      }
+      }*/
+      ///
+      /// Возвращает тип текущей таблицы.
+      ///
+      ENUM_TABLE_TYPE TableType(){return tblType;}
    protected:
+      Table(string myName, ProtoNode* parNode, ENUM_TABLE_TYPE tableType = TABLE_POSACTIVE):Label(ELEMENT_TYPE_TABLE, myName, parNode)
+      {
+         //tDir.TableType(tableType);
+         //Для таблиц, представляющих позиции, формируем специальный заголовок.
+         //if(tDir.IsPositionTable())
+         //   lineHeader = new AbstractPos("header", ELEMENT_TYPE_TABLE_HEADER_POS, GetPointer(this));
+         tblType = tableType;
+         Init(myName, parNode);
+      }
       ///
       /// Заголовок таблицы.
       ///
-      Line* lineHeader;
+      AbstractPos* lineHeader;
       //Line* lineHeader;
       ///
       /// Рабочая область таблицы
@@ -141,7 +146,8 @@ class Table : public Label
       ///
       /// Содержит набор параметров, характеризущих настройки таблицы.
       ///
-      TableDirective tDir;
+      //TableDirective tDir;
+      
    private:
       void Init(string myName, ProtoNode* parNode)
       {
@@ -149,10 +155,8 @@ class Table : public Label
          BorderType(BORDER_FLAT);
          BorderColor(clrWhite);
          highLine = 20;
-         if(lineHeader == NULL)
-            lineHeader = new Line("header", GetPointer(this));
-         //lineHeader.BackgroundColor(clrWhite);
-         //lineHeader.Align(ALIGN_CENTER);
+         // Заголовок таблицы должен проинициализировать и добавить с список потомок.
+         //...
          workArea = new CWorkArea(GetPointer(this));
          workArea.ReadOnly(true);
          workArea.Text("");
@@ -162,7 +166,6 @@ class Table : public Label
          scroll.BorderType(BORDER_FLAT);
          scroll.BorderColor(clrBlack);
          
-         childNodes.Add(lineHeader);
          childNodes.Add(workArea);
          childNodes.Add(scroll);
       }
@@ -193,7 +196,10 @@ class Table : public Label
       /// Ширина линии.
       ///
       int highLine;
-      
+      ///
+      /// Тип таблицы.
+      ///
+      ENUM_TABLE_TYPE tblType;
 };
 
 #ifndef TABLEPOSITION_MQH

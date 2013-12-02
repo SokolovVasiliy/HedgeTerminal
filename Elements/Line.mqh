@@ -165,7 +165,7 @@ class Line : public EditNode
          //Рассчитаем сумму оптимальных широт всех элементов.
          if(optWidthTotal == 0)
             CalcWidthTotal();
-         kScale = (double)Width()/(double)optWidthTotal;
+         kScale = optWidthTotal == 0 ? 1000 : (double)Width()/(double)optWidthTotal;
          for(int i = 0; i < total; i++)
          {
             node = childNodes.At(i);
