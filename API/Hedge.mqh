@@ -122,18 +122,28 @@ class CHedge
          // Закрывающая сделка?
          if(order.Direction() == ORDER_OUT)
          {
-            //Это сделка принадлежит ранее установленному закрывающему ордеру?
             COrder* in_order = order.InOrder();
             Position* pos = new Position(in_order.OrderId(), in_order.Deals(), order.OrderId(), order.Deals());
+            // Сделка закрывает активную позицию?
+            int aindex = ActivePos.Search(pos);
+            
+            //Это сделка принадлежит ранее установленному закрывающему ордеру?
             int index = HistoryPos.Search(pos);
-            //Да? - тогда сделка принадлежит к уже существующей позиции.
+            //Да? - тогда сделка принадлежит к уже существующей исторической позиции.
             if(index != -1)
             {
-               delete pos;
-               pos = HistoryPos.At(index);
+               //delete pos;
+               Position* hpos = HistoryPos.At(index);
+               // В этом случае наверняка существует активный ордер, который закрывает эта сделка
+               // (частично или полностью).
+               //ActivePos.Search(pos);
+               
             }
+            //Нет? - тогда создаем новую историческую позицию.
             else
+            {
                HistoryPos.InsertSort(pos);
+            }
             Deal* deal = new Deal(event.DealID());
             pos.AddExitDeal(deal);
             // Обновляем отображение о позиции в существующей
@@ -212,9 +222,6 @@ class CHedge
          for(int i = 0; i < total; i++)
          {
             COrder* in_order = listOrders.At(i);
-            int dbg = 4;
-            if(in_order.OrderId() == 1006304669)
-               dbg = 3;
             COrder* out_order = in_order.OutOrder();
             Position* pos = NULL;
             //ulong out_id = out_order.OrderId();

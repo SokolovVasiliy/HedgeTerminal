@@ -15,7 +15,7 @@ class AbstractPos : public Line
       ///
       void RefreshAll()
       {
-         int total = ArraySize(m_nodes);
+         int total = ArraySize(textNodes);
          for(int i = 0; i < total; i++)   
             RefreshValue((ENUM_COLUMN_TYPE)i);
       }
@@ -24,13 +24,40 @@ class AbstractPos : public Line
       ///
       void RefreshValue(ENUM_COLUMN_TYPE cType)
       {
-         if(ArraySize(m_nodes) > cType &&
-            CheckPointer(m_nodes[cType]) != POINTER_INVALID)
+         if(ArraySize(textNodes) > cType &&
+            CheckPointer(textNodes[cType]) != POINTER_INVALID)
          {
-            m_nodes[cType].Text(GetStringValue(cType));
+            textNodes[cType].Text(GetStringValue(cType));
          }
       }
+      ///
+      /// ¬озвращает ссылку на €чейку.
+      ///
+      TextNode* GetCell(ENUM_COLUMN_TYPE cType)
+      {
+         if(ArraySize(protoNodes) > cType &&
+            CheckPointer(protoNodes[cType]) != POINTER_INVALID)
+         {
+            return protoNodes[cType];
+         }
+         return NULL;
+      }
    protected:
+      ///
+      /// —в€зка €чейка-текст. 
+      ///
+      class tnode
+      {
+         public:
+            ///
+            /// ”казатель на €чейку, которую надо добавить в список.
+            ///
+            ProtoNode* element;
+            ///
+            /// ”казатель на €чейку, текст которой можно мен€ть.
+            ///
+            TextNode* value;
+      };
       
       AbstractPos(string myName, ENUM_ELEMENT_TYPE elType, ProtoNode* parNode, ENUM_TABLE_TYPE tType) : Line(myName, elType, parNode)
       {
@@ -43,21 +70,25 @@ class AbstractPos : public Line
       ///
       /// —оздает элемент по-умолчанию.
       ///
-      virtual TextNode* GetColumn(DefColumn* el, TextNode* value)
+      virtual tnode* GetColumn(DefColumn* el)
       {
          ENUM_COLUMN_TYPE cType = el.ColumnType();
          TextNode* element = NULL;
+         tnode* comby = new tnode();
          switch(cType)
          {
             case COLUMN_COLLAPSE:
                element = GetDefaultEl(el);
                element.Text("+");
+               comby.value = element;
                break;
             default:
                element = GetDefaultEl(el);
+               comby.value = element;
                break;
          }
-         return element;
+         comby.element = element;
+         return comby;
       }
       ///
       /// —оздает и возвращает элемент по-умолчанию.
@@ -97,24 +128,35 @@ class AbstractPos : public Line
          {
             TextNode* value = NULL;
             DefColumn* el = scolumns.At(i);
-            ProtoNode* node = GetColumn(el, value);
-            if(CheckPointer(node) != POINTER_INVALID)
-               Add(node);
-            if(CheckPointer(value) != POINTER_INVALID)
+            ENUM_COLUMN_TYPE cType = el.ColumnType();
+            tnode* node = GetColumn(el);
+            if(CheckPointer(node.element) != POINTER_INVALID)
             {
-               ENUM_COLUMN_TYPE cType = el.ColumnType();
-               if(ArraySize(m_nodes) <= cType)
-                  ArrayResize(m_nodes, cType+1);
-               m_nodes[cType] = value;
+               Add(node.element);
+               if(ArraySize(protoNodes) <= cType)
+                  ArrayResize(protoNodes, cType+1);
+               protoNodes[cType] = node.element;
             }
+            if(CheckPointer(node.value) != POINTER_INVALID)
+            {
+               if(ArraySize(textNodes) <= cType)
+                  ArrayResize(textNodes, cType+1);
+               textNodes[cType] = node.value;
+            }
+            delete node;
          }
       }
+      
    private:
       ENUM_TABLE_TYPE tblType;
       ///
       /// ƒл€ быстрого доступа к значени€м строки также храним ссылки на €чейки.
       ///
-      TextNode* m_nodes[];
+      TextNode* textNodes[];
+      ///
+      /// ƒл€ быстрого доступа к элементам строки также храним ссылки на элементы.
+      ///
+      ProtoNode* protoNodes[];
 };
 
 ///
@@ -141,25 +183,26 @@ class HeaderPos : public AbstractPos
       /// —оздает элемент по-умолчанию.
       ///
       
-      virtual TextNode* GetColumn(DefColumn* el, TextNode* value)
+      virtual tnode* GetColumn(DefColumn* el)
       {
          ENUM_COLUMN_TYPE cType = el.ColumnType();
-         TextNode* element = NULL;
+         tnode* comby = new tnode();
          switch(cType)
          {
             case COLUMN_COLLAPSE:
-               element = GetCollapseEl(el);
+               comby.element = GetCollapseEl(el);
                break;
             case COLUMN_TRAL:
-               element = GetTralEl(el);
+               comby.element = GetTralEl(el);
+               comby.value = comby.element;
                break;
             default:
-               element = GetDefaultEl(el);
+               comby.element = GetDefaultEl(el);
+               comby.value = comby.element;
                break;
          }
-         value = element;
          //«десь устанавливаем дополнительные общие свойства дл€ строки
-         return element;
+         return comby;
       }
       ///
       /// —оздаем элемент дл€ открыти€/закрыти€ всего списка.
@@ -192,7 +235,7 @@ class HeaderPos : public AbstractPos
 ///
 ///  ласс реализует строку-позицию таблицы позиций.
 ///
-class PosLine : AbstractPos
+class PosLine : public AbstractPos
 {
    public:
       PosLine(ProtoNode* parNode, ENUM_TABLE_TYPE tType, Position* m_pos) : AbstractPos("header", ELEMENT_TYPE_POSITION, parNode, tType)
@@ -200,36 +243,43 @@ class PosLine : AbstractPos
          if(CheckPointer(m_pos) != POINTER_INVALID)
             pos = m_pos;
          BuilderLine();
+         pos.PositionLine(GetPointer(this));
+      }
+      ///
+      /// ¬озвращает указатель на позицию, с которой ассоциирована данна€ строка.
+      ///
+      Position* Position()
+      {
+         return pos;
       }
    private:
       ///
       /// 
       ///
-      virtual TextNode* GetColumn(DefColumn* el, TextNode* value)
+      virtual tnode* GetColumn(DefColumn* el)
       {
          ENUM_COLUMN_TYPE cType = el.ColumnType();
-         TextNode* element = NULL;
+         tnode* comby = new tnode();
          switch(cType)
          {
             case COLUMN_COLLAPSE:
-               element = GetCollapseEl(el);
-               value = element;
+               comby.element = GetCollapseEl(el);
                break;
             case COLUMN_TRAL:
-               element = GetTralEl(el);
-               value = element;
+               comby.element = GetTralEl(el);
                break;
             case COLUMN_PROFIT:
-               element = GetProfitEl(el, value);
+               delete comby;
+               comby = GetProfitEl(el);
                break;
             default:
-               element = GetDefaultEl(el);
-               value = element;
+               comby.element = GetDefaultEl(el);
+               comby.value = comby.element;
                break;
          }
-         if(CheckPointer(element) != POINTER_INVALID)
-            element.Text(GetStringValue(cType));
-         return element;
+         if(CheckPointer(comby.value) != POINTER_INVALID)   
+            comby.value.Text(GetStringValue(cType));
+         return comby;
       }
       
       TextNode* GetCollapseEl(DefColumn* el)
@@ -241,9 +291,9 @@ class PosLine : AbstractPos
          return tbox;
       }
       
-      TextNode* GetTralEl(DefColumn* el)
+      CheckBox* GetTralEl(DefColumn* el)
       {
-         TextNode* build = NULL;
+         CheckBox* build = NULL;
          build = new CheckBox(el.Name(), GetPointer(this));
          build.Text(CharToString(168));
          build.Font("Wingdings");
@@ -252,28 +302,33 @@ class PosLine : AbstractPos
          return build;
       }
       
-      TextNode* GetProfitEl(DefColumn* el, TextNode* value)
+      tnode* GetProfitEl(DefColumn* el)
       {
-         Line* comby = NULL;
+         tnode* comby = new tnode();
+         Line* element = NULL;
          //¬ зависимости от того, €вл€етс€ ли позици€ исторической или активной,
          //€чейка позкаывающа€ профит состоит из разны частей. 
          if(TableType() == TABLE_POSACTIVE)
          {
-            comby = new Line(el.Name(), GetPointer(this));
-            comby.AlignType(LINE_ALIGN_CELLBUTTON);
-            Label* profit = new Label(el.Name(), comby);
-            value = profit;
-            ButtonClosePos* btnClose = new ButtonClosePos("btnClosePos.", comby);
+            element = new Line(el.Name(), GetPointer(this));
+            element.AlignType(LINE_ALIGN_CELLBUTTON);
+            Label* profit = new Label(el.Name(), element);
+            comby.value = profit;
+            ButtonClosePos* btnClose = new ButtonClosePos("btnClosePos.", element);
             btnClose.Font("Wingdings");
             btnClose.FontSize(12);
             btnClose.Text(CharToString(251));
-            comby.Add(profit);
-            comby.Add(btnClose);
-            comby.OptimalWidth(el.OptimalWidth());
-            comby.ConstWidth(el.ConstWidth());
+            element.Add(profit);
+            element.Add(btnClose);
+            element.OptimalWidth(el.OptimalWidth());
+            element.ConstWidth(el.ConstWidth());
+            comby.element = element;
          }
          else
-            comby = GetDefaultEl(el);
+         {
+            comby.element = GetDefaultEl(el);
+            comby.value = comby.element;
+         }
          return comby;
       }
       ///
@@ -369,7 +424,15 @@ class DealLine : public AbstractPos
       DealLine(ProtoNode* parNode, ENUM_TABLE_TYPE tType, Position* mpos, Deal* EntryDeal, Deal* ExitDeal, bool IsLastLine):
       AbstractPos("Deal", ELEMENT_TYPE_DEAL, parNode, tType)
       {
+         if(CheckPointer(mpos) != POINTER_INVALID)
+            pos = mpos;
+         if(CheckPointer(EntryDeal) != POINTER_INVALID)
+            entryDeal = EntryDeal;
+         if(CheckPointer(ExitDeal) != POINTER_INVALID)
+            exitDeal = ExitDeal;
+         isLastLine = IsLastLine;
          BuilderLine();
+         
       }
    private:
       virtual TextNode* GetDefaultEl(DefColumn* el)
@@ -378,26 +441,27 @@ class DealLine : public AbstractPos
          build.FontSize(build.FontSize()-1);
          return build;
       }
-      TextNode* AddColumn(DefColumn* el, TextNode* value)
+      virtual tnode* GetColumn(DefColumn* el)
       {
          ENUM_COLUMN_TYPE cType = el.ColumnType();
-         TextNode* element = NULL;
+         tnode* comby = new tnode;
          switch(cType)
          {
             case COLUMN_COLLAPSE:
-               element = GetCollapseEl(el);
+               comby.element = GetCollapseEl(el);
                break;
             case COLUMN_TRAL:
-               element = GetTralEl(el);
+               comby.element = GetTralEl(el);
+               comby.value = comby.element;
                break;
             default:
-               element = GetDefaultEl(el);
+               comby.element = GetDefaultEl(el);
+               comby.value = comby.element;
                break;
          }
-         if(CheckPointer(element) != POINTER_INVALID)
-            element.Text(GetStringValue(cType));
-         value = element;
-         return element;
+         if(CheckPointer(comby.value) != POINTER_INVALID)
+            comby.value.Text(GetStringValue(cType));
+         return comby;
       }
       
       TextNode* GetCollapseEl(DefColumn* el)
@@ -520,5 +584,3 @@ class DealLine : public AbstractPos
       ///
       bool isLastLine;
 };
-
-

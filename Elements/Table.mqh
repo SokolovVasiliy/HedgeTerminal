@@ -7,13 +7,34 @@
 #include "Label.mqh"
 #include "Scroll.mqh"
 #include "TableWork.mqh"
-#include "TableDirective.mqh"
-#include "TableAbstrPos2.mqh"
+//#include "TableDirective.mqh"
+
+
 
 #ifndef TABLE_MQH
    #define TABLE_MQH
 #endif 
 
+///
+/// Определяет тип таблицы позиций. Используется в качестве части комбинированного поля совместно с ENUM_TABLE_TYPE_ELEMENT.
+///
+enum ENUM_TABLE_TYPE
+{
+   ///
+   /// Таблица по-умолчанию. Комбинация флагов не используется.
+   ///
+   TABLE_DEFAULT = 0,
+   ///
+   /// Таблица открытых позиций.
+   ///
+   TABLE_POSACTIVE = 1,
+   ///
+   /// Таблица исторических позиций.
+   ///
+   TABLE_POSHISTORY = 2,
+};
+
+#include "TableAbstrPos2.mqh"
 ///
 /// Класс "Таблица" представляет из себя универсальный контейнер, состоящий из трех элементов:
 /// 1. Заголовок таблицы;
