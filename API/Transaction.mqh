@@ -2,6 +2,8 @@
 #include <Arrays\ArrayLong.mqh>
 #include <Trade\Trade.mqh>
 #include "..\Time.mqh"
+
+class COrder;
 //#include "..\Elements\TablePositions.mqh"
 ///
 /// Тип транзакции.
@@ -132,6 +134,7 @@ class Transaction : public CObject
       /// Получает уникальный идентификатор транзакции.
       ///
       ulong GetId(){return currId;}
+      
    protected:
       ///
       /// Возвращает цену входа трназакции на рынок.
@@ -237,6 +240,7 @@ class Transaction : public CObject
       /// Истина, если название инструмента было получено ранее и запомнено.
       ///
       bool isSymbol;
+      
    private:
       
       ///
@@ -253,11 +257,7 @@ class Transaction : public CObject
       ///
       /// Текущий идентификатор транзакции, с которым работают функции.
       ///
-      ulong currId;
-      
-      
-      
-      
+      ulong currId; 
 };
 
 ///
@@ -312,6 +312,10 @@ class Position : public Transaction
          InitPosition(in_ticket, in_deals, out_ticket, out_deals);
       }
       
+      Position(ulong in_ticket, CArrayObj* in_deals, ulong out_ticket, CArrayObj* out_deals): Transaction(TRANS_POSITION)
+      {
+         InitPositionByDeal(in_ticket, in_deals, out_ticket, out_deals);
+      }
       ///
       /// Возвращает указатель на строку отображающей представление позиции.
       ///
@@ -625,7 +629,19 @@ class Position : public Transaction
       ///
       double VolumeExecuted()
       {
-         return VolumeInit() - VolumeReject();
+         if(posStatus == POSITION_STATUS_PENDING ||
+            posStatus != POSITION_STATUS_NULL)
+            return 0.0;
+         // Объем у активных и исторических позиций равен
+         // сумме объемов всех входящих сделок.
+         int total = entryDeals.Total();
+         double total_vol = 0.0;
+         for(int i = 0; i < total; i++)
+         {
+            Deal* deal = entryDeals.At(i);
+            total_vol += deal.VolumeExecuted();
+         }
+         return total_vol;
       }
       ///
       /// Возвращает текущую цену инструмента, по которому совершена транзакция.
@@ -733,37 +749,78 @@ class Position : public Transaction
       ///
       /// Обрабатывает новый ордер и добавляет его сделки в позицию.
       ///
-      void AddOrder(COrder* order)
+      /*void AddOrder1(COrder* order)
       {
+         COrder* in_order = order.InOrder();
          //Я активная позиция?
-         if(posStatus() == POSITION_STATUS_OPEN)
+         if(posStatus == POSITION_STATUS_OPEN)
          {
-            COrder* in_order = order.InOrder();
             //Этот ордер меня закрывает?
             if(in_order != NULL && in_order.OrderId() == EntryOrderID())
             {
                //Получаем список закрывающих трейдов.
-               CArrayLong* deals = order.Deals();
+               CArrayObj* deals = order.Deals();
                int total = deals.Total();
-               //Общий закрывающий объем.
-               int cvol = 0;
-               int index = 0;
-               for(int i = 0; i < total; i++)
+               for(int i = 0; i < total;)
                {
-                  Deal* deal = new Deal(deals.At(i));
-                  Deal* my_deal = entryDeals.At(index);
-                  int delta = my_deal.VolumeExecuted() - deal.VolumeExecuted();
-                  // Объем закрывающей сделки меньше объема активной?
-                  if(delta > 0)
+                  int index = 0;
+                  Deal* out_deal = deals.At(i);
+                  if(index == entryDeals.Total())break;
+                  for(;index < entryDeals.Total();)
                   {
-                     ;
+                     
                   }
+                  
+                     Deal* in_deal = entryDeals.At(index);
+                     //САМЫЙ ВАЖНЫЙ УЧАСТОК ВСЕГО ПРОЕКТА!!!
+                     double vdelta = in_deal.VolumeExecuted() - out_deal.VolumeExecuted(); 
+                     //Создаем новый трейд для исторической позиции.
+                     Deal* inDeal = new Deal(in_deal.Ticket());
+                     //Его объем будет равен
+                     in_deal.AddVolume((-1)*out_deal.VolumeExecuted());
+                     
+                     inDeal.AddVolume((-1)* in_deal);
+                     //Входящая сделка полностью переходит в историческую позицию.
+                     //и удаляется из активной позиции.
+                     if(vdelta <= 0.0000)
+                     {
+                        entryDeals.Delete(index);
+                        index++;
+                     } 
+                     // Берем следующий исходящий трейд.
+                     else
+                     {
+                        i++;
+                     }
+                  
                }
+               //Позиция закрыта полностью? - Далее она не может существовать.
+               if(entryDeals.Total() == 0)
+               {
+                  posStatus = POSITION_STATUS_NULL;
+               }
+               return;
+            }
+            // Этот ордер добавляет новые трейды к моей позиции?
+            else if(in_order == NULL && order.OrderId() == EntryOrderID())
+            {
+               //Включаем новые трейды в список входящих трейдов.
+               CArrayObj* deals = order.Deals();
+               entryDeals.AddArray(deals);
+               return;
             }
          }
-         
-         ulong ticket = in_order == NULL ? order.OrderId() : in_order.OrderId();
-      }
+         // Я историческая позиция?
+         else if(posStatus == POSITION_STATUS_CLOSED)
+         {
+            //Этот ордер добавляет мне новые исходящие трейды?
+            if(in_order != NULL && in_order.OrderId() == EntryOrderID())
+            {
+               exitDeals.AddArray(order.Deals());
+            }
+         }
+      }*/
+      
    private:
       enum ENUM_TRANSACTION_CONTEXT
       {
@@ -771,23 +828,15 @@ class Position : public Transaction
          TRANS_OUT
       };
       ///
-      /// Инициализирует новую отрытую позицию
+      /// Инициализирует новую отрытую позицию с уже готовыми сделками.
       ///
       void InitPosition(ulong in_ticket, CArrayLong* in_deals = NULL, ulong out_ticket = 0, CArrayLong* out_deals = NULL)
       {
-         if(in_ticket == 0)
-         {
-            posStatus = POSITION_STATUS_NULL;
-            return;
-         }
-         if(CheckPointer(in_deals) == POINTER_INVALID || in_deals.Total() == 0)
-            posStatus = POSITION_STATUS_PENDING;
-         else if(out_ticket == 0 || CheckPointer(out_deals) == POINTER_INVALID)
-            posStatus = POSITION_STATUS_OPEN;
-         else if(out_deals.Total() != 0)
-            posStatus = POSITION_STATUS_CLOSED;
+         //entryDeals = new CArrayObj();
+         //exitDeals = new CArrayObj();
+         SetStatus(in_ticket, in_deals, out_ticket, out_deals);
+         if(posStatus == POSITION_STATUS_NULL)return;
          inOrderId = in_ticket;
-         
          //Добавляем сделки инициирующего ордера.
          if(posStatus == POSITION_STATUS_OPEN ||
             posStatus == POSITION_STATUS_CLOSED)
@@ -811,7 +860,37 @@ class Position : public Transaction
          }
          outOrderId = out_ticket;
       }
-      
+      ///
+      /// Инициирует позицию с уже готовыми входящими и исходящими трейдами
+      ///
+      void InitPositionByDeal(ulong in_ticket, CArrayObj* in_deals = NULL, ulong out_ticket = 0, CArrayObj* out_deals = NULL)
+      {
+         SetStatus(in_ticket, in_deals, out_ticket, out_deals);
+         if(posStatus == POSITION_STATUS_NULL)return;
+         //if(CheckPointer(in_deals) != POINTER_INVALID)
+         //   entryDeals = in_deals;
+         //if(CheckPointer(out_deals) != POINTER_INVALID)
+         //   exitDeals = out_deals;   
+      }
+      ///
+      /// Устанавливает статус текущей позиции, на основании переданных значений.
+      ///
+      void SetStatus(ulong in_ticket, CArray* in_deals = NULL, ulong out_ticket = 0, CArray* out_deals = NULL)
+      {
+         entryDeals.Sort(SORT_ORDER_ID);
+         exitDeals.Sort(SORT_ORDER_ID);
+         if(in_ticket == 0)
+         {
+            posStatus = POSITION_STATUS_NULL;
+            return;
+         }
+         if(CheckPointer(in_deals) == POINTER_INVALID || in_deals.Total() == 0)
+            posStatus = POSITION_STATUS_PENDING;
+         else if(out_ticket == 0 || CheckPointer(out_deals) == POINTER_INVALID)
+            posStatus = POSITION_STATUS_OPEN;
+         else if(out_deals.Total() != 0)
+            posStatus = POSITION_STATUS_CLOSED;
+      }
       ///
       /// Возвращает время установки открывающего/закрывающего ордера. Если время установки ордера не известно, например, ордер не инициализирован,
       /// будет возвращено NULL.
@@ -944,6 +1023,11 @@ class Position : public Transaction
       /// Указатель на строку, - визуальное представление данной позиции.
       ///
       PosLine* positionLine;
+      ///
+      /// Истина, если требуется полный пересчет параметра позиции. Ложь -
+      /// когда будет возвращен ранее расчитанный параметр позиции.
+      ///
+      bool fullCounting;
 };
 
 class Deal : public Transaction
@@ -1028,8 +1112,12 @@ class Deal : public Transaction
       ///
       double VolumeExecuted()
       {
-         SelectHistoryTransaction();
-         return HistoryDealGetDouble(GetId(), DEAL_VOLUME);
+         if(volExecuted < 0.0)
+         {
+            SelectHistoryTransaction();
+            volExecuted = HistoryDealGetDouble(GetId(), DEAL_VOLUME);
+         }
+         return volExecuted;
       }
       ///
       /// Возвращает комментарий к сделке.
@@ -1051,6 +1139,23 @@ class Deal : public Transaction
             price = SymbolInfoDouble(Symbol(), SYMBOL_ASK);
          return price;
       }
+      ///
+      /// Добавляет либо отнимает указаный объем к сделке
+      /// \param vol - Объем, который надо прибавить либо отнять.
+      ///
+      void AddVolume(double vol)
+      {
+         volExecuted += vol;
+         if(volExecuted < 0)volExecuted = 0;
+      }
+      ///
+      /// Ранее рассчитаный объем позиции.
+      ///
+      double volExecuted;
+      ///
+      /// Истина, если объем позиции был ранее рассчитан.
+      ///
+      bool isVolExecuted;
 };
 
 /*void foo()

@@ -79,8 +79,114 @@ class CHedge
       ///
       void AddNewDeal(ulong ticket)
       {
-         
-         //listOrders.Search();
+         COrder* order = CreateOrderByDeal(ticket);
+         if(order == NULL)return;
+         Deal* newTrade = new Deal(ticket);
+         //Закрывающая сделка?
+         if(order.Direction() == ORDER_OUT)
+         {
+            COrder* in_order = order.InOrder();
+            Position* pos = new Position(in_order.OrderId(), in_order.Tickets(), order.OrderId(), order.Tickets());
+            // Индекс активной позиции, чей объем закрывается частично или полностью текущими трейдами.
+            int iActive = ActivePos.Search(pos);
+            // Индекс исторической позиции, к которой добавляются текущие трейды.
+            int iHistory = HistoryPos.Search(pos);
+            delete pos;
+            //Активная позиция должна существовать всегда, потому что поступивший трейд, если он закрывающий,
+            //может закрыть только активную позицию.
+            if(iActive == -1)
+            {
+               printf("Error: Active position all closed");
+               return;
+            }
+            //Объем трейдов активной позиции надо уменьшить на объем текущего трейда
+            Position* actPos = ActivePos.At(iActive);
+            CArrayObj* entryDeals = actPos.EntryDeals();
+            //Объем, который необходимо сбросить с активной позиции.
+            int volDel = newTrade.VolumeExecuted();
+            CArrayObj* resDeals = new CArrayObj();
+            for(int i = 0; entryDeals.Total(); i++)
+            {
+               Deal* deal = entryDeals.At(i);
+               Deal* resDeal = new Deal(deal.Ticket());
+               resDeals.Add(resDeal);
+               //Обнуляем объем сделки которую пенересем в историческую позицию.
+               resDeal.AddVolume((-1)* resDeal.VolumeExecuted());
+               //Объем который надо закрыть больше текущей сделки?
+               if(volDel >= deal.VolumeExecuted())
+               {
+                  //Переносим остаток объема на следущий трейд, а текущий
+                  //полностью закрываем.
+                  resDeal.AddVolume(deal.VolumeExecuted());
+                  volDel -= deal.VolumeExecuted();
+                  entryDeals.Delete(i);
+               }
+               //Активная сделка продолжает существовать, а ее первая
+               //сделка уменьшается на объем поступившего трейда.
+               else
+               {
+                  resDeal.AddVolume(volDel);
+                  deal.AddVolume((-1)*volDel);
+                  break;
+               }
+            }
+            //Если активная позиция закрыта полностью, то удаляем ее
+            if(entryDeals.Total() == 0)
+            {
+               //Перед удалением, уведомляем панель о удалении позиции.
+               //...
+               ActivePos.Delete(iActive);
+            }
+            else
+            {
+               //Уведомляем панель, что свойства позиции изменились.
+               //..
+               ;
+            }
+            // Если историческая позиция не существует, то это первый закрывающий трейд,
+            // и тогда такую позицию необходимо создать.
+            if(iHistory == -1)
+            {
+               CArrayObj* exitDeals = new CArrayObj();
+               exitDeals.Add(new Deal(newTrade.Ticket()));
+               Position* npos = new Position(in_order.OrderId(), resDeals, order.OrderId(), exitDeals);
+               HistoryPos.InsertSort(npos);
+               //break;
+            }
+            Position* histPos = HistoryPos.At(iHistory);
+            entryDeals = histPos.EntryDeals();
+            for(int i = 0; i < resDeals.Total(); i++)
+            {
+               Deal* addDeal = resDeals.At(i);
+               int iDeal = entryDeals.Search(addDeal);
+               if(iDeal == -1)
+                  entryDeals.InsertSort(addDeal);
+               else
+               {
+                  Deal* histDeal = entryDeals.At(iDeal);
+                  histDeal.AddVolume(addDeal.VolumeExecuted());
+               }
+            }
+         }
+         //Этот трейд относится к открытой позиции, либо инициирует ее. 
+         else
+         {
+            ulong orderId = order.OrderId();
+            Position* pos = new Position(order.OrderId(), order.Tickets());
+            int iActive = ActivePos.Search(pos);
+            //Если позиции нет, ее нужно добавить в список.
+            if(iActive == -1)
+               ActivePos.InsertSort(pos);
+            else
+            {
+               delete pos;
+               pos = ActivePos.At(iActive);
+               CArrayObj* entryDeals = pos.EntryDeals();
+               Deal* deal = new Deal(newTrade.Ticket());
+               entryDeals.Add(deal);
+            }
+            
+         }
       }
       ///
       /// Возвращает количество активных позиций
@@ -116,41 +222,11 @@ class CHedge
             }
          }
       }
+      
+      //void OnAddDeal(EventAddDeal* event){;}
       void OnAddDeal(EventAddDeal* event)
       {
-         COrder* order = CreateOrder(event.DealID());
-         // Закрывающая сделка?
-         if(order.Direction() == ORDER_OUT)
-         {
-            COrder* in_order = order.InOrder();
-            Position* pos = new Position(in_order.OrderId(), in_order.Deals(), order.OrderId(), order.Deals());
-            // Сделка закрывает активную позицию?
-            int aindex = ActivePos.Search(pos);
-            
-            //Это сделка принадлежит ранее установленному закрывающему ордеру?
-            int index = HistoryPos.Search(pos);
-            //Да? - тогда сделка принадлежит к уже существующей исторической позиции.
-            if(index != -1)
-            {
-               //delete pos;
-               Position* hpos = HistoryPos.At(index);
-               // В этом случае наверняка существует активный ордер, который закрывает эта сделка
-               // (частично или полностью).
-               //ActivePos.Search(pos);
-               
-            }
-            //Нет? - тогда создаем новую историческую позицию.
-            else
-            {
-               HistoryPos.InsertSort(pos);
-            }
-            Deal* deal = new Deal(event.DealID());
-            pos.AddExitDeal(deal);
-            // Обновляем отображение о позиции в существующей
-            EventRefreshPos* refresh_pos = new EventRefreshPos(pos);
-            EventExchange::PushEvent(refresh_pos);
-            delete event;
-         }
+         AddNewDeal(event.DealID());
       }
       ///
       /// Обрабатываем обновление позиций
@@ -207,6 +283,7 @@ class CHedge
             // Находим ордер, породивший сделку.
             LoadHistory();
             ulong ticket = HistoryDealGetTicket(i);
+            //AddNewDeal(ticket);
             HistoryDealSelect(ticket);
             if(ticket == 0)continue;
             
@@ -215,7 +292,7 @@ class CHedge
             if(op_type != DEAL_TYPE_BUY && op_type != DEAL_TYPE_SELL)
                continue;
             //Создаем ордер, к которому принадлежит сделка.
-            CreateOrder(ticket);
+            CreateOrderByDeal(ticket);
          }
          //Теперь, когда список ордеров готов, мы можем создать список позиций на их основе.
          total = listOrders.Total();
@@ -229,12 +306,12 @@ class CHedge
                continue;
             if(CheckPointer(out_order) == POINTER_INVALID)
             {
-               pos = new Position(in_order.OrderId(), in_order.Deals());
+               pos = new Position(in_order.OrderId(), in_order.Tickets());
                ActivePos.InsertSort(pos);
             }
             else
             {
-               pos = new Position(in_order.OrderId(), in_order.Deals(), out_order.OrderId(), out_order.Deals());
+               pos = new Position(in_order.OrderId(), in_order.Tickets(), out_order.OrderId(), out_order.Tickets());
                ulong dMagic = out_order.Magic();
                ulong exMagic = pos.ExitMagic();
                HistoryPos.InsertSort(pos);
@@ -247,12 +324,12 @@ class CHedge
       ///
       /// Создает ордер на основе идентификатора сделки.
       ///
-      COrder* CreateOrder(ulong ticket)
+      COrder* CreateOrderByDeal(ulong ticket)
       {
-         ulong order_id;
+         
          LoadHistory();
-         if(!HistoryDealGetInteger(ticket, DEAL_ORDER, order_id))return NULL;
-         //LoadHistory();
+         ulong order_id = HistoryDealGetInteger(ticket, DEAL_ORDER);
+         if(order_id == 0)return NULL;
          COrder* order = new COrder(order_id);
          //Если ордер уже в списке, то повторно создавать его не надо.
          int el = listOrders.Search(order);

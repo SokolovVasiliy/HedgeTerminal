@@ -44,7 +44,8 @@ class TablePositions : public Table
                AddPosition(event);
                break;
             case EVENT_REFRESH:
-               RefreshPrices();
+               if(TableType() == TABLE_POSACTIVE)
+                  RefreshPrices();
                break;
             case EVENT_REFRESH_POS:
                OnRefreshPos(event);

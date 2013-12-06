@@ -1,6 +1,6 @@
 #include <Object.mqh>
 #include <Arrays\ArrayLong.mqh>
-
+#include "Transaction.mqh"
 ///
 /// ѕризнаки, по которым может быть отсортирован список ордеров.
 ///
@@ -38,14 +38,14 @@ class COrder : public CObject
       {
          //ƒл€ быстрого обращени€ список сделок храним
          //всегда в сортированном виде.
-         listDeals.Sort();
+         listTickets.Sort();
          order_id = order;
          magic = HistoryOrderGetInteger(order, ORDER_MAGIC);
          orderDir = ORDER_IN;
       }
       ~COrder()
       {
-         listDeals.Shutdown();
+         listTickets.Shutdown();
       }
       ///
       /// ¬озвращает ссылку на открыающий ордер,
@@ -111,15 +111,27 @@ class COrder : public CObject
       void AddDeal(const ulong ticket)
       {
          //ѕовтор сделок не допускаетс€.
-         if(listDeals.Search(ticket) == -1)
-            listDeals.InsertSort(ticket);
+         if(listTickets.Search(ticket) == -1)
+            listTickets.InsertSort(ticket);
       }
       ///
       /// ¬озвращает список идентификаторов сделок, которые были совершены на основании этого ордера.
       ///
-      CArrayLong* Deals()const
+      CArrayLong* Tickets()const
       {
-         return GetPointer(listDeals);
+         return GetPointer(listTickets);
+      }
+      ///
+      /// √енерирует список сделок на основе тикетов и возвращает
+      /// этот список.
+      ///
+      CArrayObj* Deals()
+      {
+         CArrayObj* deals = new CArrayObj();
+         int total = listTickets.Total();
+         for(int i = 0; i < total; i++)
+            deals.Add(new Deal(listTickets.At(i)));
+         return deals;
       }
       virtual int Compare(const CObject *node, const int mode=0) const
       {
@@ -152,18 +164,8 @@ class COrder : public CObject
       ///
       /// —писок сделок, которые ассоциированы с этим ордером.
       ///
-      CArrayLong listDeals;
-      ///
-      /// ”казатель на закрывающий ордер.
-      ///
-      COrder* out_order;
-      ///
-      /// ”казатель на открывающий ордер.
-      ///
-      COrder* in_order;
-      ///
-      /// Ќаправление ордера.
-      ///
+      CArrayLong listTickets;
+      
       ENUM_ORDER_DIRECTION orderDir;
       ///
       /// —сылка на открывающий ордер.
