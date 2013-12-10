@@ -1,9 +1,9 @@
 
 ///
-/// Абстрактный класс одной из строк таблицы позиций. Строка может быть заголовком таблицы, позицией или сделкой.
+/// Абстрактный класс одной из строк таблицы. Строка может быть заголовком, позицией или сделкой.
 /// Ее тип должен быть определен в момент создания.
 ///
-class AbstractPos : public Line
+class AbstractLine : public Line
 {
    public:
       ///
@@ -59,7 +59,7 @@ class AbstractPos : public Line
             TextNode* value;
       };
       
-      AbstractPos(string myName, ENUM_ELEMENT_TYPE elType, ProtoNode* parNode, ENUM_TABLE_TYPE tType) : Line(myName, elType, parNode)
+      AbstractLine(string myName, ENUM_ELEMENT_TYPE elType, ProtoNode* parNode, ENUM_TABLE_TYPE tType) : Line(myName, elType, parNode)
       {
          tblType = tType;
       }
@@ -159,13 +159,14 @@ class AbstractPos : public Line
       ProtoNode* protoNodes[];
 };
 
+//class 
 ///
 /// Класс реализует строку-заголовок таблицы позиций.
 ///
-class HeaderPos : public AbstractPos
+class HeaderPos : public AbstractLine
 {
    public:
-      HeaderPos(ProtoNode* parNode, ENUM_TABLE_TYPE tType) : AbstractPos("header", ELEMENT_TYPE_TABLE_HEADER_POS, parNode, tType)
+      HeaderPos(ProtoNode* parNode, ENUM_TABLE_TYPE tType) : AbstractLine("header", ELEMENT_TYPE_TABLE_HEADER_POS, parNode, tType)
       {
          BuilderLine();
       }
@@ -235,10 +236,10 @@ class HeaderPos : public AbstractPos
 ///
 /// Класс реализует строку-позицию таблицы позиций.
 ///
-class PosLine : public AbstractPos
+class PosLine : public AbstractLine
 {
    public:
-      PosLine(ProtoNode* parNode, ENUM_TABLE_TYPE tType, Position* m_pos) : AbstractPos("header", ELEMENT_TYPE_POSITION, parNode, tType)
+      PosLine(ProtoNode* parNode, ENUM_TABLE_TYPE tType, Position* m_pos) : AbstractLine("header", ELEMENT_TYPE_POSITION, parNode, tType)
       {
          if(CheckPointer(m_pos) != POINTER_INVALID)
             pos = m_pos;
@@ -251,6 +252,14 @@ class PosLine : public AbstractPos
       Position* Position()
       {
          return pos;
+      }
+      
+      virtual int Compare(const CObject *node, const int mode=0) const
+      {
+         //const AbstractLine* posLine = node;
+         //Position* fpos = posLine.Position();
+         //return pos.Compare(fpos, mode);
+         return 0;
       }
    private:
       ///
@@ -418,11 +427,11 @@ class PosLine : public AbstractPos
 ///
 /// Класс реализует строку-позицию таблицы позиций.
 ///
-class DealLine : public AbstractPos
+class DealLine : public AbstractLine
 {
    public:
       DealLine(ProtoNode* parNode, ENUM_TABLE_TYPE tType, Position* mpos, Deal* EntryDeal, Deal* ExitDeal, bool IsLastLine):
-      AbstractPos("Deal", ELEMENT_TYPE_DEAL, parNode, tType)
+      AbstractLine("Deal", ELEMENT_TYPE_DEAL, parNode, tType)
       {
          if(CheckPointer(mpos) != POINTER_INVALID)
             pos = mpos;
@@ -437,7 +446,7 @@ class DealLine : public AbstractPos
    private:
       virtual TextNode* GetDefaultEl(DefColumn* el)
       {
-         TextNode* build = AbstractPos::GetDefaultEl(el);
+         TextNode* build = AbstractLine::GetDefaultEl(el);
          build.FontSize(build.FontSize()-1);
          return build;
       }

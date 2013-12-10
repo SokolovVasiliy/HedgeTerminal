@@ -60,7 +60,9 @@ class TreeViewBox : public Label
             Text("");
       }
       ENUM_BOX_TREE_STATE State(){return state;}
-   private:
+      ///
+      /// –азворачиваем либо сворачиваем список.
+      ///
       virtual void OnPush()
       {
          //–еагируем на закрытие и открытие только в том случае, если это плюсик.
@@ -93,7 +95,7 @@ class TreeViewBox : public Label
             }
          }
       }
-      
+   private:
       /*virtual void OnCommand(EventNodeCommand* event)
       {
          if(isGrafh || twb == NULL)return;

@@ -283,7 +283,7 @@ enum ENUM_POSITION_STATUS
    POSITION_STATUS_PENDING
 };
 
-class PosLine;
+
 ///
 ///  ласс представл€ет позицию.
 ///
@@ -319,11 +319,11 @@ class Position : public Transaction
       ///
       /// ¬озвращает указатель на строку отображающей представление позиции.
       ///
-      PosLine* PositionLine(){return positionLine;}
+      CObject* PositionLine(){return positionLine;}
       ///
       /// ”станавливает указатель на строку отображающей представление позиции.
       ///
-      void PositionLine(PosLine* pLine){positionLine = pLine;}
+      void PositionLine(CObject* pLine){positionLine = pLine;}
       ///
       /// ¬озвращает направление, в котором совершена транзакци€
       ///
@@ -832,6 +832,7 @@ class Position : public Transaction
       ///
       void InitPosition(ulong in_ticket, CArrayLong* in_deals = NULL, ulong out_ticket = 0, CArrayLong* out_deals = NULL)
       {
+         positionLine = NULL;
          //entryDeals = new CArrayObj();
          //exitDeals = new CArrayObj();
          SetStatus(in_ticket, in_deals, out_ticket, out_deals);
@@ -877,6 +878,7 @@ class Position : public Transaction
       ///
       void SetStatus(ulong in_ticket, CArray* in_deals = NULL, ulong out_ticket = 0, CArray* out_deals = NULL)
       {
+         SetId(in_ticket);
          entryDeals.Sort(SORT_ORDER_ID);
          exitDeals.Sort(SORT_ORDER_ID);
          if(in_ticket == 0)
@@ -1022,7 +1024,7 @@ class Position : public Transaction
       ///
       /// ”казатель на строку, - визуальное представление данной позиции.
       ///
-      PosLine* positionLine;
+      CObject* positionLine;
       ///
       /// »стина, если требуетс€ полный пересчет параметра позиции. Ћожь -
       /// когда будет возвращен ранее расчитанный параметр позиции.
@@ -1036,6 +1038,8 @@ class Deal : public Transaction
       Deal(ulong inId) : Transaction(TRANS_DEAL)
       {
          SetId(inId);
+         SelectHistoryTransaction();
+         volExecuted = HistoryDealGetDouble(GetId(), DEAL_VOLUME);
       }
       ///
       /// ¬озвращает уникальный идентификатор эксперта, которому принадлежит данна€ сделка.

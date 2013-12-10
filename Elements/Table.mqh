@@ -143,14 +143,14 @@ class Table : public Label
          //tDir.TableType(tableType);
          //ƒл€ таблиц, представл€ющих позиции, формируем специальный заголовок.
          //if(tDir.IsPositionTable())
-         //   lineHeader = new AbstractPos("header", ELEMENT_TYPE_TABLE_HEADER_POS, GetPointer(this));
+         //   lineHeader = new AbstractLine("header", ELEMENT_TYPE_TABLE_HEADER_POS, GetPointer(this));
          tblType = tableType;
          Init(myName, parNode);
       }
       ///
       /// «аголовок таблицы.
       ///
-      AbstractPos* lineHeader;
+      AbstractLine* lineHeader;
       //Line* lineHeader;
       ///
       /// –абоча€ область таблицы

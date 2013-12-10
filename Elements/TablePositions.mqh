@@ -30,14 +30,6 @@ class TablePositions : public Table
       
       virtual void OnEvent(Event* event)
       {
-         if(event.EventId() == EVENT_DEL_POS)
-         {
-            //ƒобавл€ем в список;
-         }
-         else
-         {
-            //»наче провер€ем список. » если он есть;
-         }
          switch(event.EventId())
          {
             case EVENT_CREATE_NEWPOS:
@@ -165,6 +157,7 @@ class TablePositions : public Table
             if(twb != NULL && twb.State() != BOX_TREE_COLLAPSE)continue;
             ENUM_ELEMENT_TYPE elType = twb.TypeElement();
             twb.OnPush();
+            
          }
       }
       ///
@@ -205,23 +198,65 @@ class TablePositions : public Table
             if(node.TypeElement() != ELEMENT_TYPE_POSITION &&
                node.TypeElement() != ELEMENT_TYPE_DEAL)
                continue;
-            AbstractPos* linePos = node;
+            AbstractLine* linePos = node;
             linePos.RefreshValue(COLUMN_CURRENT_PRICE);
             linePos.RefreshValue(COLUMN_PROFIT);
          }
       }
       ///
-      /// ќбновл€ет все свойства позиции
+      /// ќбновл€ет все свойства позиции. ≈сли позиции нет в таблице,
+      /// однако она должна находитс€ в ней, то позици€ будет создана.
       ///
       void OnRefreshPos(EventRefreshPos* event)
       {
          Position* pos = event.Position();
-         CObject* obj = pos.PositionLine();
-         if(CheckPointer(obj) == POINTER_INVALID)return;
-         PosLine* posLine = obj;
-         posLine.RefreshAll();
+         //PosLine* obj = pos.PositionLine();
+         if(CheckPointer(pos.PositionLine()) == POINTER_INVALID)
+         {
+            if(!IsItForMe(pos))return;
+            PosLine* nline = new PosLine(workArea, TableType(), pos);
+            workArea.Add(nline);
+         }
+         else
+         {
+            PosLine* posLine = pos.PositionLine();
+            posLine.RefreshAll();
+            TreeViewBox* tbox = posLine.GetCell(COLUMN_COLLAPSE);
+            if(tbox.State() == BOX_TREE_RESTORE)
+            {
+               tbox.OnPush();
+               tbox.OnPush();
+            }
+         }
+         EventRefresh* er = new EventRefresh(EVENT_FROM_DOWN, NameID());
+         EventSend(er);
+         delete er;
       }
-      
+      ///
+      /// ”дал€ет позицию из списка позиций.
+      ///
+      void DelPosition(EventDelPos* event)
+      {
+         //»з таблицы исторических позиций ничего не может быть удалено.
+         //if(TableType() == TABLE_POSHISTORY)
+         //   return;
+         Position* delPos = event.Position();
+         int total = workArea.ChildsTotal();
+         for(int i = 0; i < total; i++)
+         {
+            AbstractLine* line = workArea.ChildElementAt(i);
+            if(line.TypeElement() != ELEMENT_TYPE_POSITION)continue;
+            PosLine* posLine = line;
+            Position* pos = posLine.Position();
+            if(delPos.EntryOrderID() != pos.EntryOrderID())continue;
+            TreeViewBox* tbox = posLine.GetCell(COLUMN_COLLAPSE);
+            if(tbox == NULL)continue;
+            //≈сли требуетс€ также удалить все отображаемые сделки
+            if(tbox.State() == BOX_TREE_RESTORE)
+               tbox.OnPush();
+            workArea.Delete(i);
+         }
+      }
       ///
       /// ƒобавл€ем новую созданную таблицу, либо раскрывает позицию
       ///
@@ -229,6 +264,28 @@ class TablePositions : public Table
       {
          Position* pos = event.GetPosition();
          if(!IsItForMe(pos))return;
+         //¬озможно позици€, которую необходимо обновить уже есть в списке
+         int total = workArea.ChildsTotal();
+         int i = 0;
+         for(; i < total; i++)
+         {
+            AbstractLine* line = workArea.ChildElementAt(i);
+            if(line.TypeElement() != ELEMENT_TYPE_POSITION)continue;
+            PosLine* posLine = line;
+            posLine.RefreshAll();
+            TreeViewBox* tbox = posLine.GetCell(COLUMN_COLLAPSE);
+            if(tbox.State() == BOX_TREE_RESTORE)
+            {
+               tbox.OnPush();
+               tbox.OnPush();
+            }
+            EventRefresh* er = new EventRefresh(EVENT_FROM_DOWN, NameID());
+            EventSend(er);
+            delete er;
+            break;
+         }
+         //≈сли позици€ так и не была найдена, создаем ее.
+         if(i < total-1)return;
          PosLine* nline = new PosLine(workArea, TableType(), pos);
          workArea.Add(nline);
          //„то бы нова€ позици€ тут же отобразилась в таблице активных позиций
@@ -300,7 +357,7 @@ class TablePositions : public Table
             count++;
          }
          workArea.DeleteRange(sn_line+1, count);
-         PosLine* posLine = node;
+         //PosLine* posLine = node;
          //posLine.IsRestory(false);
       }
       ///

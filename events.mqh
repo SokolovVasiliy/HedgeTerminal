@@ -431,28 +431,7 @@ class EventNodeCommand : public Event
       CArrayObj* pos;
 };*/
 
-///
-/// Событие "Новая позиция создана".
-///
-class EventCreatePos : public Event
-{
-   public:
-      EventCreatePos(ENUM_EVENT_DIRECTION myDir, string nodeId, Position* myPos):
-      Event(myDir, EVENT_CREATE_NEWPOS, nodeId)
-      {
-         pos = myPos;
-      }
-      virtual Event* Clone()
-      {
-         return new EventCreatePos(Direction(), NameNodeId(), pos);
-      }
-      Position* GetPosition(){return pos;}
-   private:
-      ///
-      /// Список изменившихся позиций
-      ///
-      Position* pos;
-};
+
 ///
 /// Событие, генерируемое с заданой периодичностью. Создается в функции OnTimer()
 ///
@@ -513,21 +492,50 @@ class EventObjectClick : public Event
 };
 
 ///
-/// Это событие приходит в ответ, на команду закрыть позицию.
+/// Событие "Новая позиция создана".
+///
+class EventCreatePos : public Event
+{
+   public:
+      EventCreatePos(ENUM_EVENT_DIRECTION myDir, string nodeId, Position* myPos):
+      Event(myDir, EVENT_CREATE_NEWPOS, nodeId)
+      {
+         pos = myPos;
+      }
+      virtual Event* Clone()
+      {
+         return new EventCreatePos(Direction(), NameNodeId(), pos);
+      }
+      Position* GetPosition(){return pos;}
+   private:
+      ///
+      /// Список изменившихся позиций
+      ///
+      Position* pos;
+};
+///
+/// Это событие указывает на позицию, которая должна быть удалена из
+/// списка активных позиций.
 ///
 class EventDelPos : public Event
 {
    public:
-      EventDelPos(ulong posId, string nodeId) : Event(EVENT_FROM_UP, EVENT_DEL_POS, nodeId)
+      EventDelPos(Position* pos) : Event(EVENT_FROM_UP, EVENT_DEL_POS, "Hedge API")
       {
-         positionId = posId;
+         if(CheckPointer(pos) == POINTER_INVALID)return;
+         m_pos = pos;
       }
+      ///
+      /// Возвращает указатель на позицию, которая должна быть удалена.
+      ///
+      Position* Position(){return m_pos;}
       virtual Event* Clone()
       {
-         return new EventDelPos(positionId, NameNodeId());
+         return new EventDelPos(m_pos);
       }
    private:
       ulong positionId;
+      Position* m_pos;
 };
 
 ///
@@ -567,7 +575,7 @@ class EventClosePos : public Event
       
       virtual Event* Clone()
       {
-         return new EventDelPos(positionId, NameNodeId());
+         return new EventClosePos(NameNodeId());
       }
       
    private:
@@ -584,6 +592,7 @@ class EventClosePos : public Event
       ///
       string comment;
 };
+
 class EventCollapseTree : public Event
 {
    public:

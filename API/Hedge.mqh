@@ -103,7 +103,8 @@ class CHedge
             Position* actPos = ActivePos.At(iActive);
             CArrayObj* entryDeals = actPos.EntryDeals();
             //ќбъем, который необходимо сбросить с активной позиции.
-            int volDel = newTrade.VolumeExecuted();
+            double volDel = newTrade.VolumeExecuted();
+            //“рейды, которые будут перенесены в историческую позицию как вход€щие трейды.
             CArrayObj* resDeals = new CArrayObj();
             for(int i = 0; entryDeals.Total(); i++)
             {
@@ -134,26 +135,30 @@ class CHedge
             if(entryDeals.Total() == 0)
             {
                //ѕеред удалением, уведомл€ем панель о удалении позиции.
-               //...
+               EventDelPos* event = new EventDelPos(actPos);
+               EventExchange::PushEvent(event);
+               delete event;
                ActivePos.Delete(iActive);
             }
+            //”ведомл€ем панель, что свойства позиции изменились.
             else
             {
-               //”ведомл€ем панель, что свойства позиции изменились.
-               //..
-               ;
+               EventRefreshPos* event = new EventRefreshPos(actPos);
+               EventExchange::PushEvent(event);
+               delete event;
             }
             // ≈сли историческа€ позици€ не существует, то это первый закрывающий трейд,
             // и тогда такую позицию необходимо создать.
             if(iHistory == -1)
             {
                CArrayObj* exitDeals = new CArrayObj();
-               exitDeals.Add(new Deal(newTrade.Ticket()));
-               Position* npos = new Position(in_order.OrderId(), resDeals, order.OrderId(), exitDeals);
+               Position* npos = new Position(in_order.OrderId(), new CArrayObj(), order.OrderId(), new CArrayObj());
                HistoryPos.InsertSort(npos);
-               //break;
+               iHistory = HistoryPos.Search(npos);
             }
             Position* histPos = HistoryPos.At(iHistory);
+            CArrayObj* exitDeals = histPos.ExitDeals();
+            exitDeals.Add(new Deal(newTrade.Ticket()));
             entryDeals = histPos.EntryDeals();
             for(int i = 0; i < resDeals.Total(); i++)
             {
@@ -167,6 +172,10 @@ class CHedge
                   histDeal.AddVolume(addDeal.VolumeExecuted());
                }
             }
+            //”ведомл€ем панель, что свойства исторической позиции изменились
+            EventRefreshPos* event = new EventRefreshPos(histPos);
+            EventExchange::PushEvent(event);
+            delete event;
          }
          //Ётот трейд относитс€ к открытой позиции, либо инициирует ее. 
          else
@@ -283,8 +292,8 @@ class CHedge
             // Ќаходим ордер, породивший сделку.
             LoadHistory();
             ulong ticket = HistoryDealGetTicket(i);
-            //AddNewDeal(ticket);
-            HistoryDealSelect(ticket);
+            AddNewDeal(ticket);
+            /*HistoryDealSelect(ticket);
             if(ticket == 0)continue;
             
             //«агружаем только торговые операции
@@ -292,10 +301,10 @@ class CHedge
             if(op_type != DEAL_TYPE_BUY && op_type != DEAL_TYPE_SELL)
                continue;
             //—оздаем ордер, к которому принадлежит сделка.
-            CreateOrderByDeal(ticket);
+            CreateOrderByDeal(ticket);*/
          }
          //“еперь, когда список ордеров готов, мы можем создать список позиций на их основе.
-         total = listOrders.Total();
+         /*total = listOrders.Total();
          for(int i = 0; i < total; i++)
          {
             COrder* in_order = listOrders.At(i);
@@ -319,7 +328,8 @@ class CHedge
             EventCreatePos* create_pos = new EventCreatePos(EVENT_FROM_UP, "HP API", pos);
             EventExchange::PushEvent(create_pos);
             delete create_pos;
-         }
+         }*/
+         //printf("ActivePos.Count(): " + ActivePos.Total() + " HistoryPos.Count(): " + HistoryPos.Total());
       }
       ///
       /// —оздает ордер на основе идентификатора сделки.
