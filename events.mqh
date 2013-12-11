@@ -461,7 +461,10 @@ class EventRefresh : public Event
 class EventRefreshPos : public Event
 {
    public:
-      EventRefreshPos(Position* pos) : Event(EVENT_FROM_UP, EVENT_REFRESH_POS, "API"){;}
+      EventRefreshPos(Position* pos) : Event(EVENT_FROM_UP, EVENT_REFRESH_POS, "API")
+      {
+         m_pos = pos;
+      }
       Position* Position(){return m_pos;}
    private:
       Position* m_pos;
@@ -813,15 +816,31 @@ class EventKeyDown : public Event
 class EventAddDeal : public Event
 {
    public:
-      EventAddDeal(ulong deal_id) : Event(EVENT_FROM_UP, EVENT_ADD_DEAL, "API"){;}
+      EventAddDeal(ulong deal_id) : Event(EVENT_FROM_UP, EVENT_ADD_DEAL, "API")
+      {
+         dealId = deal_id;
+      }
+      EventAddDeal(ulong deal_id, ulong order_id) : Event(EVENT_FROM_UP, EVENT_ADD_DEAL, "API")
+      {
+         dealId = deal_id;
+         orderId = order_id;
+      }
       ///
       /// Возвращает уникальный идентификатор сделки.
       ///
       ulong DealID(){return dealId;}
+      ///
+      /// Возвращает ордер, на основании которого возвращен трейд.
+      ///
+      ulong OrderId(){return orderId;}
    private:
       ///
       /// Уникальный идентификатор сделки.
       ///
       ulong dealId;
+      ///
+      /// Ордер, на основании которого совершен трейд.
+      ///
+      ulong orderId;
 };
 

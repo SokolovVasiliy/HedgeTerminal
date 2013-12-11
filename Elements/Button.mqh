@@ -96,7 +96,7 @@ class ButtonClosePos : public Button
          //bool state = ObjectGetInteger(MAIN_WINDOW, NameID(), OBJPROP_STATE);
          ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_STATE, false);
          //Генерируем событие "Поступила команда закрыть позицию"
-         EventClosePos* event = new EventClosePos(ShortName());
+         EventClosePos* event = new EventClosePos(NameID());
          EventSend(event);
          delete event;
       }

@@ -14,6 +14,7 @@ class CHedge
       ///
       void Event(Event* event)
       {
+         ENUM_EVENT enEvent = event.EventId();
          switch(event.EventId())
          {
             //ќбрабатываем приказ на закрытие позиции.
@@ -77,14 +78,25 @@ class CHedge
       ///
       /// ќбрабатывает новую сделку. ƒобавл€ет
       ///
-      void AddNewDeal(ulong ticket)
+      void AddNewDeal(ulong ticket, ulong order_id = 0)
       {
-         COrder* order = CreateOrderByDeal(ticket);
-         if(order == NULL)return;
+         printf("—делка поступила на обработку в CHedge.");
+         COrder* order = NULL;
+         if(order_id == 0)
+            order = CreateOrderByDeal(ticket);
+         else
+            order = CreateOrderById(order_id);
+         if(order == NULL)
+         {
+            printf("ќткрывающий ордер, которому принадлежит сделка с тикетом є" + ticket + " не найден.");
+            return;
+         }
+         order.AddDeal(ticket);
          Deal* newTrade = new Deal(ticket);
          //«акрывающа€ сделка?
          if(order.Direction() == ORDER_OUT)
          {
+            printf("»нициировано закрытие позиции");
             COrder* in_order = order.InOrder();
             Position* pos = new Position(in_order.OrderId(), in_order.Tickets(), order.OrderId(), order.Tickets());
             // »ндекс активной позиции, чей объем закрываетс€ частично или полностью текущими трейдами.
@@ -172,7 +184,7 @@ class CHedge
                   histDeal.AddVolume(addDeal.VolumeExecuted());
                }
             }
-            //”ведомл€ем панель, что свойства исторической позиции изменились
+            //”ведомл€ем панель, что свойства исторической позиции изменились.
             EventRefreshPos* event = new EventRefreshPos(histPos);
             EventExchange::PushEvent(event);
             delete event;
@@ -180,6 +192,7 @@ class CHedge
          //Ётот трейд относитс€ к открытой позиции, либо инициирует ее. 
          else
          {
+            printf("»нициировано открытие позиции");
             ulong orderId = order.OrderId();
             Position* pos = new Position(order.OrderId(), order.Tickets());
             int iActive = ActivePos.Search(pos);
@@ -194,7 +207,10 @@ class CHedge
                Deal* deal = new Deal(newTrade.Ticket());
                entryDeals.Add(deal);
             }
-            
+            //ќбновл€ем информацию о позиции на панели.
+            EventRefreshPos* event = new EventRefreshPos(pos);
+            EventExchange::PushEvent(event);
+            delete event;
          }
       }
       ///
@@ -235,7 +251,7 @@ class CHedge
       //void OnAddDeal(EventAddDeal* event){;}
       void OnAddDeal(EventAddDeal* event)
       {
-         AddNewDeal(event.DealID());
+         AddNewDeal(event.DealID(), event.OrderId());
       }
       ///
       /// ќбрабатываем обновление позиций
@@ -339,7 +355,15 @@ class CHedge
          
          LoadHistory();
          ulong order_id = HistoryDealGetInteger(ticket, DEAL_ORDER);
-         if(order_id == 0)return NULL;
+         if(order_id == 0)
+            return NULL;
+         return CreateOrderById(order_id);
+      }
+      ///
+      /// —оздает ордер на основании его Id.
+      ///
+      COrder* CreateOrderById(ulong order_id)
+      {
          COrder* order = new COrder(order_id);
          //≈сли ордер уже в списке, то повторно создавать его не надо.
          int el = listOrders.Search(order);
@@ -350,7 +374,7 @@ class CHedge
          }
          else
             listOrders.InsertSort(order);
-         order.AddDeal(ticket);
+         //order.AddDeal(ticket);
          //“екущий ордер может быть либо открывающим либо закрывающим.
          //≈сли это закрывающий ордер у него должен быть открывающий ордер
          //иначе он все равно открывающий.

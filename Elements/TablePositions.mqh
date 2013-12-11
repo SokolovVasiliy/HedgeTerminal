@@ -1,13 +1,9 @@
 #include "..\Settings.mqh"
 #include <Arrays\ArrayInt.mqh>
-#ifndef TABLE_MQH
-   #include "Table.mqh"
-#endif
+#include "..\API\Transaction.mqh"
+#include "Table.mqh"
+#include "TableAbstrPos2.mqh"
 
-#ifndef TABLE_ABSTRPOS_MQH
-   //#include "TableAbstrPos.mqh"
-   #include "TableAbstrPos2.mqh"
-#endif
 
 
 #define TABLEPOSITIONS_MQH
@@ -41,6 +37,7 @@ class TablePositions : public Table
                break;
             case EVENT_REFRESH_POS:
                OnRefreshPos(event);
+               break;
             case EVENT_CHECK_BOX_CHANGED:
                OnCheckBoxChanged(event);
                break;
@@ -50,9 +47,9 @@ class TablePositions : public Table
             case EVENT_NODE_CLICK:
                OnNodeClick(event);
                break;
-            //case EVENT_DEL_POS:
-            //   OnDelPos(event);
-            //   break;
+            case EVENT_DEL_POS:
+               OnDelPosition(event);
+               break;
             default:
                EventSend(event);
                break;
@@ -210,22 +207,27 @@ class TablePositions : public Table
       void OnRefreshPos(EventRefreshPos* event)
       {
          Position* pos = event.Position();
-         //PosLine* obj = pos.PositionLine();
-         if(CheckPointer(pos.PositionLine()) == POINTER_INVALID)
+         if(!IsItForMe(pos))return;
+         PosLine* posLine = pos.PositionLine();
+         if(CheckPointer(posLine) == POINTER_INVALID)
          {
-            if(!IsItForMe(pos))return;
             PosLine* nline = new PosLine(workArea, TableType(), pos);
             workArea.Add(nline);
          }
          else
          {
-            PosLine* posLine = pos.PositionLine();
+            //ќбновл€ем все характеристики позиции.
             posLine.RefreshAll();
-            TreeViewBox* tbox = posLine.GetCell(COLUMN_COLLAPSE);
-            if(tbox.State() == BOX_TREE_RESTORE)
+            //ќбновл€ем список всех сделок, если он раскрыт.
+            ProtoNode* node = posLine.GetCell(COLUMN_COLLAPSE);
+            if(node != NULL && node.TypeElement() == ELEMENT_TYPE_TREE_BORDER)
             {
-               tbox.OnPush();
-               tbox.OnPush();
+               TreeViewBoxBorder* tbox = node;
+               if(tbox.State() == BOX_TREE_RESTORE)
+               {
+                  tbox.OnPush();
+                  tbox.OnPush();
+               }
             }
          }
          EventRefresh* er = new EventRefresh(EVENT_FROM_DOWN, NameID());
@@ -235,27 +237,23 @@ class TablePositions : public Table
       ///
       /// ”дал€ет позицию из списка позиций.
       ///
-      void DelPosition(EventDelPos* event)
+      void OnDelPosition(EventDelPos* event)
       {
-         //»з таблицы исторических позиций ничего не может быть удалено.
-         //if(TableType() == TABLE_POSHISTORY)
-         //   return;
          Position* delPos = event.Position();
-         int total = workArea.ChildsTotal();
-         for(int i = 0; i < total; i++)
+         if(!IsItForMe(delPos))return;
+         printf("”дал€ю позицию из списка позиций");
+         PosLine* posLine = delPos.PositionLine();
+         if(CheckPointer(posLine) == POINTER_INVALID)return;
+         ProtoNode* node = posLine.GetCell(COLUMN_COLLAPSE);
+         if(node != NULL && node.TypeElement() == ELEMENT_TYPE_TREE_BORDER)
          {
-            AbstractLine* line = workArea.ChildElementAt(i);
-            if(line.TypeElement() != ELEMENT_TYPE_POSITION)continue;
-            PosLine* posLine = line;
-            Position* pos = posLine.Position();
-            if(delPos.EntryOrderID() != pos.EntryOrderID())continue;
-            TreeViewBox* tbox = posLine.GetCell(COLUMN_COLLAPSE);
-            if(tbox == NULL)continue;
-            //≈сли требуетс€ также удалить все отображаемые сделки
+            TreeViewBoxBorder* tbox = node;
             if(tbox.State() == BOX_TREE_RESTORE)
+            {
                tbox.OnPush();
-            workArea.Delete(i);
+            }
          }
+         workArea.Delete(posLine.NLine());
       }
       ///
       /// ƒобавл€ем новую созданную таблицу, либо раскрывает позицию
@@ -365,6 +363,7 @@ class TablePositions : public Table
       ///
       bool IsItForMe(Position* pos)
       {
+         if(CheckPointer(pos) == POINTER_INVALID)return false;
          ENUM_POSITION_STATUS pType = pos.PositionStatus();
          ENUM_TABLE_TYPE tType = TableType();
          bool rs = (pos.PositionStatus() == POSITION_STATUS_OPEN && TableType() == TABLE_POSACTIVE) ||

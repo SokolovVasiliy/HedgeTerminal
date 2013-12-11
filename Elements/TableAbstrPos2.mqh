@@ -239,7 +239,7 @@ class HeaderPos : public AbstractLine
 class PosLine : public AbstractLine
 {
    public:
-      PosLine(ProtoNode* parNode, ENUM_TABLE_TYPE tType, Position* m_pos) : AbstractLine("header", ELEMENT_TYPE_POSITION, parNode, tType)
+      PosLine(ProtoNode* parNode, ENUM_TABLE_TYPE tType, Position* m_pos) : AbstractLine("PosLine", ELEMENT_TYPE_POSITION, parNode, tType)
       {
          if(CheckPointer(m_pos) != POINTER_INVALID)
             pos = m_pos;
@@ -262,6 +262,19 @@ class PosLine : public AbstractLine
          return 0;
       }
    private:
+      virtual void OnEvent(Event* event)
+      {
+         //Закрываем текущую позицию.
+         if(event.Direction() == EVENT_FROM_DOWN && event.EventId() == EVENT_CLOSE_POS)
+         {
+            if(pos.PositionStatus() != POSITION_STATUS_OPEN)return;
+            string value = GetStringValue(COLUMN_EXIT_COMMENT);
+            printf("Закрываю позицию...");
+            pos.AsynchClose(value);
+         }
+         else
+            EventSend(event);
+      }
       ///
       /// 
       ///

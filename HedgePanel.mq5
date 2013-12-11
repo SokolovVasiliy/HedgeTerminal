@@ -58,9 +58,10 @@ void OnDeinit(const int reason)
 void OnTimer(void)
 {
    EventRefresh* refresh = new EventRefresh(EVENT_FROM_UP, "TERMINAL REFRESH");
-   EventExchange::PushEvent(refresh);
+   HedgePanel.Event(refresh);
+   //EventExchange::PushEvent(refresh);
    delete refresh;
-   ChartRedraw(MAIN_WINDOW);
+   //ChartRedraw(MAIN_WINDOW);
    
    //Принудительно обновляем положение (только для выходных дней)
    /*long X = ChartGetInteger(MAIN_WINDOW, CHART_WIDTH_IN_PIXELS, MAIN_SUBWINDOW);
@@ -78,9 +79,11 @@ void  OnTradeTransaction(
       const MqlTradeResult&         result
    )
 {
+   //printf("OnTradeTransaction: " + EnumToString(trans.type));
    if(trans.type == TRADE_TRANSACTION_DEAL_ADD)
    {
-      EventAddDeal* deal = new EventAddDeal(trans.deal);  
+      printf("Пришла новая сделка.");
+      EventAddDeal* deal = new EventAddDeal(trans.deal, trans.order);  
       api.Event(deal);
       delete deal;
    }
@@ -116,8 +119,10 @@ void OnChartEvent(const int id,
    //Определяем, является ли событие нажатием на одну из кнопок HP
    if(id == CHARTEVENT_OBJECT_CLICK)
    {
+      printf("Начинаю обрабатывать нажатие кнопки...");
       EventObjectClick* pushObj = new EventObjectClick(sparam);
       HedgePanel.Event(pushObj);
+      printf("Нажатие кнопки обработано.");
       delete pushObj;
    }
    //Нажата кнопка.

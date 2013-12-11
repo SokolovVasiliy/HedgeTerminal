@@ -145,10 +145,7 @@ class TreeViewBoxBorder : public Label
          //}
       }
       ProtoNode* ParentNode(){return parentNode;}      
-      ///
-      /// Вызывает действия срабатывающие при нажатии кнопки.
-      ///
-      void Pushed(){OnPush();}
+      
       ///
       /// Возвращает статус нажатия списка.
       ///
@@ -157,7 +154,7 @@ class TreeViewBoxBorder : public Label
          return state;
       }
       ///
-      /// Разворачивает и сворачивает список.
+      /// Нажимает кнопку. Разворачивает и сворачивает список.
       ///
       virtual void OnPush()
       {
@@ -232,7 +229,7 @@ class TreeViewBoxBorder : public Label
             {
                if(parentNode != NULL)
                {
-                  treeViewBox.Pushed();
+                  treeViewBox.OnPush();
                }
             }
             TreeViewBoxBorder* treeViewBox;

@@ -4,6 +4,10 @@
 #include "..\Time.mqh"
 
 class COrder;
+class Deal;
+class Position;
+class PosLine;
+
 //#include "..\Elements\TablePositions.mqh"
 ///
 /// Тип транзакции.
@@ -28,8 +32,7 @@ enum ENUM_DIRECTION_TYPE
    DIRECTION_LONG,
    DIRECTION_SHORT
 };
-class Deal;
-class Position;
+
 ///
 /// Предоставляет абстрактную транзакцию: сделку, ордер, либо любую другую операцию на счете.
 ///
@@ -85,7 +88,7 @@ class Transaction : public CObject
          double d = ProfitInPips();
          int digits = (int)SymbolInfoInteger(Symbol(), SYMBOL_DIGITS);
          double point = SymbolInfoDouble(Symbol(), SYMBOL_POINT);
-         string points = DoubleToString(d/point, 0) + "p.";
+         string points = point == 0 ? "0p." : DoubleToString(d/point, 0) + "p.";
          return points;
       }
       ///
@@ -319,7 +322,10 @@ class Position : public Transaction
       ///
       /// Возвращает указатель на строку отображающей представление позиции.
       ///
-      CObject* PositionLine(){return positionLine;}
+      PosLine* PositionLine()
+      {
+         return positionLine;
+      }
       ///
       /// Устанавливает указатель на строку отображающей представление позиции.
       ///
@@ -630,7 +636,7 @@ class Position : public Transaction
       double VolumeExecuted()
       {
          if(posStatus == POSITION_STATUS_PENDING ||
-            posStatus != POSITION_STATUS_NULL)
+            posStatus == POSITION_STATUS_NULL)
             return 0.0;
          // Объем у активных и исторических позиций равен
          // сумме объемов всех входящих сделок.
@@ -878,7 +884,11 @@ class Position : public Transaction
       ///
       void SetStatus(ulong in_ticket, CArray* in_deals = NULL, ulong out_ticket = 0, CArray* out_deals = NULL)
       {
-         SetId(in_ticket);
+         if(in_ticket > 0)
+            inOrderId = in_ticket;
+         if(out_ticket > 0)
+            outOrderId = out_ticket;
+         SetId(inOrderId);
          entryDeals.Sort(SORT_ORDER_ID);
          exitDeals.Sort(SORT_ORDER_ID);
          if(in_ticket == 0)
@@ -886,11 +896,11 @@ class Position : public Transaction
             posStatus = POSITION_STATUS_NULL;
             return;
          }
-         if(CheckPointer(in_deals) == POINTER_INVALID || in_deals.Total() == 0)
+         if(CheckPointer(in_deals) == POINTER_INVALID)
             posStatus = POSITION_STATUS_PENDING;
          else if(out_ticket == 0 || CheckPointer(out_deals) == POINTER_INVALID)
             posStatus = POSITION_STATUS_OPEN;
-         else if(out_deals.Total() != 0)
+         else
             posStatus = POSITION_STATUS_CLOSED;
       }
       ///
@@ -1024,7 +1034,7 @@ class Position : public Transaction
       ///
       /// Указатель на строку, - визуальное представление данной позиции.
       ///
-      CObject* positionLine;
+      PosLine* positionLine;
       ///
       /// Истина, если требуется полный пересчет параметра позиции. Ложь -
       /// когда будет возвращен ранее расчитанный параметр позиции.
