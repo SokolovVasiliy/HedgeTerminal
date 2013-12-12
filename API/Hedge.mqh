@@ -80,7 +80,7 @@ class CHedge
       ///
       void AddNewDeal(ulong ticket, ulong order_id = 0)
       {
-         printf("Сделка поступила на обработку в CHedge.");
+         
          COrder* order = NULL;
          if(order_id == 0)
             order = CreateOrderByDeal(ticket);
@@ -88,7 +88,7 @@ class CHedge
             order = CreateOrderById(order_id);
          if(order == NULL)
          {
-            printf("Открывающий ордер, которому принадлежит сделка с тикетом №" + ticket + " не найден.");
+            //printf("Открывающий ордер, которому принадлежит сделка с тикетом №" + ticket + " не найден.");
             return;
          }
          order.AddDeal(ticket);
@@ -96,7 +96,6 @@ class CHedge
          //Закрывающая сделка?
          if(order.Direction() == ORDER_OUT)
          {
-            printf("Инициировано закрытие позиции");
             COrder* in_order = order.InOrder();
             Position* pos = new Position(in_order.OrderId(), in_order.Tickets(), order.OrderId(), order.Tickets());
             // Индекс активной позиции, чей объем закрывается частично или полностью текущими трейдами.
@@ -164,9 +163,14 @@ class CHedge
             if(iHistory == -1)
             {
                CArrayObj* exitDeals = new CArrayObj();
+               ulong o_id = in_order.OrderId();
+               int dbg = 5;
+               if(o_id == 1008917622)
+                  dbg = 6;
                Position* npos = new Position(in_order.OrderId(), new CArrayObj(), order.OrderId(), new CArrayObj());
                HistoryPos.InsertSort(npos);
                iHistory = HistoryPos.Search(npos);
+               if(iHistory == -1)return;
             }
             Position* histPos = HistoryPos.At(iHistory);
             CArrayObj* exitDeals = histPos.ExitDeals();
@@ -192,7 +196,6 @@ class CHedge
          //Этот трейд относится к открытой позиции, либо инициирует ее. 
          else
          {
-            printf("Инициировано открытие позиции");
             ulong orderId = order.OrderId();
             Position* pos = new Position(order.OrderId(), order.Tickets());
             int iActive = ActivePos.Search(pos);
@@ -364,7 +367,9 @@ class CHedge
       ///
       COrder* CreateOrderById(ulong order_id)
       {
+         LoadHistory();
          COrder* order = new COrder(order_id);
+         ulong mg = order.Magic();
          //Если ордер уже в списке, то повторно создавать его не надо.
          int el = listOrders.Search(order);
          if(el != -1)

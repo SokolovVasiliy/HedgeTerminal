@@ -28,9 +28,6 @@ class TablePositions : public Table
       {
          switch(event.EventId())
          {
-            case EVENT_CREATE_NEWPOS:
-               AddPosition(event);
-               break;
             case EVENT_REFRESH:
                if(TableType() == TABLE_POSACTIVE)
                   RefreshPrices();
@@ -126,12 +123,16 @@ class TablePositions : public Table
          //“ребуетс€ развернуть/свернуть все позиции?
          if(type == ELEMENT_TYPE_TABLE_HEADER_POS)
          {
+            uint tbegin = GetTickCount();
             // —ворачиваем весь список.
             if(event.IsCollapse())
                CollapseAll();
             // –азворачиваем весь список.
             else RestoreAll();
             //AllocationShow();
+            uint tend = GetTickCount();
+            uint delta = tend - tbegin;
+            printf("Col/Res: " + delta);
          }
          //ќбновл€ем рабочую область дл€ гарантированного позиционировани€
          //строк.
@@ -154,7 +155,6 @@ class TablePositions : public Table
             if(twb != NULL && twb.State() != BOX_TREE_COLLAPSE)continue;
             ENUM_ELEMENT_TYPE elType = twb.TypeElement();
             twb.OnPush();
-            
          }
       }
       ///
@@ -241,7 +241,6 @@ class TablePositions : public Table
       {
          Position* delPos = event.Position();
          if(!IsItForMe(delPos))return;
-         printf("”дал€ю позицию из списка позиций");
          PosLine* posLine = delPos.PositionLine();
          if(CheckPointer(posLine) == POINTER_INVALID)return;
          ProtoNode* node = posLine.GetCell(COLUMN_COLLAPSE);
@@ -254,43 +253,6 @@ class TablePositions : public Table
             }
          }
          workArea.Delete(posLine.NLine());
-      }
-      ///
-      /// ƒобавл€ем новую созданную таблицу, либо раскрывает позицию
-      ///
-      void AddPosition(EventCreatePos* event)
-      {
-         Position* pos = event.GetPosition();
-         if(!IsItForMe(pos))return;
-         //¬озможно позици€, которую необходимо обновить уже есть в списке
-         int total = workArea.ChildsTotal();
-         int i = 0;
-         for(; i < total; i++)
-         {
-            AbstractLine* line = workArea.ChildElementAt(i);
-            if(line.TypeElement() != ELEMENT_TYPE_POSITION)continue;
-            PosLine* posLine = line;
-            posLine.RefreshAll();
-            TreeViewBox* tbox = posLine.GetCell(COLUMN_COLLAPSE);
-            if(tbox.State() == BOX_TREE_RESTORE)
-            {
-               tbox.OnPush();
-               tbox.OnPush();
-            }
-            EventRefresh* er = new EventRefresh(EVENT_FROM_DOWN, NameID());
-            EventSend(er);
-            delete er;
-            break;
-         }
-         //≈сли позици€ так и не была найдена, создаем ее.
-         if(i < total-1)return;
-         PosLine* nline = new PosLine(workArea, TableType(), pos);
-         workArea.Add(nline);
-         //„то бы нова€ позици€ тут же отобразилась в таблице активных позиций
-         //уведомл€ем родительский элемент, что необходимо сделать refresh
-         EventRefresh* er = new EventRefresh(EVENT_FROM_DOWN, NameID());
-         EventSend(er);
-         delete er;
       }
       
       ///

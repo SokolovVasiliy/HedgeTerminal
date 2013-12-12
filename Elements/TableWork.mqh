@@ -3,6 +3,7 @@ class CWorkArea : public Label
    public:
       CWorkArea(Table* parNode) : Label(ELEMENT_TYPE_WORK_AREA, "WorkArea", parNode)
       {
+         //childNodes.Reserve(512);
          table = parNode;   
          highLine = 20;
          Text("");
@@ -22,10 +23,13 @@ class CWorkArea : public Label
       ///
       void Add(ProtoNode* lineNode, int pos)
       {
+         
          childNodes.Insert(lineNode, pos);
          lineNode.NLine(pos);
          //после вставки элемента, все последующие элементы изменили свои координаты.
-         OnCommand();
+         //uint tbegin = GetTickCount();
+         //OnCommand();
+         //printf("Add El: " + (string)(GetTickCount() - tbegin));
          /*int total = ChildsTotal();
          for(int i = pos; i < total; i++)
             RefreshLine(i);*/
@@ -282,6 +286,7 @@ class CWorkArea : public Label
       {
          //Команды снизу не принимаются.
          if(!Visible() || event.Direction() == EVENT_FROM_DOWN)return;
+         //printf("Вызываю OnCommand...");
          OnCommand();
          return;
          int total = ChildsTotal();

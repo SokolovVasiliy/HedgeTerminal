@@ -97,6 +97,7 @@ class AbstractLine : public Line
       {
          TextNode* build = NULL;
          build = new Label(el.Name(), GetPointer(this));
+         //build.BorderColor(clrRed);
          build.OptimalWidth(el.OptimalWidth());
          build.ConstWidth(el.ConstWidth());
          return build;
@@ -227,7 +228,7 @@ class HeaderPos : public AbstractLine
       {
          TextNode* build = NULL;
          build = GetDefaultEl(el);
-         build.Text(CharToString(168));
+         build.Text(CharToString(79));
          build.Font("Wingdings");
          return build;
       }
@@ -269,7 +270,6 @@ class PosLine : public AbstractLine
          {
             if(pos.PositionStatus() != POSITION_STATUS_OPEN)return;
             string value = GetStringValue(COLUMN_EXIT_COMMENT);
-            printf("Закрываю позицию...");
             pos.AsynchClose(value);
          }
          else
@@ -308,6 +308,7 @@ class PosLine : public AbstractLine
       {
          Label* tbox = NULL;
          tbox = new TreeViewBoxBorder(el.Name(), GetPointer(this), BOX_TREE_GENERAL);
+         tbox.BorderColor(clrGreen);
          tbox.OptimalWidth(el.OptimalWidth());
          tbox.ConstWidth(el.ConstWidth());
          return tbox;
@@ -319,6 +320,7 @@ class PosLine : public AbstractLine
          build = new CheckBox(el.Name(), GetPointer(this));
          build.Text(CharToString(168));
          build.Font("Wingdings");
+         build.FontSize(12);
          build.OptimalWidth(el.OptimalWidth());
          build.ConstWidth(el.ConstWidth());
          return build;

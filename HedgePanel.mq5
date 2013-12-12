@@ -82,7 +82,6 @@ void  OnTradeTransaction(
    //printf("OnTradeTransaction: " + EnumToString(trans.type));
    if(trans.type == TRADE_TRANSACTION_DEAL_ADD)
    {
-      printf("Пришла новая сделка.");
       EventAddDeal* deal = new EventAddDeal(trans.deal, trans.order);  
       api.Event(deal);
       delete deal;
@@ -119,10 +118,8 @@ void OnChartEvent(const int id,
    //Определяем, является ли событие нажатием на одну из кнопок HP
    if(id == CHARTEVENT_OBJECT_CLICK)
    {
-      printf("Начинаю обрабатывать нажатие кнопки...");
       EventObjectClick* pushObj = new EventObjectClick(sparam);
       HedgePanel.Event(pushObj);
-      printf("Нажатие кнопки обработано.");
       delete pushObj;
    }
    //Нажата кнопка.

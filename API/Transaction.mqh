@@ -114,24 +114,30 @@ class Transaction : public CObject
       {
          return (int)SymbolInfoInteger(Symbol(), SYMBOL_DIGITS);
       }
-      virtual int Compare(const CObject *node, const int mode=0) const
+      ///
+      /// Переопределяем сравнение.
+      ///
+      virtual int Compare(const CObject *node, const int mode=0)
       {
-         const Transaction* my_order = node;
-         int LESS = -1;
-         int GREATE = 1;
-         int EQUAL = 0;
-         switch(mode)
+         const Transaction* myTrans = node;
+         ulong nodeValue = myTrans.GetCompareValueInt((ENUM_SORT_TRANSACTION)mode);
+         ulong myValue = GetCompareValueInt((ENUM_SORT_TRANSACTION)mode);
+         if(myValue > nodeValue)return GREATE;
+         if(myValue < nodeValue)return LESS;
+         return EQUAL;
+      }
+      
+      virtual ulong GetCompareValueInt(ENUM_SORT_TRANSACTION sortType)
+      {
+         switch(sortType)
          {
+            case SORT_MAGIC:
+               return Magic();
             case SORT_ORDER_ID:
             default:
-               if(currId > my_order.GetId())
-                  return GREATE;
-               if(currId < my_order.GetId())
-                  return LESS;
-               if(currId == my_order.GetId())
-                  return EQUAL;
+               return currId;
          }
-         return EQUAL;
+         return 0;
       }
       ///
       /// Получает уникальный идентификатор транзакции.
@@ -752,81 +758,51 @@ class Position : public Transaction
          if(posStatus != POSITION_STATUS_CLOSED)return;
          entryDeals.Add(deal);
       }
-      ///
-      /// Обрабатывает новый ордер и добавляет его сделки в позицию.
-      ///
-      /*void AddOrder1(COrder* order)
-      {
-         COrder* in_order = order.InOrder();
-         //Я активная позиция?
-         if(posStatus == POSITION_STATUS_OPEN)
-         {
-            //Этот ордер меня закрывает?
-            if(in_order != NULL && in_order.OrderId() == EntryOrderID())
-            {
-               //Получаем список закрывающих трейдов.
-               CArrayObj* deals = order.Deals();
-               int total = deals.Total();
-               for(int i = 0; i < total;)
-               {
-                  int index = 0;
-                  Deal* out_deal = deals.At(i);
-                  if(index == entryDeals.Total())break;
-                  for(;index < entryDeals.Total();)
-                  {
-                     
-                  }
-                  
-                     Deal* in_deal = entryDeals.At(index);
-                     //САМЫЙ ВАЖНЫЙ УЧАСТОК ВСЕГО ПРОЕКТА!!!
-                     double vdelta = in_deal.VolumeExecuted() - out_deal.VolumeExecuted(); 
-                     //Создаем новый трейд для исторической позиции.
-                     Deal* inDeal = new Deal(in_deal.Ticket());
-                     //Его объем будет равен
-                     in_deal.AddVolume((-1)*out_deal.VolumeExecuted());
-                     
-                     inDeal.AddVolume((-1)* in_deal);
-                     //Входящая сделка полностью переходит в историческую позицию.
-                     //и удаляется из активной позиции.
-                     if(vdelta <= 0.0000)
-                     {
-                        entryDeals.Delete(index);
-                        index++;
-                     } 
-                     // Берем следующий исходящий трейд.
-                     else
-                     {
-                        i++;
-                     }
-                  
-               }
-               //Позиция закрыта полностью? - Далее она не может существовать.
-               if(entryDeals.Total() == 0)
-               {
-                  posStatus = POSITION_STATUS_NULL;
-               }
-               return;
-            }
-            // Этот ордер добавляет новые трейды к моей позиции?
-            else if(in_order == NULL && order.OrderId() == EntryOrderID())
-            {
-               //Включаем новые трейды в список входящих трейдов.
-               CArrayObj* deals = order.Deals();
-               entryDeals.AddArray(deals);
-               return;
-            }
-         }
-         // Я историческая позиция?
-         else if(posStatus == POSITION_STATUS_CLOSED)
-         {
-            //Этот ордер добавляет мне новые исходящие трейды?
-            if(in_order != NULL && in_order.OrderId() == EntryOrderID())
-            {
-               exitDeals.AddArray(order.Deals());
-            }
-         }
-      }*/
       
+      ///
+      /// Переопределяем сравнение.
+      ///
+      virtual int Compare(const CObject *node, const int mode=0)
+      {
+         const Position* myPos = node;
+         //Значение, которое будет сравниваться.
+         ulong value;
+         switch(mode)
+         {
+            case SORT_ORDER_ID:
+               SetId(inOrderId);
+               //value = myPos.EntryOrderID();
+               //break;
+            //case SORT_EXIT_ORDER_ID:
+            //   SetId(outOrderId);
+               
+            default:
+            {
+               ulong orderId = myPos.EntryOrderID();
+               if(GetId() > orderId)
+                  return GREATE;
+               if(GetId() < orderId)
+                  return LESS;
+               //else
+               return EQUAL;
+            }
+         }
+         return EQUAL;
+      }
+      ///
+      /// Возвращает целочисленное значение, которое необходимо сравнить с другим экземляром Transaction
+      ///
+      virtual ulong GetCompareValueInt(ENUM_SORT_TRANSACTION sortType)
+      {
+         switch(sortType)
+         {
+            case SORT_ORDER_ID:
+               return inOrderId;
+            case SORT_EXIT_ORDER_ID:
+               return outOrderId;
+         }
+         return 0;
+      }
    private:
       enum ENUM_TRANSACTION_CONTEXT
       {

@@ -7,17 +7,21 @@ class CTheme
 {
    public:
       ///
-      /// Возвращает основной цвет фона.
-      ///
-      color GetBackgroundColor(){return clrWhite;}
-      ///
       /// Возвращает цвет границы элементов.
       ///
-      color GetBorderColor(){return clrBlack;}
+      color GetBorderColor(){return clrRed;}
       ///
-      /// Возвращает цвет системных элементов.
+      /// Возвращает цвет текста.
       ///
-      color GetSystemColor(){return clrWhiteSmoke;}
+      color GetTextColor(){return clrRed;}
+      ///
+      /// Возвращает основной системный цвет.
+      ///
+      color GetSystemColor1(){return clrWhiteSmoke;}
+      ///
+      /// Возвращает вспомогательный системны цвет.
+      ///
+      color GetSystemColor2(){return clrWhite;}
       ///
       /// Возвращает цвет курсора.
       ///

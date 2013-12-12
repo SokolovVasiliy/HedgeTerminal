@@ -8,7 +8,10 @@ class Button : public TextNode
    public:
       Button(string myName, ENUM_ELEMENT_TYPE elType, ProtoNode* parNode) : TextNode(OBJ_BUTTON, elType, myName, parNode)
       {
-         BorderColor(clrBlack);
+         color border = CheckPointer(Settings) != POINTER_INVALID ?
+                        Settings.ColorTheme.GetBorderColor() :
+                        clrBlack;
+         BorderColor(border);
       }
       Button(string myName, ProtoNode* parNode) : TextNode(OBJ_BUTTON, ELEMENT_TYPE_BOTTON, myName, parNode)
       {
@@ -86,7 +89,7 @@ class ButtonClosePos : public Button
          long yAbs = YAbsDistance();
          if(y > yAbs + High() || y < yAbs)res = false;
          if(res)
-            FontColor(clrBlack);
+            FontColor(clrCrimson);
          else
             FontColor(clrDimGray);
          

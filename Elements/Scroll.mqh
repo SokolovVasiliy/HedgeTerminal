@@ -206,9 +206,15 @@ class ClickScroll : public Button
          }
          else itt = -1;
          Font("Wingdings");
-         
-         BackgroundColor(clrWhiteSmoke);
-         BorderColor(clrBlack);
+         color bColor = clrBlack;
+         color bgrColor = clrWhite;
+         if(CheckPointer(Settings) != POINTER_INVALID)
+         {
+            bColor = Settings.ColorTheme.GetBorderColor();
+            bgrColor = Settings.ColorTheme.GetSystemColor2();
+         }
+         BackgroundColor(bgrColor);
+         BorderColor(bColor);
          table = tbl;
       }
    private:
@@ -297,6 +303,7 @@ class Scroll : public ProtoNode
    public:
       Scroll(string myName, ProtoNode* parNode) : ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_SCROLL, myName, parNode)
       {
+         
          BackgroundColor(clrWhiteSmoke); 
          //у скрола есть две кнопки и ползунок.
          up = new ClickScroll(GetPointer(this), parNode, CLICK_SCROLL_UP);

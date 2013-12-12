@@ -1,16 +1,7 @@
 #include <Object.mqh>
 #include <Arrays\ArrayLong.mqh>
 #include "Transaction.mqh"
-///
-/// ѕризнаки, по которым может быть отсортирован список ордеров.
-///
-enum ENUM_SORT_TRANSACTION
-{
-   ///
-   /// —ортировка по тикету ордера
-   ///
-   SORT_ORDER_ID
-};
+
 ///
 /// ќпредел€ет тип ордера.
 ///
@@ -136,9 +127,9 @@ class COrder : public CObject
       virtual int Compare(const CObject *node, const int mode=0) const
       {
          const COrder* my_order = node;
-         int LESS = -1;
+         /*int LESS = -1;
          int GREATE = 1;
-         int EQUAL = 0;
+         int EQUAL = 0;*/
          switch(mode)
          {
             case SORT_ORDER_ID:

@@ -433,6 +433,20 @@ class ProtoNode : public CObject
             ObjectSetInteger(MAIN_WINDOW, nameId, OBJPROP_BGCOLOR, bgColor);
       }
       ///
+      /// Устанавливает цвет, согласно установкам.
+      ///
+      /*void BackgroundColor(ENUM_COLOR_TYPE clrType)
+      {
+         if(!CheckPointer(Settings) != POINTER_INVALID)
+            return clrWhiteSmoke;
+         switch(clrType)
+         {
+            case COLOR_BGROUND:
+               bgColor = Settings.ColorTheme.GetSystemColor1() : clrWhiteSmoke;
+               break
+         }
+      }*/
+      ///
       /// Возвращает цвет заднего фона.
       ///
       color BackgroundColor()
@@ -1057,17 +1071,12 @@ class ProtoNode : public CObject
          optimalHigh = 20;
          optimalWidth = 80;
          borderType = BORDER_RAISED;
-         switch(myElementType)
+         borderColor = clrWhite;
+         bgColor = clrWhite;
+         if(CheckPointer(Settings) != POINTER_INVALID)
          {
-            case ELEMENT_TYPE_GCONTAINER:
-            case ELEMENT_TYPE_VCONTAINER:
-               borderColor = clrBlack;
-               bgColor = clrNONE;
-               break;
-            default:
-               bgColor = clrWhite;
-               borderColor = clrNONE;      
-               break;
+            borderColor = Settings.ColorTheme.GetBorderColor();
+            bgColor = Settings.ColorTheme.GetSystemColor2();
          }
       }
 };

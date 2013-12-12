@@ -103,7 +103,10 @@ class Line : public EditNode
       void Init()
       {
          clearance = 1;
-         BorderColor(clrWhite);
+         color border = CheckPointer(Settings) != POINTER_INVALID ?
+                        Settings.ColorTheme.GetSystemColor2() :
+                        clrBlack;
+         BorderColor(border);
          OptimalHigh(20);
          typeAlign = LINE_ALIGN_SCALE;
       }
