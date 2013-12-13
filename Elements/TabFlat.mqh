@@ -13,6 +13,7 @@ class TabFlat : public Label
          //Задаем свойства самого таба
          ReadOnly(true);
          BorderColor(clrWhiteSmoke);
+         BackgroundColor(clrWhiteSmoke);
          colorBorder = clrBlack;
          iActive = 0;
          

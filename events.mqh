@@ -457,6 +457,7 @@ class EventRefresh : public Event
       EventRefresh(ENUM_EVENT_DIRECTION Dir, string nodeId):
       Event(Dir, EVENT_REFRESH, nodeId){;}
 };
+
 //class Position;
 class EventRefreshPos : public Event
 {

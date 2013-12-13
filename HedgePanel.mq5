@@ -28,15 +28,15 @@ void OnInit(void)
    //Settings* set = Settings::GetSettings1();
    Settings = PanelSettings::Init();
    EventSetMillisecondTimer(RefreshRate);
-   HedgePanel = new MainForm();
    api = new CHedge();
+   HedgePanel = new MainForm();
    EventExchange::Add(HedgePanel);
    EventExchange::Add(api);
-   api.Init();
    EventRedraw* redraw = new EventRedraw(EVENT_FROM_UP, "TERMINAL WINDOW");
    HedgePanel.Event(redraw);   
    delete redraw;
    ChartSetInteger(0, CHART_EVENT_MOUSE_MOVE, true);
+   //OnTimer();
 }
 void OnDeinit(const int reason)
 {
@@ -58,10 +58,11 @@ void OnDeinit(const int reason)
 void OnTimer(void)
 {
    EventRefresh* refresh = new EventRefresh(EVENT_FROM_UP, "TERMINAL REFRESH");
+   api.Event(refresh);
    HedgePanel.Event(refresh);
    //EventExchange::PushEvent(refresh);
    delete refresh;
-   //ChartRedraw(MAIN_WINDOW);
+   ChartRedraw(MAIN_WINDOW);
    
    //Принудительно обновляем положение (только для выходных дней)
    /*long X = ChartGetInteger(MAIN_WINDOW, CHART_WIDTH_IN_PIXELS, MAIN_SUBWINDOW);
@@ -82,9 +83,9 @@ void  OnTradeTransaction(
    //printf("OnTradeTransaction: " + EnumToString(trans.type));
    if(trans.type == TRADE_TRANSACTION_DEAL_ADD)
    {
-      EventAddDeal* deal = new EventAddDeal(trans.deal, trans.order);  
+      /*EventAddDeal* deal = new EventAddDeal(trans.deal, trans.order);  
       api.Event(deal);
-      delete deal;
+      delete deal;*/
    }
 }
 ///

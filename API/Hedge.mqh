@@ -24,6 +24,9 @@ class CHedge
             case EVENT_ADD_DEAL:
                OnAddDeal(event);
                break;
+            case EVENT_REFRESH:
+               OnRefresh(event);
+               break;
          }
       }
       ///
@@ -62,25 +65,14 @@ class CHedge
          delete HistoryPos;
          listOrders.Clear();
       }
-      
-      void Init()
-      {
-         LoadPosition();
-      }
-      
+            
       ///
-      /// ƒобавл€ет новую позицию в список позиций
-      ///
-      void AddNewPos(ulong ticket)
-      {
-         //ListTickets;
-      }
-      ///
-      /// ќбрабатывает новую сделку. ƒобавл€ет
+      /// ќбрабатывает новую сделку. —оздает/измен€ет/конфигурирует/ позицию. —ама€ важна€ и сложна€ функци€ HedgePanel.  
       ///
       void AddNewDeal(ulong ticket, ulong order_id = 0)
       {
-         
+         //—одержит врем€ выполнени€ блока в милисекундах.
+
          COrder* order = NULL;
          if(order_id == 0)
             order = CreateOrderByDeal(ticket);
@@ -189,9 +181,13 @@ class CHedge
                }
             }
             //”ведомл€ем панель, что свойства исторической позиции изменились.
-            EventRefreshPos* event = new EventRefreshPos(histPos);
-            EventExchange::PushEvent(event);
-            delete event;
+            if(HedgePanel != NULL)
+            {
+               EventRefreshPos* event = new EventRefreshPos(histPos);
+               //EventExchange::PushEvent(event);
+               HedgePanel.Event(event);
+               delete event;
+            }
          }
          //Ётот трейд относитс€ к открытой позиции, либо инициирует ее. 
          else
@@ -211,9 +207,13 @@ class CHedge
                entryDeals.Add(deal);
             }
             //ќбновл€ем информацию о позиции на панели.
-            EventRefreshPos* event = new EventRefreshPos(pos);
-            EventExchange::PushEvent(event);
-            delete event;
+            if(HedgePanel != NULL)
+            {
+               EventRefreshPos* event = new EventRefreshPos(pos);
+               //EventExchange::PushEvent(event);
+               HedgePanel.Event(event);
+               delete event;
+            }
          }
       }
       ///
@@ -256,12 +256,19 @@ class CHedge
       {
          AddNewDeal(event.DealID(), event.OrderId());
       }
+      
       ///
-      /// ќбрабатываем обновление позиций
+      /// —ледит за поступлением новых трейдов и ордеров.
       ///
-      void OnTimer(EventTimer* event)
+      void OnRefresh(EventRefresh* event)
       {
-         ;
+         HistorySelect(0, TimeCurrent());
+         //ѕеребираем все доступные трейды и формируем на их основе прототипы будущих позиций типа COrder
+         for(; dealsCountNow < HistoryDealsTotal(); dealsCountNow++)
+         {  
+            ulong ticket = HistoryDealGetTicket(dealsCountNow);
+            AddNewDeal(ticket);
+         }
       }
       ///
       /// “ип преобразовани€
@@ -293,63 +300,10 @@ class CHedge
       ///
       void LoadHistory(void)
       {
-         HistorySelect(D'1970.01.01', TimeCurrent());
+         HistorySelect(0, TimeCurrent());
       }
       
-      ///
-      /// —оздает из списка ордеров позиции. 
-      ///
-      void LoadPosition()
-      {
-         LoadHistory();
-         int total = HistoryDealsTotal();
-         //ulong prev_order = -1;
-         listOrders.Sort(SORT_ORDER_ID);
-         //ѕеребираем все доступные трейды и формируем на их основе прототипы будущих позиций типа COrder
-         for(int i = 0; i < total; i++)
-         {  
-            // Ќаходим ордер, породивший сделку.
-            LoadHistory();
-            ulong ticket = HistoryDealGetTicket(i);
-            AddNewDeal(ticket);
-            /*HistoryDealSelect(ticket);
-            if(ticket == 0)continue;
-            
-            //«агружаем только торговые операции
-            ENUM_DEAL_TYPE op_type = (ENUM_DEAL_TYPE)HistoryDealGetInteger(ticket, DEAL_TYPE);
-            if(op_type != DEAL_TYPE_BUY && op_type != DEAL_TYPE_SELL)
-               continue;
-            //—оздаем ордер, к которому принадлежит сделка.
-            CreateOrderByDeal(ticket);*/
-         }
-         //“еперь, когда список ордеров готов, мы можем создать список позиций на их основе.
-         /*total = listOrders.Total();
-         for(int i = 0; i < total; i++)
-         {
-            COrder* in_order = listOrders.At(i);
-            COrder* out_order = in_order.OutOrder();
-            Position* pos = NULL;
-            //ulong out_id = out_order.OrderId();
-            if(CheckPointer(in_order.InOrder()) != POINTER_INVALID)
-               continue;
-            if(CheckPointer(out_order) == POINTER_INVALID)
-            {
-               pos = new Position(in_order.OrderId(), in_order.Tickets());
-               ActivePos.InsertSort(pos);
-            }
-            else
-            {
-               pos = new Position(in_order.OrderId(), in_order.Tickets(), out_order.OrderId(), out_order.Tickets());
-               ulong dMagic = out_order.Magic();
-               ulong exMagic = pos.ExitMagic();
-               HistoryPos.InsertSort(pos);
-            }
-            EventCreatePos* create_pos = new EventCreatePos(EVENT_FROM_UP, "HP API", pos);
-            EventExchange::PushEvent(create_pos);
-            delete create_pos;
-         }*/
-         //printf("ActivePos.Count(): " + ActivePos.Total() + " HistoryPos.Count(): " + HistoryPos.Total());
-      }
+      
       ///
       /// —оздает ордер на основе идентификатора сделки.
       ///
@@ -434,5 +388,8 @@ class CHedge
       /// —писок ордеров и их сделок.
       ///
       CArrayObj listOrders;
-
+      ///
+      ///  оличество сделок, которое поступило в течении заданного периода.
+      ///
+      int dealsCountNow;
 };
