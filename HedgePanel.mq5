@@ -8,7 +8,7 @@
 #property copyright  "2013, , Vasiliy Sokolov, St.Petersburg, Russia."
 #property link      "https://login.mql5.com/ru/users/c-4"
 #property version   "1.100"
-
+#define DEBUG
 #include  "Globals.mqh"
 
 ///
@@ -28,13 +28,14 @@ void OnInit(void)
    //Settings* set = Settings::GetSettings1();
    Settings = PanelSettings::Init();
    EventSetMillisecondTimer(RefreshRate);
-   api = new CHedge();
    HedgePanel = new MainForm();
    EventExchange::Add(HedgePanel);
+   api = new CHedge();
    EventExchange::Add(api);
-   EventRedraw* redraw = new EventRedraw(EVENT_FROM_UP, "TERMINAL WINDOW");
-   HedgePanel.Event(redraw);   
-   delete redraw;
+   
+   //EventRedraw* redraw = new EventRedraw(EVENT_FROM_UP, "TERMINAL WINDOW");
+   //HedgePanel.Event(redraw);   
+   //delete redraw;
    ChartSetInteger(0, CHART_EVENT_MOUSE_MOVE, true);
    //OnTimer();
 }
@@ -50,6 +51,7 @@ void OnDeinit(const int reason)
    delete api;
    EventKillTimer();
    delete Settings;
+   //printf("Count: " + (string)chartEventCount);
 }
 
 ///
@@ -88,6 +90,7 @@ void  OnTradeTransaction(
       delete deal;*/
    }
 }
+int chartEventCount;
 ///
 /// ѕодстраиваем размер главной формы панели под размер текущего окна
 ///
@@ -96,6 +99,7 @@ void OnChartEvent(const int id,
                   const double &dparam,
                   const string &sparam)
 {
+   chartEventCount++;
    // оординаты мыши или комбинаци€ нажатых кнопок мыши изменились.
    if(id == CHARTEVENT_MOUSE_MOVE)
    {

@@ -132,7 +132,7 @@ class TablePositions : public Table
             //AllocationShow();
             uint tend = GetTickCount();
             uint delta = tend - tbegin;
-            printf("Col/Res: " + delta);
+            printf("Col/Res: " + (string)delta);
          }
          //Обновляем рабочую область для гарантированного позиционирования
          //строк.

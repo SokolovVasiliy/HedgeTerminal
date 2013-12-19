@@ -270,7 +270,7 @@ class PosLine : public AbstractLine
          {
             if(pos.PositionStatus() != POSITION_STATUS_OPEN)return;
             string value = GetStringValue(COLUMN_EXIT_COMMENT);
-            pos.AsynchClose(value);
+            pos.AsynchClose(pos.VolumeExecuted(), value);
          }
          else
             EventSend(event);

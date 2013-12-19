@@ -279,6 +279,10 @@ enum ENUM_POSITION_STATUS
    ///
    POSITION_STATUS_NULL,
    ///
+   /// Позиция находится в состоянии изменения и недоступна для управления.
+   ///
+   POSITION_STATUS_BLOCKED,
+   ///
    /// Позиция открыта.
    ///
    POSITION_STATUS_OPEN,
@@ -398,15 +402,14 @@ class Position : public Transaction
       ///
       /// Закрывает текущую позицию асинхронно.
       ///
-      void AsynchClose(string comment = NULL)
+      void AsynchClose(double vol, string comment = NULL)
       {
          trading.SetAsyncMode(true);
          trading.SetExpertMagicNumber(EntryOrderID());
          if(Direction() == DIRECTION_LONG)
-            trading.Sell(VolumeExecuted(), Symbol(), 0.0, 0.0, 0.0, comment);
+            trading.Sell(vol, Symbol(), 0.0, 0.0, 0.0, comment);
          else if(Direction() == DIRECTION_SHORT)
-            trading.Buy(VolumeExecuted(), Symbol(), 0.0, 0.0, 0.0, comment);
-         
+            trading.Buy(vol, Symbol(), 0.0, 0.0, 0.0, comment);
       }
       ///
       /// Возвращает название символа, по которому была совершена сделка.

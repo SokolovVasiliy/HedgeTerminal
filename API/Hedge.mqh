@@ -21,11 +21,8 @@ class CHedge
             case EVENT_CLOSE_POS:
                OnClosePos(event);
                break;
-            case EVENT_ADD_DEAL:
-               OnAddDeal(event);
-               break;
             case EVENT_REFRESH:
-               OnRefresh(event);
+               OnRefresh();
                break;
          }
       }
@@ -40,6 +37,8 @@ class CHedge
          listOrders.Sort(SORT_ORDER_ID);
          ActivePos.Sort(SORT_ORDER_ID);
          HistoryPos.Sort(SORT_ORDER_ID);
+         OnRefresh();
+         printf("Recalc position complete.");
       }
       
       ~CHedge()
@@ -69,18 +68,19 @@ class CHedge
       ///
       /// Обрабатывает новую сделку. Создает/изменяет/конфигурирует/ позицию. Самая важная и сложная функция HedgePanel.  
       ///
-      void AddNewDeal(ulong ticket, ulong order_id = 0)
+      void AddNewDeal(ulong ticket)
       {
          //Содержит время выполнения блока в милисекундах.
-
+         #ifdef DEBUG
+            printf("Добавляю новую сделку с тикетом №" + ticket);
+         #endif 
          COrder* order = NULL;
-         if(order_id == 0)
-            order = CreateOrderByDeal(ticket);
-         else
-            order = CreateOrderById(order_id);
+         order = CreateOrderByDeal(ticket);
          if(order == NULL)
          {
-            //printf("Открывающий ордер, которому принадлежит сделка с тикетом №" + ticket + " не найден.");
+            #ifdef DEBUG
+               printf("Открывающий ордер, которому принадлежит сделка с тикетом №" + ticket + " не найден.");
+            #endif
             return;
          }
          order.AddDeal(ticket);
@@ -88,6 +88,9 @@ class CHedge
          //Закрывающая сделка?
          if(order.Direction() == ORDER_OUT)
          {
+            #ifdef DEBUG
+               printf("Ордер, которому принадлжети сделка №" + ticket + " закрывает старую позицию.");
+            #endif
             COrder* in_order = order.InOrder();
             Position* pos = new Position(in_order.OrderId(), in_order.Tickets(), order.OrderId(), order.Tickets());
             // Индекс активной позиции, чей объем закрывается частично или полностью текущими трейдами.
@@ -181,23 +184,27 @@ class CHedge
                }
             }
             //Уведомляем панель, что свойства исторической позиции изменились.
-            if(HedgePanel != NULL)
-            {
-               EventRefreshPos* event = new EventRefreshPos(histPos);
-               //EventExchange::PushEvent(event);
-               HedgePanel.Event(event);
-               delete event;
-            }
+            EventRefreshPos* event = new EventRefreshPos(histPos);
+            EventExchange::PushEvent(event);
+            delete event;
          }
          //Этот трейд относится к открытой позиции, либо инициирует ее. 
          else
          {
+            #ifdef DEBUG
+               printf("Ордер, которому принадлжети сделка №" + ticket + " открывает новую позицию.");
+            #endif
             ulong orderId = order.OrderId();
             Position* pos = new Position(order.OrderId(), order.Tickets());
             int iActive = ActivePos.Search(pos);
             //Если позиции нет, ее нужно добавить в список.
             if(iActive == -1)
+            {
                ActivePos.InsertSort(pos);
+               #ifdef DEBUG
+                  printf("Создаю новую позицию и добавляю ее в список.");
+               #endif
+            }
             else
             {
                delete pos;
@@ -205,15 +212,24 @@ class CHedge
                CArrayObj* entryDeals = pos.EntryDeals();
                Deal* deal = new Deal(newTrade.Ticket());
                entryDeals.Add(deal);
+               #ifdef DEBUG
+                  printf("Обновляю существующую активную позицию.");
+               #endif
             }
+            #ifdef DEBUG
+               printf("Отправляю уведомление о создании новой позиции.");
+            #endif
             //Обновляем информацию о позиции на панели.
-            if(HedgePanel != NULL)
-            {
+            //if(HedgePanel != NULL)
+            //{
                EventRefreshPos* event = new EventRefreshPos(pos);
-               //EventExchange::PushEvent(event);
-               HedgePanel.Event(event);
+               EventExchange::PushEvent(event);
+               //HedgePanel.Event(event);
                delete event;
-            }
+            //}
+            #ifdef DEBUG
+               printf("Уведомление отправлено. Функция успешно завершена");
+            #endif
          }
       }
       ///
@@ -224,12 +240,36 @@ class CHedge
          return ActivePos.Total();
       }
       ///
+      /// Возвращает количество исторических позиций.
+      ///
+      int HistoryPosTotal()
+      {
+         return HistoryPos.Total();
+      }
+      ///
       /// Возвращает активную позицию под номером n из списка позиций.
       ///
       Position* ActivePosAt(int n)
       {
          Position* pos = ActivePos.At(n);
          return pos;
+      }
+      
+      ///
+      /// Следит за поступлением новых трейдов и ордеров.
+      ///
+      void OnRefresh()
+      {
+         HistorySelect(0, TimeCurrent());
+         int total = HistoryDealsTotal();
+         //Перебираем все доступные трейды и формируем на их основе прототипы будущих позиций типа COrder
+         for(; dealsCountNow < total; dealsCountNow++)
+         {  
+            HistorySelect(0, TimeCurrent());
+            //printf("dealsCount: " + dealsCountNow + " Deals Total: " + HistoryDealsTotal());
+            ulong ticket = HistoryDealGetTicket(dealsCountNow);
+            AddNewDeal(ticket);
+         }
       }
    private:
       ///
@@ -245,31 +285,19 @@ class CHedge
             Position* pos = ActivePos.At(i);
             if(pos.EntryOrderID() == id)
             {
-               pos.AsynchClose(comment);
+               pos.AsynchClose(pos.VolumeExecuted(), comment);
                break;
             }
          }
       }
       
       //void OnAddDeal(EventAddDeal* event){;}
-      void OnAddDeal(EventAddDeal* event)
+      /*void OnAddDeal(EventAddDeal* event)
       {
          AddNewDeal(event.DealID(), event.OrderId());
-      }
+      }*/
       
-      ///
-      /// Следит за поступлением новых трейдов и ордеров.
-      ///
-      void OnRefresh(EventRefresh* event)
-      {
-         HistorySelect(0, TimeCurrent());
-         //Перебираем все доступные трейды и формируем на их основе прототипы будущих позиций типа COrder
-         for(; dealsCountNow < HistoryDealsTotal(); dealsCountNow++)
-         {  
-            ulong ticket = HistoryDealGetTicket(dealsCountNow);
-            AddNewDeal(ticket);
-         }
-      }
+      
       ///
       /// Тип преобразования
       ///
