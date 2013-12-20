@@ -12,20 +12,22 @@ class CHedge
       ///
       /// ѕринимает событи€
       ///
+      #ifndef HLIBRARY
       void Event(Event* event)
       {
          ENUM_EVENT enEvent = event.EventId();
          switch(event.EventId())
          {
             //ќбрабатываем приказ на закрытие позиции.
-            case EVENT_CLOSE_POS:
-               OnClosePos(event);
-               break;
+            //case EVENT_CLOSE_POS:
+            //   OnClosePos(event);
+            //   break;
             case EVENT_REFRESH:
                OnRefresh();
                break;
          }
       }
+      #endif
       ///
       ///
       ///
@@ -141,18 +143,22 @@ class CHedge
             if(entryDeals.Total() == 0)
             {
                //ѕеред удалением, уведомл€ем панель о удалении позиции.
+               #ifndef HLIBRARY
                EventDelPos* event = new EventDelPos(actPos);
                EventExchange::PushEvent(event);
                delete event;
+               #endif
                ActivePos.Delete(iActive);
             }
             //”ведомл€ем панель, что свойства позиции изменились.
+            #ifndef HLIBRARY
             else
             {
                EventRefreshPos* event = new EventRefreshPos(actPos);
                EventExchange::PushEvent(event);
                delete event;
             }
+            #endif
             // ≈сли историческа€ позици€ не существует, то это первый закрывающий трейд,
             // и тогда такую позицию необходимо создать.
             if(iHistory == -1)
@@ -184,9 +190,11 @@ class CHedge
                }
             }
             //”ведомл€ем панель, что свойства исторической позиции изменились.
+            #ifndef HLIBRARY
             EventRefreshPos* event = new EventRefreshPos(histPos);
             EventExchange::PushEvent(event);
             delete event;
+            #endif
          }
          //Ётот трейд относитс€ к открытой позиции, либо инициирует ее. 
          else
@@ -222,10 +230,12 @@ class CHedge
             //ќбновл€ем информацию о позиции на панели.
             //if(HedgePanel != NULL)
             //{
+               #ifndef HLIBRARY
                EventRefreshPos* event = new EventRefreshPos(pos);
                EventExchange::PushEvent(event);
                //HedgePanel.Event(event);
                delete event;
+               #endif
             //}
             #ifdef DEBUG
                printf("”ведомление отправлено. ‘ункци€ успешно завершена");
@@ -275,7 +285,7 @@ class CHedge
       ///
       /// ќбрабатывает команду закрыти€ позиции
       ///
-      void OnClosePos(EventClosePos* event)
+      /*void OnClosePos(EventClosePos* event)
       {
          ulong id = event.PositionId();
          string comment = event.CloseComment();
@@ -289,7 +299,7 @@ class CHedge
                break;
             }
          }
-      }
+      }*/
       
       //void OnAddDeal(EventAddDeal* event){;}
       /*void OnAddDeal(EventAddDeal* event)

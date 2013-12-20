@@ -6,7 +6,9 @@
 class COrder;
 class Deal;
 class Position;
+#ifndef HLIBRARY
 class PosLine;
+#endif
 
 //#include "..\Elements\TablePositions.mqh"
 ///
@@ -332,14 +334,18 @@ class Position : public Transaction
       ///
       /// Возвращает указатель на строку отображающей представление позиции.
       ///
+      #ifndef HLIBRARY
       PosLine* PositionLine()
       {
          return positionLine;
       }
+      #endif
       ///
       /// Устанавливает указатель на строку отображающей представление позиции.
       ///
+      #ifndef HLIBRARY
       void PositionLine(CObject* pLine){positionLine = pLine;}
+      #endif
       ///
       /// Возвращает направление, в котором совершена транзакция
       ///
@@ -444,7 +450,7 @@ class Position : public Transaction
             posStatus == POSITION_STATUS_PENDING)
             return 0.0;
          if(posStatus == POSITION_STATUS_OPEN)
-            delta = CurrentPrice() - EntryPriceExecuted();
+            delta = CurrentPrice() - EntryPriceExecuted();   
          if(posStatus == POSITION_STATUS_CLOSED)
             delta = ExitPriceExecuted() - EntryPriceExecuted();
          if(Direction() == DIRECTION_SHORT)
@@ -666,9 +672,10 @@ class Position : public Transaction
          double price = 0.0;
          //Имеем дело с покупками?
          if(PositionType() % 2 == 0)
-            price = SymbolInfoDouble(Symbol(), SYMBOL_BID);
+            price = SymbolInfoDouble(this.Symbol(), SYMBOL_BID);
          else
-            price = SymbolInfoDouble(Symbol(), SYMBOL_ASK);
+            price = SymbolInfoDouble(this.Symbol(), SYMBOL_ASK);
+         //printf("CurentPrice(): " + price);
          return price;
       }
       ///
@@ -817,7 +824,9 @@ class Position : public Transaction
       ///
       void InitPosition(ulong in_ticket, CArrayLong* in_deals = NULL, ulong out_ticket = 0, CArrayLong* out_deals = NULL)
       {
+         #ifndef HLIBRARY
          positionLine = NULL;
+         #endif
          //entryDeals = new CArrayObj();
          //exitDeals = new CArrayObj();
          SetStatus(in_ticket, in_deals, out_ticket, out_deals);
@@ -1013,7 +1022,9 @@ class Position : public Transaction
       ///
       /// Указатель на строку, - визуальное представление данной позиции.
       ///
+      #ifndef HLIBRARY
       PosLine* positionLine;
+      #endif
       ///
       /// Истина, если требуется полный пересчет параметра позиции. Ложь -
       /// когда будет возвращен ранее расчитанный параметр позиции.

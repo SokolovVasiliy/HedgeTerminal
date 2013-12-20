@@ -90,26 +90,21 @@ int HedgeHistoryPositionTotal() export
 bool HedgePositionSelect(int index, ENUM_MODE_SELECT select = SELECT_BY_POS, ENUM_MODE_TRADES pool=MODE_ACTIVE)export
 {
    hedge.OnRefresh();
-   printf("PosSel");
    if(pool == MODE_ACTIVE)
    {
-      printf("PosSelActive");
       if(select == SELECT_BY_POS)
       {
-         printf("total: " + index + " " + hedge.ActivePosTotal());
          if(index >= hedge.ActivePosTotal())
          {
             lastError = ERR_INTERNAL_ERROR;
             return false;
          }
-         printf("PosSel2");
          CurrentPosition = hedge.ActivePosAt(index);
-         if(CheckPointer(CurrentPosition) == POINTER_INVALID);
+         if(CheckPointer(CurrentPosition) == POINTER_INVALID)
          {
             lastError = ERR_INTERNAL_ERROR;
             return false;
          }
-         printf("PosSel3");
          return true;
       }
       return false;
@@ -125,8 +120,21 @@ ulong HedgePositionGetInteger(ENUM_HEDGE_POSITION_PROP_INTEGER property) export
    {
       case HEDGE_POSITION_MAGIC:
          return CurrentPosition.Magic();
+      case HEDGE_POSITION_ENTRY_TIME_SETUP:
+         return GetTiks(CurrentPosition.EntrySetupDate());
+      case HEDGE_POSITION_ENTRY_TIME_EXECUTED:
+         return GetTiks(CurrentPosition.EntryExecutedDate());
+      case HEDGE_POSITION_EXIT_TIME_SETUP:
+         return GetTiks(CurrentPosition.ExitSetupDate()); 
+      case HEDGE_POSITION_EXIT_TIME_EXECUTED:
+         return GetTiks(CurrentPosition.ExitExecutedDate()); 
    }
    return 0;
+}
+ulong GetTiks(CTime* time)
+{
+   if(time == NULL)return 0;
+   return time.Tiks();
 }
 
 double HedgePositionGetDouble(ENUM_HEDGE_POSITION_PROP_DOUBLE property) export
@@ -137,12 +145,27 @@ double HedgePositionGetDouble(ENUM_HEDGE_POSITION_PROP_DOUBLE property) export
    {
       case HEDGE_POSITION_VOLUME:
          return CurrentPosition.VolumeExecuted();
+      case HEDGE_POSITION_PRICE_OPEN:
+         return CurrentPosition.EntryPriceExecuted();
+      case HEDGE_POSITION_PROFIT_POINTS:
+         return CurrentPosition.ProfitInPips();
    }
    return 0;
 }
 
 string HedgePositionGetString(ENUM_HEDGE_POSITION_PROP_STRING property) export
 {
+   if(CheckPointer(CurrentPosition) == POINTER_INVALID)
+      return "";
+   switch(property)
+   {
+      case HEDGE_POSITION_SYMBOL:
+         return CurrentPosition.Symbol();
+      case HEDGE_POSITION_ENTRY_COMMENT:
+         return CurrentPosition.EntryComment();
+      case HEDGE_POSITION_EXIT_COMMENT:
+         return CurrentPosition.ExitComment();
+   }
    return "";
 }
 
@@ -184,6 +207,8 @@ bool HedgeOrderSend(HedgeTradeRequest& hRequest, MqlTradeResult& result) export
          MqlTradeRequest mRequest;
          HedgeToMqlRequest(hRequest, mRequest);
          OrderSend(mRequest, result);
+         if(result.retcode > 0)
+            printf(result.comment);
       }
    }
    return true;

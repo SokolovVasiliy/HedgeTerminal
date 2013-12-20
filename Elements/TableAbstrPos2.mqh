@@ -245,7 +245,9 @@ class PosLine : public AbstractLine
          if(CheckPointer(m_pos) != POINTER_INVALID)
             pos = m_pos;
          BuilderLine();
+         #ifndef HLIBRARY
          pos.PositionLine(GetPointer(this));
+         #endif
       }
       ///
       /// ¬озвращает указатель на позицию, с которой ассоциирована данна€ строка.

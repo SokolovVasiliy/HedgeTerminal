@@ -8,7 +8,7 @@
 #property copyright  "2013, , Vasiliy Sokolov, St.Petersburg, Russia."
 #property link      "https://login.mql5.com/ru/users/c-4"
 #property version   "1.100"
-#define DEBUG
+//#define DEBUG
 #include  "Globals.mqh"
 
 ///

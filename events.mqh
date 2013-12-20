@@ -18,8 +18,10 @@ class EventExchange
       {
          if(api != NULL)
             api.Event(myEvent);
+         #ifndef HLIBRARY
          if(panel != NULL)
             panel.Event(myEvent);
+         #endif
       }
       static Event* PopEvent()
       {
@@ -217,7 +219,9 @@ class Event
       {
          eventDirection = myDirection;
          eventId = myEventId;
+         #ifndef HLIBRARY
          nameNodeId = myNode.NameID();
+         #endif
          node = myNode;
          tickCount = GetTickCount();
       }
@@ -602,7 +606,9 @@ class EventCollapseTree : public Event
    public:
       EventCollapseTree(ENUM_EVENT_DIRECTION myDir, ProtoNode* myNode, bool isCollapse) : Event(EVENT_FROM_DOWN, EVENT_COLLAPSE_TREE, myNode)
       {
+         #ifndef HLIBRARY
          n_line = myNode.NLine();
+         #endif
          status = isCollapse;
       }
       ///
@@ -719,6 +725,8 @@ class EventMouseMove : public Event
       int mask;
 };
 
+//#ifndef HLIBRARY
+//class CheckBox;
 class EventCheckBoxChanged : public Event
 {
    public:
@@ -745,6 +753,7 @@ class EventCheckBoxChanged : public Event
       bool isChecked;
       ENUM_BUTTON_STATE state;
 };
+//ifndef
 
 ///
 /// Это событие посылает графический объект после того, как был нажат
