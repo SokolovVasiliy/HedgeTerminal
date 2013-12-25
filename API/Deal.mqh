@@ -28,12 +28,9 @@ class Deal : public Transaction
          SelectHistoryTransaction();
          volExecuted = HistoryDealGetDouble(GetId(), DEAL_VOLUME);
          //Пытаемся определить тип сделки.
-         DetectTypeOfDeal();
+         //DetectTypeOfDeal();
       }
-      ENUM_DEAL_HEDGE_TYPE DealHedgeType()
-      {
-         return dealType;
-      }
+      
       ///
       /// Возвращает уникальный идентификатор эксперта, которому принадлежит данная сделка.
       ///
@@ -146,7 +143,7 @@ class Deal : public Transaction
          if(volExecuted < 0)volExecuted = 0;
       }
    private:
-      void DetectTypeOfDeal()
+      ENUM_DEAL_HEDGE_TYPE InfoTypeOfDeal()
       {
          ulong dealId = GetId();
          //LoadHistory();
@@ -155,23 +152,16 @@ class Deal : public Transaction
             DealType() != DEAL_TYPE_SELL) ||
             orderId == 0)
          {
-            dealType = DEAL_NO_TRADE;
-            return;
+            return DEAL_NO_TRADE;
          }
          ulong magic = HistoryOrderGetInteger(orderId, ORDER_MAGIC);
          ulong inOrderId = MagicToTicket(magic);
          if(inOrderId == 0)
-         {
-            dealType = DEAL_IN;
-            positionId = orderId;
-         }
+            return DEAL_IN;
          else
-         {
-            dealType = DEAL_OUT;
-            positionId = inOrderId;
-         }
+            return DEAL_OUT;
       }
-      
+      //void FindInOrderId
       ulong MagicToTicket(ulong magic)
       {
          if(magic == 0)return 0;
@@ -190,15 +180,7 @@ class Deal : public Transaction
       ///
       bool isVolExecuted;
       ///
-      /// Тип сделки.
-      ///
-      ENUM_DEAL_HEDGE_TYPE dealType;
-      ///
       /// Идентификатор ордера, на основании которого совершена сделка.
       ///
       ulong orderId;
-      ///
-      /// Идентификатор хеджирующей позиции, к которой принадлежит сделка.
-      ///
-      ulong positionId;
 };

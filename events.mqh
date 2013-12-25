@@ -171,7 +171,7 @@ class Event
       {
          return eventDirection;
       }
-      int EventId(){return eventId;}
+      ENUM_EVENT EventId(){return eventId;}
       ///
       /// Набор параметров любого из события, обязательно содержит имя
       /// графического узла, который это событие инициализировал.

@@ -83,8 +83,8 @@ class Position : public Transaction
          CArrayObj* resDeals = new CArrayObj();
          if(posStatus != POSITION_STATUS_OPEN)
          {
-            LogWriter("Selected position #" + EntryOrderID() + " has status" + EnumToString(posStatus) +
-                      ". Closing deal #" + tradeId + " will be not close this position.", MESSAGE_TYPE_WARNING);
+            LogWriter("Selected position #" + (string)EntryOrderID() + " has status" + EnumToString(posStatus) +
+                      ". Closing deal #" + (string)tradeId + " will be not close this position.", MESSAGE_TYPE_WARNING);
             return resDeals;
          }
          Deal* newTrade = new Deal(tradeId);
@@ -134,7 +134,7 @@ class Position : public Transaction
          }
          else
          {
-            LogWriter("Deal with #" + dealId + " already exists in position #" + EntryOrderID() +
+            LogWriter("Deal with #" + (string)dealId + " already exists in position #" + (string)EntryOrderID() +
                       " Double adding not effect.", MESSAGE_TYPE_WARNING);
             return false;
          }
@@ -588,16 +588,10 @@ class Position : public Transaction
       {
          const Position* myPos = node;
          //Значение, которое будет сравниваться.
-         ulong value;
          switch(mode)
          {
             case SORT_ORDER_ID:
                SetId(inOrderId);
-               //value = myPos.EntryOrderID();
-               //break;
-            //case SORT_EXIT_ORDER_ID:
-            //   SetId(outOrderId);
-               
             default:
             {
                ulong orderId = myPos.EntryOrderID();

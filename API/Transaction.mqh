@@ -21,6 +21,10 @@ enum ENUM_TRANSACTION_TYPE
    ///
    TRANS_POSITION,
    ///
+   /// Транзакция является ордером.
+   ///
+   TRANS_ORDER,
+   ///
    /// Транзакция является сделкой.
    ///
    TRANS_DEAL
@@ -251,9 +255,6 @@ class Transaction : public CObject
       /// Истина, если название инструмента было получено ранее и запомнено.
       ///
       bool isSymbol;
-      
-   private:
-      
       ///
       /// Загружает историю ордеров и сделок.
       ///
@@ -261,6 +262,9 @@ class Transaction : public CObject
       {
          HistorySelect(D'1970.01.01', TimeCurrent());
       }
+   private:
+      
+      
       ///
       /// Тип транзакции.
       ///
@@ -273,3 +277,5 @@ class Transaction : public CObject
 
 #include "Position.mqh"
 #include "Deal.mqh"
+#include "Order.mqh"
+#include "NewPosition.mqh"

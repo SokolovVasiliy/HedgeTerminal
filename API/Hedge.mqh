@@ -199,7 +199,7 @@ class CHedge
          if(iHistory == -1)
          {
             LogWriter("Failed to create a historical position with closed order #" +
-                      orderId + " New deal will be ignored!", MESSAGE_TYPE_ERROR);
+                      (string)orderId + " New deal will be ignored!", MESSAGE_TYPE_ERROR);
             delete npos;
          }
          return iHistory;
@@ -229,7 +229,8 @@ class CHedge
             }
             else
             {
-               LogWriter("Close order detected, but active position not find. Creating active position by closed order #" + dealId + ".", MESSAGE_TYPE_WARNING);
+               LogWriter("Close order detected, but active position not find. Creating active position by closed order #"
+                         + (string)dealId + ".", MESSAGE_TYPE_WARNING);
                CreateActivePos(orderId, dealId);
             }
          }
@@ -293,7 +294,7 @@ class CHedge
       ///
       /// Тип преобразования.
       ///
-      enum ENYM_REGIM_CONV
+      enum ENUM_REGIM_CONV
       {
          MAGIC_TO_TICKET,
          TICKET_TO_MAGIC
@@ -303,11 +304,27 @@ class CHedge
       /// Преобразует magic номер закрывающей позиции в тикет отрывающей, либо
       /// тикет открывающией в magic закрывающей.
       ///
-      ulong FaeryMagic(ulong value, ENYM_REGIM_CONV)
+      ulong FaeryMagic(ulong value, ENUM_REGIM_CONV typeConv)
       {        
-         return value;
+         switch(typeConv)
+         {
+            case MAGIC_TO_TICKET:
+               return MagicToTicket(value);
+            case TICKET_TO_MAGIC:
+               return value;
+         }
+         return 0;
       }
       
+      ulong MagicToTicket(ulong magic)
+      {
+         if(magic == 0)return 0;
+         //TODO: Написать функцию шифрования маджика.
+         ulong inOrderId = magic;
+         //LoadHistory();
+         if(!HistoryOrderSelect(inOrderId))return 0;
+         return inOrderId;
+      }
       ///
       /// Список активных позиций.
       ///
