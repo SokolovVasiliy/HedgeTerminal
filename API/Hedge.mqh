@@ -77,6 +77,21 @@ class CHedge
          else
             CreateHistoryPos(inOrderId, orderId, ticket);
       }
+      
+      //test new addDeal.
+      void NewAddNewDeal(ulong ticket)
+      {
+         Order* order = new Order(new CDeal(ticket));
+         if(order.Status() == ORDER_NULL)
+         {
+            delete order;
+            return;
+         }
+         if(order.InOrderId() == 0)
+            CreateActivePos(order);
+         else
+            CreateHistoryPos(order);
+      }
       ///
       /// ¬озвращает количество активных позиций
       ///
@@ -110,12 +125,74 @@ class CHedge
          //ѕеребираем все доступные трейды и формируем на их основе прототипы будущих позиций типа COrder
          for(; dealsCountNow < total; dealsCountNow++)
          {  
-            LoadHistory();
+            //LoadHistory();
             ulong ticket = HistoryDealGetTicket(dealsCountNow);
-            AddNewDeal(ticket);
+            
+            //TestNewClasses(ticket);
+            //AddNewDeal(ticket);
          }
       }
    private:
+      /*void TestNewClasses(ulong ticket)
+      {
+         //ENUM_DEAL_TYPE type = HistoryDealGetInteger(ticket, DEAL_TYPE);
+         CDeal* deal = new CDeal(ticket);
+         //if(deal.Status() == DEAL_BROKERAGE)return;
+         Order* order = new Order(deal);
+         if(order.Status() == ORDER_NULL)
+         {
+            delete deal;
+            delete order;
+            return;
+         }
+         ulong openOrderId = order.GetOpenOrderId();
+         Order* InOrder;
+         if(openOrderId > 0)
+            InOrder = CreateOrderById(openOrderId);
+         int iActive = ActivePos.Search(InOrder);
+         if(iActive == -1)
+         {
+            CPosition* actPos = new CPosition(InOrder);
+            ActivePos.InsertSort(actPos);
+            iActive = ActivePos.Search(actPos);
+         }
+         CPosition* actPos = ActivePos.At(iActive)
+         CloseResult* cresult = actPos.AddClosingOrder(order);
+         
+          1. —оздаем ордер на основе сделки.
+            2. ”знаем, €вл€етс€ ли этот ордер закрывающим.
+            3. ≈сли ордер закрывающий ищем активную позицию.
+               4. ≈сли активна€ позици€ не найдена - создаем ее на основе открывающего ордера и вставл€ем в список активных позиций.
+               5. »звлекаем активную позицию из списка.
+               6. «акрываем активную позицию закрывающим ордером.
+               7  јнализируем результат.
+            8. ≈сли ордер открывающий, ищем активную позицию к которой надо присоиденить этот ордер, либо создаем новую активную позицию.
+         
+         if(deal.Status() == DEAL_BROKERAGE)
+            printf("#" + (string)ticket + ": " + EnumToString(DEAL_BROKERAGE));
+         else
+         {
+            ulong orderId = deal.OrderId();
+            printf("#" + (string)ticket + ": " + (string)orderId);
+         }
+      }*/
+      
+      /*CreateOrderById(ulong orderId)
+      {
+         Order* order = new Order();
+         for(i = dealsCountNow; i < HistoryDealsTotal(); i++)      
+         {
+            ulong ticket = HistoryDealGetTicket(dealsCountNow);
+            Deal* deal = new Deal(ticket);
+            if(deal.OrderId() != orderId)
+            {
+               delete deal;
+               continue;
+            }
+            order.AddDeal(deal);
+         }
+         return order;
+      }*/
       ///
       /// ќтправл€ет событие "обновление позиции".
       ///
@@ -160,7 +237,21 @@ class CHedge
          }
          SendEventRefreshPos(pos);
       }
-
+      
+      void CreateActivePos(Order* order)
+      {
+         CPosition* pos = new CPosition(order);
+         int iActive = ActivePos.Search(pos);
+         if(iActive == -1)
+            ActivePos.InsertSort(pos);
+         else
+         {
+            delete pos;
+            pos = ActivePos.At(iActive);
+            pos.AddInitialOrder(order);
+         }
+         SendEventRefreshPos(pos);
+      }
       ///
       /// —оздает историческую позицию на основании переданного ордера.
       ///
@@ -184,6 +275,35 @@ class CHedge
          Position* histPos = HistoryPos.At(iHistory);
          histPos.MergeDeals(resDeals, dealId);
          SendEventRefreshPos(histPos);
+      }
+      
+      void CreateHistoryPos(Order* closeOrder)
+      {
+         int iActive = FindOrCreateActivePosByCloseOrder(closeOrder);
+         if(iActive == -1)return;
+         CPosition* actPos = ActivePos.At(iActive);
+         CPosition* histPos = actPos.AddClosingOrder(closeOrder);
+         if(actPos.Status() == POSITION_CLOSE)
+         {
+            SendEventDelPos(actPos);
+            ActivePos.Delete(iActive);
+         }
+         else
+            SendEventRefreshPos(actPos);
+         if(histPos.Status() == POSITION_NULL)
+         {
+            delete histPos;
+            return;
+         }
+         int iHistory = HistoryPos.Search(histPos);
+         if(iHistory != -1)
+         {
+            CPosition* oldPos = HistoryPos.At(iHistory);
+            //oldPos.MergePosition(histPos);
+            delete histPos;
+            return;
+         }
+         HistoryPos.InsertSort(histPos);
       }
       
       ///
@@ -217,7 +337,7 @@ class CHedge
          {
             LoadHistory();
             //Active order find, but class of position not build.
-            if(OrderSelect(inOrderId))
+            if(HistoryOrderSelect(inOrderId))
             {
                CArrayLong* trades = FindDealsIdByOrderId(inOrderId);
                for(int i = 0; i < trades.Total(); i++)

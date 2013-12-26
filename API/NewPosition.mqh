@@ -34,12 +34,13 @@ class CPosition : Transaction
       CPosition(Order* inOrder, Order* outOrder);
       
       CPosition* AddClosingOrder(Order* outOrder);
-      CPosition* AddInitialOrder(Order* inOrder);
+      void AddInitialOrder(Order* inOrder);
       string LastMessage();
+      static bool CheckOrderType(Order* checkOrder);
+      POSITION_STATUS Status();
    private:
       CPosition* AddOrder(Order* order);
-      bool checkOrderStatus(Order* checkOrder);
-      void checkPositionStatus(void);
+      POSITION_STATUS RefreshType(void);
       Order* contextOrder;
       Order* initOrder;
       Order* closingOrder;
@@ -74,10 +75,11 @@ CPosition::CPosition(Order* inOrder, Order* outOrder) : Transaction(TRANS_POSITI
    AddClosingOrder(outOrder);
 }
 
-CPosition* CPosition::AddInitialOrder(Order *inOrder)
+void CPosition::AddInitialOrder(Order *inOrder)
 {
    contextOrder = initOrder;
-   return AddOrder(inOrder);
+   CPosition* pos = AddOrder(inOrder);
+   return;
 }
 
 ///
@@ -89,6 +91,9 @@ CPosition* CPosition::AddClosingOrder(Order* outOrder)
    return AddOrder(outOrder);
 }
 
+///
+/// На переписку.
+///
 CPosition* CPosition::AddOrder(Order* order)
 {
    CPosition* historyPos = NULL;
@@ -97,15 +102,15 @@ CPosition* CPosition::AddOrder(Order* order)
       LogWriter("Adding order failed. Position are history" , MESSAGE_TYPE_ERROR);
       return historyPos;
    }
-   if(!checkOrderStatus(order))
+   if(!CheckOrderType(order))
    {
-      LogWriter("Adding order: " + LastMessage(), MESSAGE_TYPE_ERROR);
+      LogWriter("Adding order has not compatible Type or invalid.", MESSAGE_TYPE_ERROR);
       return historyPos;
    }
-   if(!checkOrderStatus(contextOrder))
+   if(!CheckOrderType(contextOrder))
    {
       contextOrder = order;
-      checkPositionStatus();
+      RefreshType();
       return historyPos;
    }
    if(contextOrder.GetId() != order.GetId())
@@ -118,36 +123,36 @@ CPosition* CPosition::AddOrder(Order* order)
    return historyPos;
 }
 ///
-/// Проверяет, является ли статус переданного ордера совместимым с позицией.
+/// Проверяет, является ли статус переданного ордера совместимым с понятием "позиция".
+/// \return Истина, если ордер может принадлежать позиции, ложь в противном случае.
 ///
-bool CPosition::checkOrderStatus(Order* checkOrder)
+static bool CPosition::CheckOrderType(Order* checkOrder)
 {
    bool isNull = CheckPointer(checkOrder) == POINTER_INVALID;
-   if(isNull || checkOrder.Status() == ORDER_NULL ||
-      checkOrder.Status() == ORDER_PENDING)
+   if(isNull || checkOrder.Type() == ORDER_NULL ||
+      checkOrder.Type() == ORDER_PENDING)
    {
-      string statusInfo = isNull ? "POINTER INVALID" : EnumToString(initOrder.Status());
-      lastMessage = "Check order failed. Order has not compatible status or invalid: " + statusInfo;
       return false;
    }
    return true;
 }
 
 ///
-/// 
+/// Обновляет статус позиции.
 ///
-void CPosition::checkPositionStatus()
+POSITION_STATUS CPosition::RefreshType()
 {
    if(CheckPointer(initOrder) == POINTER_INVALID)
    {
       status = POSITION_NULL;
-      return;
+      return status;
    }
    if(CheckPointer(closingOrder) != POINTER_INVALID)
       status = POSITION_HISTORY;
    else
       status = POSITION_ACTIVE;
    SetId(initOrder.GetId());
+   return status;
 }
 ///
 /// Возвращает последнее сообщение записанное классом.
@@ -159,3 +164,7 @@ string CPosition::LastMessage()
    return msg;
 }
 
+POSITION_STATUS CPosition::Status()
+{
+   return status;
+}

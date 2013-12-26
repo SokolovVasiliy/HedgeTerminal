@@ -35,6 +35,7 @@ enum ENUM_TRANSACTION_TYPE
 ///
 enum ENUM_DIRECTION_TYPE
 {
+   DIRECTION_NDEF,
    DIRECTION_LONG,
    DIRECTION_SHORT
 };
@@ -84,7 +85,7 @@ class Transaction : public CObject
       }
       virtual ENUM_DIRECTION_TYPE Direction()
       {
-         return DIRECTION_LONG;
+         return direction;
       }
       ///
       /// Возвращает профит в виде текстового представления.
@@ -151,6 +152,15 @@ class Transaction : public CObject
       ulong GetId(){return currId;}
       
    protected:
+      ///
+      /// Истина, если терминал содержит информацию о транзакции с
+      /// с текущим идентификатором и ложь в противном случае. Перед вызовом
+      /// функции в терминал должна быть загружена история сделок и ордеров.
+      ///
+      virtual bool MTConteinsMe()
+      {
+         return true;
+      }
       ///
       /// Возвращает цену входа трназакции на рынок.
       ///
@@ -262,9 +272,8 @@ class Transaction : public CObject
       {
          HistorySelect(D'1970.01.01', TimeCurrent());
       }
+      ENUM_DIRECTION_TYPE direction;
    private:
-      
-      
       ///
       /// Тип транзакции.
       ///
@@ -277,5 +286,6 @@ class Transaction : public CObject
 
 #include "Position.mqh"
 #include "Deal.mqh"
+#include "NewDeal.mqh"
 #include "Order.mqh"
 #include "NewPosition.mqh"
