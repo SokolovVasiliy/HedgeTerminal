@@ -14,6 +14,10 @@ enum ENUM_ORDER_STATUS
    ///
    ORDER_PENDING,
    ///
+   /// Ордер в процессе исполнения.
+   ///
+   ORDER_EXECUTING,
+   ///
    /// Исполненный, исторический ордер.
    ///
    ORDER_HISTORY
@@ -26,10 +30,11 @@ class Order : public Transaction
       Order(ulong orderId);
       Order(CDeal* deal);
       void AddDeal(CDeal* deal);
+      void AddVolume(int vol);
       ENUM_ORDER_STATUS Status();
       ENUM_ORDER_STATUS RefreshStatus(void);
       void Init(ulong orderId);
-      ulong InOrderId();
+      ulong PositionId();
       bool IsPending();
       ~Order();
    private:
@@ -78,7 +83,10 @@ void Order::Init(ulong orderId)
    RefreshStatus();
 }
 
-ulong Order::InOrderId()
+///
+/// Возвращает идентификатор позиции, к которой может принадлежать ордер.
+///
+ulong Order::PositionId()
 {
    return 0;
 }
@@ -123,6 +131,66 @@ ENUM_ORDER_STATUS Order::RefreshStatus()
 }
 
 ///
+///
+///
+Order* AnigilateVol(int vol)
+{
+   Order* order = new Order();
+   int dealVol = 0;
+   int totalVol = 0;
+   for(int i; i < deals.Total(); i++)
+   {
+      CDeal* deal = deals.At(i);
+      dealVol = deal.Volume();
+      
+      CDeal* ndeal = new CDeal(deal.GetId());
+      ndeal.ResetVolume();
+      if(vol <= dealVol)
+         ndeal.AddVolume(vol);
+      else
+         ndeal.AddVolume(dealVol);
+      order.AddDeal(ndeal);
+      
+      vol *= -1;
+      int balans = deal.Volume() + vol;
+      deal.AddVolume(vol);
+      dealVol = deal.Volume();
+      totalVol += dealVol;
+      if(dealVol == 0)
+         deals.Delete(i);
+      if(balance > 0)
+         break;
+      vol = MathAbs(balance);
+   }
+   return order;
+}
+///
+/// Добавляет объем к существующим сделкам. Если необходимо удалить объем,
+/// используются отрицательные значения.
+/// \return возвращает оставшееся количество объема.
+///
+int Order::AddVolume(int vol)
+{
+   int redVol = 0; //Оставшийся объем ордера.
+   int exVol;  //Оставшийся объем сделки.
+   for(int i = 0; i < deals.Total(); i++)
+   {
+      CDeal* deal = deals.At(i);
+      int balans = deal.Volume() + vol;
+      deal.AddVolume(vol);
+      exVol = deal.Volume();
+      redVol += exVol;
+      if(exVol == 0)
+         deals.Delete(i);
+      if(balance > 0)
+         break;
+      vol = MathAbs(balance);
+   }
+   if(deals.Total() == 0)
+      status = ORDER_NULL;
+   return redVol;
+}
+///
 /// Добавляет сделку в список сделок ордера.
 ///
 void Order::AddDeal(CDeal* deal)
@@ -146,6 +214,7 @@ void Order::AddDeal(CDeal* deal)
    deals.Add(deal);
    RefreshStatus();
 }
+
 
 ///
 /// Истина, если терминал содержит информацию об ордере с

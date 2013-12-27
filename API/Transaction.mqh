@@ -289,3 +289,5 @@ class Transaction : public CObject
 #include "NewDeal.mqh"
 #include "Order.mqh"
 #include "NewPosition.mqh"
+
+

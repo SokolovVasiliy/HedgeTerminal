@@ -2,6 +2,26 @@
 #include "Order.mqh"
 #include "..\Log.mqh"
 
+class CPosition;
+
+///
+/// Info about the Integration.
+///
+class InfoIntegration
+{
+   public:
+      InfoIntegration();
+      bool IsSuccess;
+      string InfoMessage;
+      CPosition* ActivePosition;
+      CPosition* HistoryPosition;
+};
+InfoIntegration::InfoIntegration(void)
+{
+   ActivePosition = new CPosition();
+   HistoryPosition = new CPosition();
+}
+
 ///
 /// —татус позиции.
 ///
@@ -30,15 +50,16 @@ class CPosition : Transaction
 {
    public:
       CPosition(void);
-      CPosition(Order* inOrder);
-      CPosition(Order* inOrder, Order* outOrder);
-      
-      CPosition* AddClosingOrder(Order* outOrder);
-      void AddInitialOrder(Order* inOrder);
-      string LastMessage();
+      //CPosition(Order* inOrder);
+      //CPosition(Order* inOrder, Order* outOrder);
+      InfoIntegration* Integrate(Order* order);
       static bool CheckOrderType(Order* checkOrder);
       POSITION_STATUS Status();
    private:
+      bool CompatibleForInit(Order* order);
+      bool CompatibleForClose(Order* order);
+      CPosition* AddClosingOrder(Order* outOrder);
+      void AddInitialOrder(Order* inOrder);
       CPosition* AddOrder(Order* order);
       POSITION_STATUS RefreshType(void);
       Order* contextOrder;
@@ -60,19 +81,72 @@ CPosition::CPosition() : Transaction(TRANS_POSITION)
 /// ¬ случае успеха создает активную позицию. ¬ случае неудачи
 /// будет создана позици€ со статусом POSITION_NULL.
 ///
-CPosition::CPosition(Order* inOrder) : Transaction(TRANS_POSITION)
+/*CPosition::CPosition(Order* inOrder) : Transaction(TRANS_POSITION)
 {
    AddInitialOrder(inOrder);
-}
+}*/
 
 ///
 /// ¬ случае успеха создает историческую позицию. ¬ случае неудачи
 /// будет создана позици€ со статусом POSITION_NULL.
 ///
-CPosition::CPosition(Order* inOrder, Order* outOrder) : Transaction(TRANS_POSITION)
+/*CPosition::CPosition(Order* inOrder, Order* outOrder) : Transaction(TRANS_POSITION)
 {
    AddInitialOrder(inOrder);
    AddClosingOrder(outOrder);
+}*/
+
+///
+/// »нтегрирует ордер в текущую позицию. ѕосле успешной интеграции статус позиции
+/// и все ее свойства могут изменитьс€. –езультатом интеграции могут стать
+/// новые созданные позиции, как активные так и исторические.
+/// \return  ласс содержит информацию об интеграции и может быть уничтожен внешним
+/// объектом.
+///
+InfoIntegration* CPosition::Integrate(Order* order)
+{
+   InfoIntegration* info = NULL;
+   if(CompatibleForInit(order))
+   {
+      AddInitialOrder(order);
+      info = new InfoIntegration();
+   }
+   else if(CompatibleForClose(order))
+      /*info =*/ AddClosingOrder(order);
+   else
+   {
+      info = new InfoIntegration();
+      info.InfoMessage = "Proposed order #" + (string)order.GetId() +
+      "can not be integrated in position #" + (string)GetId() +
+      ". Position and order has not compatible types";
+   }
+   return info;
+}
+
+///
+/// ¬озвращает истину, если ордер может быть добавлен в позицию как открывающий.
+///
+bool CPosition::CompatibleForInit(Order *order)
+{
+   if(status == POSITION_NULL)
+      return true;
+   if(initOrder.GetId() == order.GetId())
+      return true;
+   else
+      return false;
+}
+
+///
+/// ¬озвращает истину, если ордер может быть закрывающим ордером позиции.
+///
+bool CPosition::CompatibleForClose(Order *order)
+{
+   //«акрыть можно только активную позицию.
+   if(status != POSITION_ACTIVE)
+      return false;
+   if(order.PositionId() == GetId())
+      return true;
+   return false;
 }
 
 void CPosition::AddInitialOrder(Order *inOrder)
@@ -85,10 +159,10 @@ void CPosition::AddInitialOrder(Order *inOrder)
 ///
 /// ƒобавл€ет закрывающий ордер в активную позицию.
 ///
-CPosition* CPosition::AddClosingOrder(Order* outOrder)
+InfoIntegration* CPosition::AddClosingOrder(Order* outOrder)
 {
-   contextOrder = closingOrder;
-   return AddOrder(outOrder);
+   InfoIntegration* info = NULL;
+   
 }
 
 ///
@@ -153,15 +227,6 @@ POSITION_STATUS CPosition::RefreshType()
       status = POSITION_ACTIVE;
    SetId(initOrder.GetId());
    return status;
-}
-///
-/// ¬озвращает последнее сообщение записанное классом.
-///
-string CPosition::LastMessage()
-{
-   string msg = lastMessage;
-   lastMessage = "";
-   return msg;
 }
 
 POSITION_STATUS CPosition::Status()

@@ -87,10 +87,59 @@ class CHedge
             delete order;
             return;
          }
-         if(order.InOrderId() == 0)
-            CreateActivePos(order);
+         
+         CPosition* actPos = FindOrCreateActivePosForOrder(order);
+         InfoIntegration* result = actPos.Integrate(order);
+         int iActive = ActivePos.Search(actPos);
+         if(actPos.Status() == POSITION_CLOSE)
+         {
+            SendEventDelPos(actPos);
+            if(iActive != -1)
+               ActivePos.Delete(iActive);
+         }
          else
-            CreateHistoryPos(order);
+         {
+            SendEventRefreshPos(actPos);
+            if(iActive == -1)
+               ActivePos.InsertSort(actPos);
+         }
+         
+         //ћожно закрыть больше чем имеетс€, тогда остаток - активна€ позици€.
+         if(result.ActivePosition.Status() == POSITION_ACTIVE)
+         {
+            ActivePos.InsertSort(result.ActivePosition);
+            SendEventRefreshPos(result.ActivePosition);
+         }
+         else
+            delete result.ActivePosition;
+         if(result.HistoryPosition.Status() == POSITION_HISTORY)
+            IntegrateHistoryPos(result.HistoryPosition);
+         else
+            delete result.HistoryPosition;
+         delete result;
+      }
+      
+      ///
+      /// Ќаходит уже существующую или создает новую нулевую
+      /// позицию, которой может принадлежать переданный ордер.
+      ///
+      CPosition* FindOrCreateActivePosForOrder(Order* order)
+      {
+         CPosition* actPos = NULL;
+         int index = ActivePos.Search(order);
+         if(index == -1)
+            actPos = new CPosition();
+         else
+            actPos = ActivePos.At(index);
+         return actPos;
+      }
+      
+      ///
+      /// ¬носит в список исторических позиций новую историческую позицию.
+      ///
+      void IntegrateHistoryPos(CPosition* histPos)
+      {
+      
       }
       ///
       /// ¬озвращает количество активных позиций
@@ -127,56 +176,10 @@ class CHedge
          {  
             //LoadHistory();
             ulong ticket = HistoryDealGetTicket(dealsCountNow);
-            
-            //TestNewClasses(ticket);
             //AddNewDeal(ticket);
          }
       }
    private:
-      /*void TestNewClasses(ulong ticket)
-      {
-         //ENUM_DEAL_TYPE type = HistoryDealGetInteger(ticket, DEAL_TYPE);
-         CDeal* deal = new CDeal(ticket);
-         //if(deal.Status() == DEAL_BROKERAGE)return;
-         Order* order = new Order(deal);
-         if(order.Status() == ORDER_NULL)
-         {
-            delete deal;
-            delete order;
-            return;
-         }
-         ulong openOrderId = order.GetOpenOrderId();
-         Order* InOrder;
-         if(openOrderId > 0)
-            InOrder = CreateOrderById(openOrderId);
-         int iActive = ActivePos.Search(InOrder);
-         if(iActive == -1)
-         {
-            CPosition* actPos = new CPosition(InOrder);
-            ActivePos.InsertSort(actPos);
-            iActive = ActivePos.Search(actPos);
-         }
-         CPosition* actPos = ActivePos.At(iActive)
-         CloseResult* cresult = actPos.AddClosingOrder(order);
-         
-          1. —оздаем ордер на основе сделки.
-            2. ”знаем, €вл€етс€ ли этот ордер закрывающим.
-            3. ≈сли ордер закрывающий ищем активную позицию.
-               4. ≈сли активна€ позици€ не найдена - создаем ее на основе открывающего ордера и вставл€ем в список активных позиций.
-               5. »звлекаем активную позицию из списка.
-               6. «акрываем активную позицию закрывающим ордером.
-               7  јнализируем результат.
-            8. ≈сли ордер открывающий, ищем активную позицию к которой надо присоиденить этот ордер, либо создаем новую активную позицию.
-         
-         if(deal.Status() == DEAL_BROKERAGE)
-            printf("#" + (string)ticket + ": " + EnumToString(DEAL_BROKERAGE));
-         else
-         {
-            ulong orderId = deal.OrderId();
-            printf("#" + (string)ticket + ": " + (string)orderId);
-         }
-      }*/
-      
       /*CreateOrderById(ulong orderId)
       {
          Order* order = new Order();
@@ -206,6 +209,20 @@ class CHedge
          #endif
       }
       ///
+      /// ќтправл€ет событие "обновление позиции".
+      ///
+      void SendEventRefreshPos(CPosition* pos)
+      {
+         //¬ библиотеке HedgeAPI панели нет, а значит нет и передваемых ей событий.
+         /* TODO: Ќаписать соответсвтующий Event
+         #ifndef HLIBRARY
+            EventRefreshPos* event = new EventRefreshPos(pos);
+            EventExchange::PushEvent(event);
+            delete event;
+         #endif
+         */
+      }
+      ///
       /// ќтправл€ет событие удаление из списка позиций.
       ///
       void SendEventDelPos(Position* pos)
@@ -215,6 +232,20 @@ class CHedge
             EventExchange::PushEvent(event);
             delete event;
          #endif
+      }
+      
+      ///
+      /// ќтправл€ет событие удаление из списка позиций.
+      ///
+      void SendEventDelPos(CPosition* pos)
+      {
+         /* TODO: Ќаписать соответсвтующий Event
+         #ifndef HLIBRARY
+            EventDelPos* event = new EventDelPos(pos);
+            EventExchange::PushEvent(event);
+            delete event;
+         #endif
+         */
       }
       ///
       /// —оздает активную позицию, либо добавл€ет новый трейд к уже существующей активной позиции.
@@ -238,7 +269,7 @@ class CHedge
          SendEventRefreshPos(pos);
       }
       
-      void CreateActivePos(Order* order)
+      /*void CreateActivePos(Order* order)
       {
          CPosition* pos = new CPosition(order);
          int iActive = ActivePos.Search(pos);
@@ -251,7 +282,7 @@ class CHedge
             pos.AddInitialOrder(order);
          }
          SendEventRefreshPos(pos);
-      }
+      }*/
       ///
       /// —оздает историческую позицию на основании переданного ордера.
       ///
@@ -277,7 +308,7 @@ class CHedge
          SendEventRefreshPos(histPos);
       }
       
-      void CreateHistoryPos(Order* closeOrder)
+      /*void CreateHistoryPos(Order* closeOrder)
       {
          int iActive = FindOrCreateActivePosByCloseOrder(closeOrder);
          if(iActive == -1)return;
@@ -304,7 +335,7 @@ class CHedge
             return;
          }
          HistoryPos.InsertSort(histPos);
-      }
+      }*/
       
       ///
       /// Ќаходит историческую позицию в списке исторических позиций, либо создает ее, если она не создана.
