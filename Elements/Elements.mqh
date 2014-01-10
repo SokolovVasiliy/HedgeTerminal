@@ -8,3 +8,4 @@
 #include "Table.mqh"
 #include "TabFlat.mqh"
 #include "Forms.mqh"
+#include "Image.mqh"

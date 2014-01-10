@@ -1,3 +1,4 @@
+#include "Button.mqh"
 ///
 /// Основная форма панели.
 ///
@@ -22,6 +23,12 @@ class MainForm : public ProtoNode
          tabs.AddTab("History", openPos);
          
          allowed = false;
+         
+         start = new Button("Menu", GetPointer(this));
+         
+         //btnMenu = new Image("HP Menu", GetPointer(this), IMG_MENU);
+         
+         childNodes.Add(start);
          
          status = new Label("TradeStatus", GetPointer(this));
          status.ReadOnly(true);
@@ -58,19 +65,31 @@ class MainForm : public ProtoNode
       virtual void OnCommand(EventNodeCommand* event)
       {
          if(event.Direction() == EVENT_FROM_DOWN)return;
+         
          //Конфигурируем местоположение таблицы
          EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 5, 40, Width()-10, High()-45);
          tabs.Event(command);
          delete command;
+         
          command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), Width()-22, 2, 20, 18);
          status.Event(command);
          delete command;
+         
          command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), Width()-55, 1, 25, 18);
          mailStatus.Event(command);
          delete command;
+         
          command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), Width()-88, 1, 25, 18);
          connected.Event(command);
          delete command;
+         
+         command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 15, 0, 100, 30);
+         start.Event(command);
+         delete command;
+         
+         /*command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 15, 0, 90, 30);
+         btnMenu.Event(command);
+         delete command;*/
       }
       
       virtual void OnEvent(Event* event)
@@ -175,4 +194,12 @@ class MainForm : public ProtoNode
       /// Статус подключения к серверу.
       ///
       Label* connected;
+      ///
+      /// Кнопка старта.
+      ///
+      Button* start;
+      ///
+      /// Графическая кнопка меню.
+      ///
+      Image* btnMenu;
 };

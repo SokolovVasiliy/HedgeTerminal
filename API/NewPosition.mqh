@@ -50,15 +50,16 @@ class CPosition : Transaction
 {
    public:
       CPosition(void);
-      //CPosition(Order* inOrder);
+      CPosition(Order* inOrder);
       //CPosition(Order* inOrder, Order* outOrder);
       InfoIntegration* Integrate(Order* order);
       static bool CheckOrderType(Order* checkOrder);
       POSITION_STATUS Status();
    private:
+      virtual bool MTContainsMe();
       bool CompatibleForInit(Order* order);
       bool CompatibleForClose(Order* order);
-      CPosition* AddClosingOrder(Order* outOrder);
+      InfoIntegration* AddClosingOrder(Order* outOrder);
       void AddInitialOrder(Order* inOrder);
       CPosition* AddOrder(Order* order);
       POSITION_STATUS RefreshType(void);
@@ -81,10 +82,10 @@ CPosition::CPosition() : Transaction(TRANS_POSITION)
 /// В случае успеха создает активную позицию. В случае неудачи
 /// будет создана позиция со статусом POSITION_NULL.
 ///
-/*CPosition::CPosition(Order* inOrder) : Transaction(TRANS_POSITION)
+CPosition::CPosition(Order* inOrder) : Transaction(TRANS_POSITION)
 {
-   AddInitialOrder(inOrder);
-}*/
+   Integrate(inOrder);
+}
 
 ///
 /// В случае успеха создает историческую позицию. В случае неудачи
@@ -130,7 +131,7 @@ bool CPosition::CompatibleForInit(Order *order)
 {
    if(status == POSITION_NULL)
       return true;
-   if(initOrder.GetId() == order.GetId())
+   if(initOrder.GetId() == order.GetId() && status == POSITION_ACTIVE)
       return true;
    else
       return false;
@@ -149,10 +150,26 @@ bool CPosition::CompatibleForClose(Order *order)
    return false;
 }
 
+///
+/// Добавляет инициирующий ордер в позицию.
+///
 void CPosition::AddInitialOrder(Order *inOrder)
 {
-   contextOrder = initOrder;
-   CPosition* pos = AddOrder(inOrder);
+   //contextOrder = initOrder;
+   //CPosition* pos = AddOrder(inOrder);
+   if(initOrder == NULL || status == POSITION_NULL)
+   {
+      initOrder = inOrder;
+      status = POSITION_ACTIVE;
+   }
+   else if(status == POSITION_ACTIVE)
+   {
+      for(int i = 0; i < inOrder.DealsTotal(); i++)
+      {
+         CDeal* deal = inOrder.DealAt(i);
+         initOrder.AddDeal(deal);
+      }
+   }
    return;
 }
 
@@ -162,40 +179,35 @@ void CPosition::AddInitialOrder(Order *inOrder)
 InfoIntegration* CPosition::AddClosingOrder(Order* outOrder)
 {
    InfoIntegration* info = NULL;
+   if(!CompatibleForClose(outOrder))
+   {
+      info.InfoMessage = "Closing order has not compatible id with position id.";
+      return info;
+   }
    
+   //initOrder.MergeOrder(outOrder);
+   //initOrder.AnigilateOrder();
+   if(outOrder.ExecutedVolume() > ExecutedVolume())
+   {
+      //Order* activeOrder = initOrder.GetActiveRestOrder(outOrder);
+      //TODO: Init new pos...
+      
+   }
+   if(outOrder.ExecutedVolume() < ExecutedVolume())
+   {
+      //Order* inHistoryOrder* = initOrder.GetHistoryOrder(outOrder);
+      //TODO: Init new hist pos...
+      
+   }
+   if(outOrder.ExecutedVolume() == ExecutedVolume())
+   {
+      closingOrder = outOrder;
+      status = POSITION_HISTORY;
+      //TODO: Closing all, change status on history;
+   }
+   return info;
 }
 
-///
-/// На переписку.
-///
-CPosition* CPosition::AddOrder(Order* order)
-{
-   CPosition* historyPos = NULL;
-   if(status == POSITION_HISTORY)
-   {
-      LogWriter("Adding order failed. Position are history" , MESSAGE_TYPE_ERROR);
-      return historyPos;
-   }
-   if(!CheckOrderType(order))
-   {
-      LogWriter("Adding order has not compatible Type or invalid.", MESSAGE_TYPE_ERROR);
-      return historyPos;
-   }
-   if(!CheckOrderType(contextOrder))
-   {
-      contextOrder = order;
-      RefreshType();
-      return historyPos;
-   }
-   if(contextOrder.GetId() != order.GetId())
-   {
-      LogWriter("Position #" + (string)GetId() + " already contains order. Order #" +
-                (string)order.GetId() + " will not be added", MESSAGE_TYPE_WARNING);
-      return historyPos;
-   }
-   //return contextOrder.AddDeals(order.Deals());
-   return historyPos;
-}
 ///
 /// Проверяет, является ли статус переданного ордера совместимым с понятием "позиция".
 /// \return Истина, если ордер может принадлежать позиции, ложь в противном случае.
@@ -232,4 +244,15 @@ POSITION_STATUS CPosition::RefreshType()
 POSITION_STATUS CPosition::Status()
 {
    return status;
+}
+
+///
+/// Истина, если терминал содержит информацию об позиции с
+/// с текущим идентификатором и ложь в противном случае.
+///
+bool CPosition::MTContainsMe()
+{
+   if(status == POSITION_NULL)
+      return false;
+   return true;
 }

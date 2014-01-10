@@ -81,7 +81,8 @@ class CHedge
       //test new addDeal.
       void NewAddNewDeal(ulong ticket)
       {
-         Order* order = new Order(new CDeal(ticket));
+         CDeal* deal = new CDeal(ticket);
+         Order* order = new Order(deal);
          if(order.Status() == ORDER_NULL)
          {
             delete order;
@@ -93,13 +94,13 @@ class CHedge
          int iActive = ActivePos.Search(actPos);
          if(actPos.Status() == POSITION_CLOSE)
          {
-            SendEventDelPos(actPos);
+            //SendEventDelPos(actPos);
             if(iActive != -1)
                ActivePos.Delete(iActive);
          }
          else
          {
-            SendEventRefreshPos(actPos);
+            //SendEventRefreshPos(actPos);
             if(iActive == -1)
                ActivePos.InsertSort(actPos);
          }
@@ -126,14 +127,49 @@ class CHedge
       CPosition* FindOrCreateActivePosForOrder(Order* order)
       {
          CPosition* actPos = NULL;
-         int index = ActivePos.Search(order);
-         if(index == -1)
-            actPos = new CPosition();
+         Order* inOrder = GetInOrderOrNull(order);
+         int index = -1;
+         if(inOrder != NULL)
+         {
+            index = ActivePos.Search(inOrder);
+            if(index == -1)
+               actPos = new CPosition(inOrder);
+            else
+            {
+               actPos = ActivePos.At(index);
+               delete inOrder;
+            }
+            return actPos;  
+         }
          else
-            actPos = ActivePos.At(index);
-         return actPos;
+            return new CPosition();
       }
       
+      ///
+      /// Возвращает инициирующий ордер, либо NULL, если таковой не найден.
+      /// \param outOrder - закрывающий ордер.
+      ///
+      Order* GetInOrderOrNull(Order* outOrder)
+      {
+         Order* inOrder = new Order(outOrder.PositionId());
+         switch(inOrder.Status())
+         {
+            case ORDER_NULL:
+               delete inOrder;
+               return NULL;
+            case ORDER_EXECUTING:
+               //TODO: Write function find deals for order.
+               //inOrder.FindDeals();
+               if(inOrder.Status() == ORDER_HISTORY)
+                  return inOrder;
+            case ORDER_PENDING:
+               //TODO: write delete function active order.
+               //DeleteActiveOrder(inOrder);
+               delete inOrder;
+               return NULL;
+         }
+         return NULL;
+      }
       ///
       /// Вносит в список исторических позиций новую историческую позицию.
       ///
@@ -176,7 +212,7 @@ class CHedge
          {  
             //LoadHistory();
             ulong ticket = HistoryDealGetTicket(dealsCountNow);
-            //AddNewDeal(ticket);
+            NewAddNewDeal(ticket);
          }
       }
    private:
@@ -435,11 +471,12 @@ class CHedge
       }
       
       ///
-      /// Загружает историю ордеров
+      /// Загружает историю ордеров, если она не загружена.
       ///
       void LoadHistory(void)
       {
-         HistorySelect(0, TimeCurrent());
+         if(HistoryDealsTotal() < 2)
+            HistorySelect(0, TimeCurrent());
       }
       
       ///

@@ -72,6 +72,14 @@ class Transaction : public CObject
       {
          return 0.0;
       }
+      
+      ///
+      /// Возвращает фактический выполненный объем транзакции.
+      ///
+      virtual double ExecutedVolume()
+      {
+         return 0.0;
+      }
       ///
       /// Возвращает профит в пунктах инструмента.
       ///
@@ -157,7 +165,7 @@ class Transaction : public CObject
       /// с текущим идентификатором и ложь в противном случае. Перед вызовом
       /// функции в терминал должна быть загружена история сделок и ордеров.
       ///
-      virtual bool MTConteinsMe()
+      virtual bool MTContainsMe()
       {
          return true;
       }
@@ -266,11 +274,12 @@ class Transaction : public CObject
       ///
       bool isSymbol;
       ///
-      /// Загружает историю ордеров и сделок.
+      /// Загружает историю ордеров и сделок, если она не загружена.
       ///
       void LoadHistory(void)
       {
-         HistorySelect(D'1970.01.01', TimeCurrent());
+         if(HistoryDealsTotal() < 2)
+            HistorySelect(D'1970.01.01', TimeCurrent());
       }
       ENUM_DIRECTION_TYPE direction;
    private:

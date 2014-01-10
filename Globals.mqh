@@ -1,4 +1,9 @@
+
 class PanelSettings;
+
+#define IMG_MENU "::img\\button_img.bmp"
+#resource "img\\button_img.bmp"
+
 PanelSettings* Settings;
 
 enum ENUM_COLOR_TYPE
@@ -21,7 +26,7 @@ enum ENUM_SORT_TRANSACTION
    ///
    SORT_MAGIC,
    ///
-   /// Сортировка по тикету ордера, трейда или входящему тикету позиции.
+   /// Сортировка по уникальному идентификатору транзакции, получаемому от функции GetId().
    ///
    SORT_ORDER_ID,
    ///
@@ -96,6 +101,8 @@ class Tab;
 class MainForm;
 /// Класс "Прокрутка списка".
 class Scroll;
+/// класс изображения.
+class Image;
 
 //Типы визуальных элементов
 ///
@@ -190,7 +197,11 @@ enum ENUM_ELEMENT_TYPE
    ///
    /// Элемент графического интерфейса заголовок таблицы позиций.
    ///
-   ELEMENT_TYPE_TABLE_HEADER_POS
+   ELEMENT_TYPE_TABLE_HEADER_POS,
+   ///
+   /// Элемент графического интерфейса "изображение"
+   ///
+   ELEMENT_TYPE_IMAGE
 };
 
 //------------------------------------------------------------------------------------------------------------------------------------

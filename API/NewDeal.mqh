@@ -79,7 +79,7 @@ void CDeal::RefreshStatus()
       ClearMe();
       return;
    }
-   type = HistoryDealGetInteger(GetId(), DEAL_TYPE);
+   type = (ENUM_DEAL_TYPE)HistoryDealGetInteger(GetId(), DEAL_TYPE);
    if(type == DEAL_TYPE_BUY || type == DEAL_TYPE_SELL)
    {
       status = DEAL_TRADE;
