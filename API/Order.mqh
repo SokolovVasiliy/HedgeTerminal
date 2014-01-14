@@ -29,8 +29,10 @@ class Order : public Transaction
       Order(void);
       Order(ulong orderId);
       Order(CDeal* deal);
+      Order(Order* order);
       Order* AnigilateOrder(Order* order);
       void AddDeal(CDeal* deal);
+      void DeleteDealAt(int index);
       CDeal* DealAt(int index);
       int DealsTotal();
       void AddVolume(int vol);
@@ -39,8 +41,13 @@ class Order : public Transaction
       void Init(ulong orderId);
       ulong PositionId();
       bool IsPending();
+      Order* Clone();
+      virtual double ExecutedVolume();
       ~Order();
    private:
+      double executeVolume;
+      bool isRefresh;
+      Order* AnigilateVol(double& vol);
       virtual bool MTContainsMe();
       ENUM_ORDER_STATUS status;
       CArrayObj* deals;
@@ -71,6 +78,28 @@ Order::Order(CDeal* deal) : Transaction(TRANS_ORDER)
    RefreshStatus();
 }
 
+///
+/// Создает полную копию ордера order.
+///
+Order::Order(Order *order) : Transaction(TRANS_ORDER)
+{
+   status = order.Status();
+   deals = new CArrayObj();
+   for(int i = 0; i < order.DealsTotal(); i++)
+   {
+      CDeal* deal = order.DealAt(i);
+      deals.Add(deal.Clone());
+   }
+}
+
+///
+/// Возвращает полную копию ордера.
+///
+Order* Order::Clone(void)
+{
+   return new Order(GetPointer(this));
+}
+
 Order::~Order(void)
 {
    if(deals != NULL)
@@ -91,8 +120,9 @@ void Order::Init(ulong orderId)
 ///
 ulong Order::PositionId()
 {
-   //#define MagicToTicket 0
-   //Faery();
+   ulong posId = HistoryOrderGetInteger(GetId(), ORDER_MAGIC);
+   if(HistoryOrderGetInteger(posId, ORDER_TIME_DONE) > 0)
+      return posId;
    return 0;
 }
 ///
@@ -133,36 +163,86 @@ ENUM_ORDER_STATUS Order::RefreshStatus()
 }
 
 ///
+/// Возвращает исполненный объем.
+///
+double Order::ExecutedVolume(void)
+{
+   if(deals == NULL)
+      return 0.0;
+   if(isRefresh)
+      return executeVolume;
+   if(!isRefresh || executeVolume == 0.0)
+   {
+      executeVolume = 0.0;
+      for(int i = 0; i < deals.Total(); i++)
+      {
+         CDeal* deal = deals.At(i);
+         executeVolume += deal.ExecutedVolume();
+      }
+   }
+   return executeVolume;
+}
+///
 /// Возвращает NULL, если закрывающий ордер равен открывающиму.
 /// Возвращает новый исторический ордер, если объем текущего ордера больше закрывающего.
 /// Возвращает новый активный ордер, если объем закрывающего ордера больше текущего.
 ///
-Order* Order::AnigilateOrder(Order* outOrder)
+/*Order* Order::AnigilateOrder(Order* outOrder)
 {
    if(outOrder.PositionId() != PositionId())
       return NULL;
    if(outOrder.GetId() == GetId())
       return NULL;
-   
+   int total = outOrder.DealsTotal();
+   //thisOrder > outOrder = thisOrder + (partThisOrder+outOrder);
+   //thisOrder == outOrder = thisOrder+outOrder;
+   //thisOrder < outOrder = outOrder + (thisOrder+partOutOrder);
+   Order* activeOrder = NULL;
+   CArrayObj* histOrders = new CArrayObj();
+   for(int i = 0; i < outOrder.DealsTotal(); i++)
+   {
+      CDeal* deal = outOrder.DealAt(i);
+      double vol = deal.ExecutedVolume();
+      if(DealsTotal()>0)
+      {
+         Order* newHistoryOrder = AnigilateVol(vol);
+         histOrders.Add(newHistoryOrder);
+         if(vol > 0)
+         {
+            CDeal* restDeal = new CDeal(deal.GetId());
+            restDeal.ExecutedVolume(vol);
+            if(activeOrder == NULL)
+               activeOrder = new Order();
+            activeOrder.AddDeal(restDeal);
+            continue;
+         }
+      }
+      else
+      {
+         if(activeOrder == NULL)
+            activeOrder = new Order();
+         activeOrder.AddDeal(deal);
+      }
+   }
    
    return new Order();
-}
+}*/
 
 
 ///
 /// \return Инициирующий ордер исторической позиции.
 ///
-Order* AnigilateVol(int vol)
+/*Order* Order::AnigilateVol(double& vol)
 {
    Order* order = new Order();
    int dealVol = 0;
    int totalVol = 0;
-   for(int i; i < deals.Total(); i++)
+   for(int i = 0; i < deals.Total(); i++)
    {
       CDeal* deal = deals.At(i);
-      dealVol = deal.Volume();
+      dealVol = deal.ExecutedVolume();
       //Создаем новый инициирующий ордер, исторической позиции.
-      CDeal* histInitOrder = new CDeal(deal.GetId());
+      COrder* histInitOrder = new CDeal(deal.GetId());
       histInitOrder.ResetVolume();
       if(vol <= dealVol)
          histInitOrder.AddVolume(vol);
@@ -187,7 +267,8 @@ Order* AnigilateVol(int vol)
          status = ORDER_NULL;
    }
    return order;
-}
+}*/
+
 ///
 /// Добавляет объем к существующим сделкам. Если необходимо удалить объем,
 /// используются отрицательные значения.
@@ -214,6 +295,7 @@ Order* AnigilateVol(int vol)
       status = ORDER_NULL;
    return redVol;
 }*/
+
 ///
 /// Добавляет сделку в список сделок ордера.
 ///
@@ -240,6 +322,14 @@ void Order::AddDeal(CDeal* deal)
 }
 
 ///
+/// Удаляет сделку из списка сделок.
+///
+void Order::DeleteDealAt(int index)
+{
+   if(deals.Total() <= index)return;
+   deals.Delete(index);
+}
+///
 /// Возвращает сделку находящуюся в списке сделок по индексу index.
 ///
 CDeal* Order::DealAt(int index)
@@ -250,7 +340,12 @@ CDeal* Order::DealAt(int index)
 ///
 /// Возвращает количество сделок.
 ///
-int Order::DealsTotal(){return deals.Total();}
+int Order::DealsTotal()
+{
+   if(deals == NULL)
+      return 0;
+   return deals.Total();
+}
 
 ///
 /// Истина, если терминал содержит информацию об ордере с

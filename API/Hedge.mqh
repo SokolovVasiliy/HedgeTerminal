@@ -127,30 +127,31 @@ class CHedge
       CPosition* FindOrCreateActivePosForOrder(Order* order)
       {
          CPosition* actPos = NULL;
-         Order* inOrder = GetInOrderOrNull(order);
-         int index = -1;
-         if(inOrder != NULL)
+         ulong posId = order.PositionId();
+         ulong currId = order.GetId();
+         if(posId != 0)
          {
-            index = ActivePos.Search(inOrder);
-            if(index == -1)
-               actPos = new CPosition(inOrder);
-            else
-            {
-               actPos = ActivePos.At(index);
-               delete inOrder;
-            }
-            return actPos;  
+            int total = ActivePos.Total();
+            Order* inOrder = new Order(posId);
+            int iActive = ActivePos.Search(inOrder);
+            delete inOrder;
+            if(iActive != -1)
+               return ActivePos.At(iActive);
          }
-         else
-            return new CPosition();
+         //Активной позиции нет? - значит это открывающий ордер новой позиции.
+         return new CPosition();
       }
       
       ///
       /// Возвращает инициирующий ордер, либо NULL, если таковой не найден.
       /// \param outOrder - закрывающий ордер.
       ///
-      Order* GetInOrderOrNull(Order* outOrder)
+      /*Order* GetInOrderOrNull(Order* outOrder)
       {
+         ulong posId = outOrder.PositionId();
+         int dbg = 3;
+         if(posId != 0)
+            dbg = 4;
          Order* inOrder = new Order(outOrder.PositionId());
          switch(inOrder.Status())
          {
@@ -169,13 +170,21 @@ class CHedge
                return NULL;
          }
          return NULL;
-      }
+      }*/
       ///
       /// Вносит в список исторических позиций новую историческую позицию.
       ///
       void IntegrateHistoryPos(CPosition* histPos)
       {
-      
+         int iHist = HistoryPos.Search(histPos);
+         if(iHist != -1)
+         {
+            CPosition* pos = HistoryPos.At(iHist);
+            pos.Merge(histPos);
+            delete histPos;
+         }
+         else
+            HistoryPos.InsertSort(histPos);
       }
       ///
       /// Возвращает количество активных позиций

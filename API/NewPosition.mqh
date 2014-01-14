@@ -16,6 +16,8 @@ class InfoIntegration
       CPosition* ActivePosition;
       CPosition* HistoryPosition;
 };
+
+
 InfoIntegration::InfoIntegration(void)
 {
    ActivePosition = new CPosition();
@@ -46,16 +48,35 @@ enum POSITION_STATUS
    POSITION_HISTORY,
 };
 
+///
+/// Используется для компановки ордеров как параметр функции ExchangerOrder.
+///
+struct ExchangerList
+{
+   public:
+      Order* inOrder;
+      Order* outOrder;
+      Order* histInOrder;
+      Order* histOutOrder;
+};
+
 class CPosition : Transaction
 {
    public:
       CPosition(void);
       CPosition(Order* inOrder);
-      //CPosition(Order* inOrder, Order* outOrder);
+      CPosition(Order* inOrder, Order* outOrder);
       InfoIntegration* Integrate(Order* order);
       static bool CheckOrderType(Order* checkOrder);
       POSITION_STATUS Status();
+      static void ExchangerOrder(ExchangerList& list);
+      bool Merge(CPosition* pos);
+      Order* InitOrder(){return initOrder;}
+      Order* ClosingOrder(){return closingOrder;}
+      bool Compatible(CPosition* pos);
+      virtual int Compare(const CObject* node, const int mode=0);
    private:
+      static void SplitOrder(ExchangerList& list);
       virtual bool MTContainsMe();
       bool CompatibleForInit(Order* order);
       bool CompatibleForClose(Order* order);
@@ -63,7 +84,6 @@ class CPosition : Transaction
       void AddInitialOrder(Order* inOrder);
       CPosition* AddOrder(Order* order);
       POSITION_STATUS RefreshType(void);
-      Order* contextOrder;
       Order* initOrder;
       Order* closingOrder;
       POSITION_STATUS status;
@@ -86,16 +106,70 @@ CPosition::CPosition(Order* inOrder) : Transaction(TRANS_POSITION)
 {
    Integrate(inOrder);
 }
-
 ///
-/// В случае успеха создает историческую позицию. В случае неудачи
-/// будет создана позиция со статусом POSITION_NULL.
+/// Создает историческу позицию. Объемы исходящего и входящего ордеров должны быть равны.
 ///
-/*CPosition::CPosition(Order* inOrder, Order* outOrder) : Transaction(TRANS_POSITION)
+CPosition::CPosition(Order* inOrder, Order* outOrder) : Transaction(TRANS_POSITION)
 {
-   AddInitialOrder(inOrder);
-   AddClosingOrder(outOrder);
-}*/
+   if(inOrder == NULL || outOrder == NULL)
+      return;
+   if(inOrder.ExecutedVolume() != outOrder.ExecutedVolume())
+      return;
+   //if(inOrder.PositionId() != outOrder.PositionId())
+   //   return;
+   status = POSITION_HISTORY;
+   initOrder = inOrder;
+   outOrder = outOrder;
+   Integrate(inOrder);
+}
+
+bool CPosition::Compatible(CPosition *pos)
+{
+   if(pos.Status() == POSITION_NULL ||
+      pos.Status() == POSITION_CLOSE)
+      return false;
+   if(pos.GetId() != GetId())
+      return false;
+   if(pos.Status() != pos.Status())
+      return false;
+   if(pos.Status() == POSITION_HISTORY)
+   {
+      Order* clOrder = pos.ClosingOrder();
+      if(clOrder.GetId() != closingOrder.GetId())
+         return false;
+   }
+   return true;
+}
+///
+/// Объединяет переданную позицию с текущей позицией.
+/// После удачного объеденения переданная позиция лишается всех ее сделок
+/// и переходит в состояние POSITION_NULL.
+///
+bool CPosition::Merge(CPosition *pos)
+{
+   if(!Compatible(pos))
+      return false;
+   
+   //Merge init deals.
+   Order* order = pos.InitOrder();
+   //CArrayObj inDeals = in.D
+   while(order.DealsTotal())
+   {
+      CDeal* ndeal = new CDeal(order.DealAt(0));
+      initOrder.AddDeal(ndeal);
+      order.DeleteDealAt(0);
+   }
+   order = pos.ClosingOrder();
+   if(order == NULL)
+      return true;
+   while(order.DealsTotal())
+   {
+      CDeal* ndeal = new CDeal(order.DealAt(0));
+      closingOrder.AddDeal(ndeal);
+      order.DeleteDealAt(0);
+   }
+   return true;
+}
 
 ///
 /// Интегрирует ордер в текущую позицию. После успешной интеграции статус позиции
@@ -184,27 +258,31 @@ InfoIntegration* CPosition::AddClosingOrder(Order* outOrder)
       info.InfoMessage = "Closing order has not compatible id with position id.";
       return info;
    }
-   
-   //initOrder.MergeOrder(outOrder);
-   //initOrder.AnigilateOrder();
-   if(outOrder.ExecutedVolume() > ExecutedVolume())
+   info = new InfoIntegration();
+   ExchangerList list;
+   bool revers = false;
+   if(outOrder.ExecutedVolume() <= initOrder.ExecutedVolume())
    {
-      //Order* activeOrder = initOrder.GetActiveRestOrder(outOrder);
-      //TODO: Init new pos...
-      
+      list.inOrder = initOrder;
+      list.outOrder = outOrder;
    }
-   if(outOrder.ExecutedVolume() < ExecutedVolume())
+   else
    {
-      //Order* inHistoryOrder* = initOrder.GetHistoryOrder(outOrder);
-      //TODO: Init new hist pos...
-      
+      list.outOrder = initOrder;
+      list.inOrder = outOrder;
+      revers = true;
    }
-   if(outOrder.ExecutedVolume() == ExecutedVolume())
+   SplitOrder(list);
+   if(revers)
    {
-      closingOrder = outOrder;
-      status = POSITION_HISTORY;
-      //TODO: Closing all, change status on history;
+      delete info.ActivePosition;
+      info.ActivePosition = new CPosition(list.outOrder);
+      Order* tmp = list.histInOrder;
+      list.inOrder = list.histOutOrder;
+      list.outOrder = tmp;   
    }
+   delete info.HistoryPosition;
+   info.HistoryPosition = new CPosition(list.histInOrder, list.histOutOrder);
    return info;
 }
 
@@ -255,4 +333,82 @@ bool CPosition::MTContainsMe()
    if(status == POSITION_NULL)
       return false;
    return true;
+}
+
+void CPosition::ExchangerOrder(ExchangerList& list)
+{
+   if(list.inOrder == NULL || list.outOrder == NULL)
+      return;
+   if(list.outOrder.ExecutedVolume() <= list.inOrder.ExecutedVolume())
+   {
+      SplitOrder(list);
+   }
+   else
+   {
+      ExchangerList exchList;
+      exchList.inOrder = list.outOrder;
+      exchList.outOrder = list.outOrder;
+      SplitOrder(exchList);
+      exchList.inOrder = list.outOrder;
+      exchList.outOrder = list.outOrder;
+   }
+}
+
+///
+/// Иземеняет структуру ордеров и создает новые.
+///
+void CPosition::SplitOrder(ExchangerList &list)
+{
+   //Объем, который нужно выполнить.
+   double volTotal = list.outOrder.ExecutedVolume();
+   if(list.inOrder.ExecutedVolume() < volTotal)
+      return;
+   list.histOutOrder = list.outOrder.Clone();
+   if(list.histInOrder == NULL)
+      list.histInOrder = new Order();
+   //Выполненный объем
+   double exVol = 0.0;
+   for(int i = 0; i < list.inOrder.DealsTotal(); i++)
+   {
+      //Объем, который осталось выполнить.
+      double rVol = volTotal - exVol;
+      //Если весь объем выполнен - выходим.
+      if(rVol == 0.0)break;
+      CDeal* deal = list.inOrder.DealAt(i);
+      double curVol = deal.ExecutedVolume();
+      if(deal.ExecutedVolume() > rVol)
+      {
+         CDeal* hDeal = deal.Clone();
+         hDeal.ExecutedVolume(rVol);
+         list.histInOrder.AddDeal(hDeal);
+         deal.ExecutedVolume(deal.ExecutedVolume() - rVol);
+         exVol += rVol;
+      }
+      else if(deal.ExecutedVolume() <= rVol)
+      {
+         exVol += deal.ExecutedVolume();
+         list.histInOrder.AddDeal(deal.Clone());
+         list.inOrder.DeleteDealAt(i);
+         i--;
+      }
+   }   
+}
+
+int CPosition::Compare(const CObject* node, const int mode=0)
+{
+   switch(mode)
+   {
+      case SORT_ORDER_ID:
+      {
+         const Transaction* trans = node;
+         ulong m_id = GetId();
+         ulong p_id = trans.GetId();
+         if(GetId() == trans.GetId())
+            return EQUAL;
+         if(GetId() < trans.GetId())
+            return LESS;
+         return GREATE;
+      }
+   }
+   return 0;
 }

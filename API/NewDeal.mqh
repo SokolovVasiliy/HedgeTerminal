@@ -27,16 +27,23 @@ class CDeal : public Transaction
    public:
       CDeal();
       CDeal(ulong dealId);
+      CDeal(CDeal* deal);
       void Init(ulong dealId);
       ulong OrderId();
       DEAL_STATUS Status();
+      virtual double ExecutedVolume();
+      void ExecutedVolume(double vol);
+      ENUM_DEAL_TYPE DealType();
+      CDeal* Clone();
    private:
       void RefreshStatus();
       virtual bool MTContainsMe();
       void ClearMe();
       ulong orderId;
+      double volume;
       DEAL_STATUS status;
       ENUM_DEAL_TYPE type;
+      
 };
 
 CDeal::CDeal(void) : Transaction(TRANS_DEAL)
@@ -49,6 +56,25 @@ CDeal::CDeal(ulong dealId) : Transaction(TRANS_DEAL)
    Init(dealId);
 }
 
+///
+/// Создает новый экзмепляр сделки - полную копию deal.
+///
+CDeal::CDeal(CDeal* deal) : Transaction(TRANS_DEAL)
+{
+   status = deal.Status();
+   volume = deal.ExecutedVolume();
+   type = deal.DealType();
+   SetId(deal.GetId());
+   orderId = deal.OrderId();
+}
+
+///
+/// Возвращает полную копию текущей сделки.
+///
+CDeal* CDeal::Clone(void)
+{
+   return new CDeal(GetPointer(this));
+}
 ///
 /// Возвращает идентификатор ордера, на основании которого произведена торговая сделка.
 /// Если тип сделки DEAL_BROKERAGE или информация об ордере недоступна возвращается 0.
@@ -69,6 +95,7 @@ DEAL_STATUS CDeal::Status()
 void CDeal::Init(ulong dealId)
 {
    SetId(dealId);
+   volume = HistoryDealGetDouble(dealId, DEAL_VOLUME);
    RefreshStatus();
 }
 
@@ -114,9 +141,33 @@ bool CDeal::MTContainsMe()
 ///
 void CDeal::ClearMe()
 {
-   
    status = DEAL_NULL;
    direction = DIRECTION_NDEF;
    SetId(0);
    orderId = 0;
+}
+
+///
+/// Совершенный объем сделки.
+///
+double CDeal::ExecutedVolume()
+{
+   return volume;
+}
+
+///
+/// Устанавливает объем сделки.
+///
+void CDeal::ExecutedVolume(double vol)
+{
+   if(vol < 0.0)return;
+   volume = vol;
+}
+
+///
+/// Возвращает тип сделки ENUM_DEAL_TYPE.
+///
+ENUM_DEAL_TYPE CDeal::DealType(void)
+{
+   return type;
 }
