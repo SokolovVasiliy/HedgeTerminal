@@ -92,7 +92,7 @@ class CHedge
          CPosition* actPos = FindOrCreateActivePosForOrder(order);
          InfoIntegration* result = actPos.Integrate(order);
          int iActive = ActivePos.Search(actPos);
-         if(actPos.Status() == POSITION_CLOSE)
+         if(actPos.Status() == POSITION_NULL)
          {
             //SendEventDelPos(actPos);
             if(iActive != -1)

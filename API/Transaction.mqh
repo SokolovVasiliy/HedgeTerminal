@@ -3,9 +3,11 @@
 #include <Trade\Trade.mqh>
 #include "..\Time.mqh"
 
-class COrder;
-class Deal;
 class Position;
+class Deal;
+class Order;
+class CDeal;
+class CPosition;
 #ifndef HLIBRARY
 class PosLine;
 #endif

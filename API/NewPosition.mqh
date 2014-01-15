@@ -22,6 +22,7 @@ InfoIntegration::InfoIntegration(void)
 {
    ActivePosition = new CPosition();
    HistoryPosition = new CPosition();
+   InfoMessage = "";
 }
 
 ///
@@ -37,11 +38,6 @@ enum POSITION_STATUS
    /// Активная позиция.
    ///
    POSITION_ACTIVE,
-   ///
-   /// Бывшая активная позиция, которая была полностью
-   /// перекрыта встречными сделками и перестала существовать.
-   ///
-   POSITION_CLOSE,
    ///
    /// Историческая позиция.
    ///
@@ -60,12 +56,13 @@ struct ExchangerList
       Order* histOutOrder;
 };
 
-class CPosition : Transaction
+class CPosition : public Transaction
 {
    public:
       CPosition(void);
       CPosition(Order* inOrder);
       CPosition(Order* inOrder, Order* outOrder);
+      ~CPosition();
       InfoIntegration* Integrate(Order* order);
       static bool CheckOrderType(Order* checkOrder);
       POSITION_STATUS Status();
@@ -75,26 +72,72 @@ class CPosition : Transaction
       Order* ClosingOrder(){return closingOrder;}
       bool Compatible(CPosition* pos);
       virtual int Compare(const CObject* node, const int mode=0);
+      void OrderChanged(Order* order);
+      void Refresh();
    private:
+      void Init();
+      ///
+      /// Определяет тип ордера, который был изменен.
+      ///
+      enum ENUM_CHANGED_ORDER
+      {
+         ///
+         /// Этот ордер не принадлежит к текущей позиции.
+         ///
+         CHANGED_ORDER_NDEF,
+         ///
+         /// Этот ордер инициализурет позицию. 
+         ///
+         CHANGED_ORDER_INIT,
+         ///
+         /// Этот ордер закрывает позицию.
+         ///
+         CHANGED_ORDER_CLOSED
+      };
+      ///
+      /// Флаг блокировки, истина, если позиция находится в процессе изменения.
+      ///
+      bool blocked;
+      ///
+      /// Время начала блокировки.
+      ///
+      CTime* blockedTime;
+      ENUM_CHANGED_ORDER DetectChangedOrder(Order* order);
+      void ChangedInitOrder();
+      void DeleteAllOrders();
       static void SplitOrder(ExchangerList& list);
       virtual bool MTContainsMe();
       bool CompatibleForInit(Order* order);
       bool CompatibleForClose(Order* order);
       InfoIntegration* AddClosingOrder(Order* outOrder);
       void AddInitialOrder(Order* inOrder);
-      CPosition* AddOrder(Order* order);
-      POSITION_STATUS RefreshType(void);
+      POSITION_STATUS CheckStatus(void);
       Order* initOrder;
       Order* closingOrder;
       POSITION_STATUS status;
-      string lastMessage;
 };
 
+///
+/// Инициализирует сложные объекты.
+///
+void CPosition::Init()
+{
+   blockedTime = new CTime();
+}
+///
+/// Деинициализирует позицию.
+///
+CPosition::~CPosition()
+{
+   delete blockedTime;
+   DeleteAllOrders();
+}
 ///
 /// Создает неактивную позицию со статусом POSITION_NULL.
 ///
 CPosition::CPosition() : Transaction(TRANS_POSITION)
 {
+   Init();
    status = POSITION_NULL;
 }
 
@@ -104,6 +147,7 @@ CPosition::CPosition() : Transaction(TRANS_POSITION)
 ///
 CPosition::CPosition(Order* inOrder) : Transaction(TRANS_POSITION)
 {
+   Init();
    Integrate(inOrder);
 }
 ///
@@ -111,6 +155,7 @@ CPosition::CPosition(Order* inOrder) : Transaction(TRANS_POSITION)
 ///
 CPosition::CPosition(Order* inOrder, Order* outOrder) : Transaction(TRANS_POSITION)
 {
+   Init();
    if(inOrder == NULL || outOrder == NULL)
       return;
    if(inOrder.ExecutedVolume() != outOrder.ExecutedVolume())
@@ -119,14 +164,14 @@ CPosition::CPosition(Order* inOrder, Order* outOrder) : Transaction(TRANS_POSITI
    //   return;
    status = POSITION_HISTORY;
    initOrder = inOrder;
+   initOrder.LinkWithPosition(GetPointer(this));
    outOrder = outOrder;
-   Integrate(inOrder);
+   outOrder.LinkWithPosition(GetPointer(this));
 }
 
 bool CPosition::Compatible(CPosition *pos)
 {
-   if(pos.Status() == POSITION_NULL ||
-      pos.Status() == POSITION_CLOSE)
+   if(pos.Status() == POSITION_NULL)
       return false;
    if(pos.GetId() != GetId())
       return false;
@@ -187,7 +232,7 @@ InfoIntegration* CPosition::Integrate(Order* order)
       info = new InfoIntegration();
    }
    else if(CompatibleForClose(order))
-      /*info =*/ AddClosingOrder(order);
+      info = AddClosingOrder(order);
    else
    {
       info = new InfoIntegration();
@@ -195,6 +240,7 @@ InfoIntegration* CPosition::Integrate(Order* order)
       "can not be integrated in position #" + (string)GetId() +
       ". Position and order has not compatible types";
    }
+   
    return info;
 }
 
@@ -205,7 +251,7 @@ bool CPosition::CompatibleForInit(Order *order)
 {
    if(status == POSITION_NULL)
       return true;
-   if(initOrder.GetId() == order.GetId() && status == POSITION_ACTIVE)
+   if(initOrder.GetId() == order.GetId())
       return true;
    else
       return false;
@@ -231,18 +277,22 @@ void CPosition::AddInitialOrder(Order *inOrder)
 {
    //contextOrder = initOrder;
    //CPosition* pos = AddOrder(inOrder);
-   if(initOrder == NULL || status == POSITION_NULL)
+   if(status == POSITION_NULL)
    {
       initOrder = inOrder;
-      status = POSITION_ACTIVE;
+      Refresh();
+      inOrder.LinkWithPosition(GetPointer(this));
    }
    else if(status == POSITION_ACTIVE)
    {
       for(int i = 0; i < inOrder.DealsTotal(); i++)
       {
          CDeal* deal = inOrder.DealAt(i);
-         initOrder.AddDeal(deal);
+         CDeal* mDeal = deal.Clone();
+         mDeal.LinqWithOrder(initOrder);
+         initOrder.AddDeal(mDeal);
       }
+      delete inOrder;
    }
    return;
 }
@@ -252,13 +302,12 @@ void CPosition::AddInitialOrder(Order *inOrder)
 ///
 InfoIntegration* CPosition::AddClosingOrder(Order* outOrder)
 {
-   InfoIntegration* info = NULL;
+   InfoIntegration* info = new InfoIntegration();
    if(!CompatibleForClose(outOrder))
    {
       info.InfoMessage = "Closing order has not compatible id with position id.";
       return info;
    }
-   info = new InfoIntegration();
    ExchangerList list;
    bool revers = false;
    if(outOrder.ExecutedVolume() <= initOrder.ExecutedVolume())
@@ -273,6 +322,7 @@ InfoIntegration* CPosition::AddClosingOrder(Order* outOrder)
       revers = true;
    }
    SplitOrder(list);
+   //Refresh();
    if(revers)
    {
       delete info.ActivePosition;
@@ -301,10 +351,18 @@ static bool CPosition::CheckOrderType(Order* checkOrder)
    return true;
 }
 
+void CPosition::Refresh(void)
+{
+   CheckStatus();
+   if(initOrder != NULL)
+      SetId(initOrder.GetId());
+   else
+      SetId(0);
+}
 ///
 /// Обновляет статус позиции.
 ///
-POSITION_STATUS CPosition::RefreshType()
+POSITION_STATUS CPosition::CheckStatus()
 {
    if(CheckPointer(initOrder) == POINTER_INVALID)
    {
@@ -315,7 +373,6 @@ POSITION_STATUS CPosition::RefreshType()
       status = POSITION_HISTORY;
    else
       status = POSITION_ACTIVE;
-   SetId(initOrder.GetId());
    return status;
 }
 
@@ -355,7 +412,7 @@ void CPosition::ExchangerOrder(ExchangerList& list)
 }
 
 ///
-/// Иземеняет структуру ордеров и создает новые.
+/// Изменяет структуру ордеров и создает новые.
 ///
 void CPosition::SplitOrder(ExchangerList &list)
 {
@@ -364,8 +421,7 @@ void CPosition::SplitOrder(ExchangerList &list)
    if(list.inOrder.ExecutedVolume() < volTotal)
       return;
    list.histOutOrder = list.outOrder.Clone();
-   if(list.histInOrder == NULL)
-      list.histInOrder = new Order();
+   list.histInOrder = new Order();
    //Выполненный объем
    double exVol = 0.0;
    for(int i = 0; i < list.inOrder.DealsTotal(); i++)
@@ -389,6 +445,8 @@ void CPosition::SplitOrder(ExchangerList &list)
          exVol += deal.ExecutedVolume();
          list.histInOrder.AddDeal(deal.Clone());
          list.inOrder.DeleteDealAt(i);
+         Order tmpOrder = list.inOrder;
+         int dt = tmpOrder.DealsTotal();
          i--;
       }
    }   
@@ -401,8 +459,6 @@ int CPosition::Compare(const CObject* node, const int mode=0)
       case SORT_ORDER_ID:
       {
          const Transaction* trans = node;
-         ulong m_id = GetId();
-         ulong p_id = trans.GetId();
          if(GetId() == trans.GetId())
             return EQUAL;
          if(GetId() < trans.GetId())
@@ -411,4 +467,63 @@ int CPosition::Compare(const CObject* node, const int mode=0)
       }
    }
    return 0;
+}
+
+///
+/// Определяет тип ордера, который был изменен.
+///
+ENUM_CHANGED_ORDER CPosition::DetectChangedOrder(Order *order)
+{
+   if(status == POSITION_NULL)
+      return CHANGED_ORDER_NDEF;
+   if(initOrder.GetId() == order.GetId())
+      return CHANGED_ORDER_INIT;
+   if(status == POSITION_HISTORY &&
+      closingOrder.GetId() == order.GetId())
+      return CHANGED_ORDER_CLOSED;      
+   return CHANGED_ORDER_INIT;
+}
+
+void CPosition::OrderChanged(Order* order)
+{
+    ENUM_CHANGED_ORDER changedType = DetectChangedOrder(order);
+    switch(changedType)
+    {
+      case CHANGED_ORDER_NDEF:
+         return;
+      case CHANGED_ORDER_INIT:
+         ChangedInitOrder();
+         break;
+      case CHANGED_ORDER_CLOSED:
+         break;
+    }
+}
+
+///
+/// Обрабатывает изменения инициирующего ордера.
+///
+void CPosition::ChangedInitOrder()
+{
+   if(initOrder.Status() == ORDER_NULL)
+      DeleteAllOrders();
+   else if(initOrder.Status() == ORDER_EXECUTING)
+      blocked = true;
+   Refresh();
+}
+
+///
+/// Удаляет все ордера.
+///
+void CPosition::DeleteAllOrders(void)
+{
+   if(initOrder != NULL)
+   {
+      delete initOrder;
+      initOrder = NULL;
+   }
+   if(closingOrder != NULL)
+   {
+      delete closingOrder;
+      closingOrder = NULL;
+   }
 }

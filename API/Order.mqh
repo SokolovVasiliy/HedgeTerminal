@@ -6,7 +6,8 @@
 enum ENUM_ORDER_STATUS
 {
    ///
-   /// Фиктивный ордер, не существующий в базе данных терминала.
+   /// Фиктивный ордер, не существующий в базе данных терминала, либо ордер,
+   /// чьи сделки были полностью уничтожены.
    ///
    ORDER_NULL,
    ///
@@ -40,11 +41,20 @@ class Order : public Transaction
       ENUM_ORDER_STATUS RefreshStatus(void);
       void Init(ulong orderId);
       ulong PositionId();
+      CPosition* Position(){return position;}
       bool IsPending();
       Order* Clone();
       virtual double ExecutedVolume();
+      void LinkWithPosition(CPosition* pos);
+      void Refresh();
+      void DealChanged(CDeal* deal);
       ~Order();
    private:
+      ///
+      ///Если ордер принадлежит к позиции, содержит ссылку на нее.
+      ///
+      CPosition* position;
+      int DetectChangedDeal(CDeal* deal);
       double executeVolume;
       bool isRefresh;
       Order* AnigilateVol(double& vol);
@@ -73,9 +83,7 @@ Order::Order(ulong idOrder):Transaction(TRANS_ORDER)
 ///
 Order::Order(CDeal* deal) : Transaction(TRANS_ORDER)
 {
-   SetId(deal.OrderId());
    AddDeal(deal);
-   RefreshStatus();
 }
 
 ///
@@ -88,8 +96,10 @@ Order::Order(Order *order) : Transaction(TRANS_ORDER)
    for(int i = 0; i < order.DealsTotal(); i++)
    {
       CDeal* deal = order.DealAt(i);
+      deal.LinqWithOrder(GetPointer(this));
       deals.Add(deal.Clone());
    }
+   position = order.Position();
 }
 
 ///
@@ -112,18 +122,65 @@ Order::~Order(void)
 void Order::Init(ulong orderId)
 {
    SetId(orderId);
-   RefreshStatus();
+   Refresh();
 }
+
 
 ///
 /// Возвращает идентификатор позиции, к которой может принадлежать ордер.
 ///
 ulong Order::PositionId()
 {
+   //Ордер закрывающий?
    ulong posId = HistoryOrderGetInteger(GetId(), ORDER_MAGIC);
    if(HistoryOrderGetInteger(posId, ORDER_TIME_DONE) > 0)
       return posId;
-   return 0;
+   //Ордер открывающий.
+   return GetId();
+}
+
+///
+/// Устанавливает ссылку на позицию, к которой принадлежит данный ордер.
+///
+void Order::LinkWithPosition(CPosition* pos)
+{
+   ulong m_id = GetId();
+   ulong pos_id = pos.GetId();
+   if(CheckPointer(pos) == POINTER_INVALID)
+      return;
+   if(pos.GetId() > 0 && pos.GetId() != PositionId())
+   {
+      LogWriter("Link order failed: this order has a different id with position id.", MESSAGE_TYPE_WARNING);
+      return;
+   }
+   position = pos;
+}
+
+///
+/// Сделка, принадлежащая этому ордеру, вызывает эту функцию,
+/// когда ее состояние изменилось.
+///
+void Order::DealChanged(CDeal* deal)
+{
+   int index = DetectChangedDeal(deal);
+   if(index == -1)return;
+   //CDeal* deal = deals.At(index);
+   //if(deal.ExecutedVolume() == 0)
+   Refresh();
+}
+
+///
+/// Возвращает номер сделки, которая была изменена.
+///
+int Order::DetectChangedDeal(CDeal* changeDeal)
+{
+   for(int i = 0; i < deals.Total(); i++)
+   {
+      CDeal* deal = deals.At(i);
+      if(changeDeal.GetId() == deal.GetId())
+         return i;
+   }
+   return -1;
 }
 ///
 /// Возвращает последний известный статус ордера. Статус может отличаться от фактического.
@@ -150,7 +207,7 @@ ENUM_ORDER_STATUS Order::RefreshStatus()
    if(MTContainsMe())
    {
       if(deals == NULL || deals.Total() == 0)
-         status = ORDER_EXECUTING;
+         status = ORDER_NULL;
       else
          status = ORDER_HISTORY;   
    }
@@ -162,6 +219,16 @@ ENUM_ORDER_STATUS Order::RefreshStatus()
    return status;
 }
 
+///
+/// Обновляет состояние ордера.
+///
+void Order::Refresh(void)
+{
+   RefreshStatus();
+   //TODO: RefreshPriceAndVol();
+   if(position != NULL)
+      position.OrderChanged(GetPointer(this));
+}
 ///
 /// Возвращает исполненный объем.
 ///
@@ -317,8 +384,9 @@ void Order::AddDeal(CDeal* deal)
       SetId(deal.OrderId());
    if(deals == NULL)
       deals = new CArrayObj();
+   deal.LinqWithOrder(GetPointer(this));
    deals.Add(deal);
-   RefreshStatus();
+   Refresh();
 }
 
 ///
@@ -328,6 +396,7 @@ void Order::DeleteDealAt(int index)
 {
    if(deals.Total() <= index)return;
    deals.Delete(index);
+   Refresh();
 }
 ///
 /// Возвращает сделку находящуюся в списке сделок по индексу index.

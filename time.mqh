@@ -18,6 +18,13 @@ class CTime
          tiks = set_time;
       }
       ///
+      /// Устанавливает время.
+      ///
+      void SetDateTime(datetime time)
+      {
+         tiks = time*1000;
+      }
+      ///
       /// Возвращает количество милисекунд прошедших с 1 января 1970 года.
       ///
       long Tiks(){return tiks;}

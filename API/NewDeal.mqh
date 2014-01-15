@@ -25,7 +25,7 @@ enum DEAL_STATUS
 class CDeal : public Transaction
 {
    public:
-      CDeal();
+      CDeal(); 
       CDeal(ulong dealId);
       CDeal(CDeal* deal);
       void Init(ulong dealId);
@@ -35,10 +35,17 @@ class CDeal : public Transaction
       void ExecutedVolume(double vol);
       ENUM_DEAL_TYPE DealType();
       CDeal* Clone();
+      void LinqWithOrder(Order* parOrder);
+      void Refresh();
+      Order* Order(){return order;}
    private:
-      void RefreshStatus();
+      ///
+      /// Если сделка принадлежит к ордеру, содержит ссылку на него.
+      ///
+      Order* order;
+      void RefreshStatus1();
       virtual bool MTContainsMe();
-      void ClearMe();
+      void ClearMe1();
       ulong orderId;
       double volume;
       DEAL_STATUS status;
@@ -66,6 +73,7 @@ CDeal::CDeal(CDeal* deal) : Transaction(TRANS_DEAL)
    type = deal.DealType();
    SetId(deal.GetId());
    orderId = deal.OrderId();
+   order = deal.Order();
 }
 
 ///
@@ -96,16 +104,8 @@ void CDeal::Init(ulong dealId)
 {
    SetId(dealId);
    volume = HistoryDealGetDouble(dealId, DEAL_VOLUME);
-   RefreshStatus();
-}
-
-void CDeal::RefreshStatus()
-{
    if(!MTContainsMe())
-   {
-      ClearMe();
       return;
-   }
    type = (ENUM_DEAL_TYPE)HistoryDealGetInteger(GetId(), DEAL_TYPE);
    if(type == DEAL_TYPE_BUY || type == DEAL_TYPE_SELL)
    {
@@ -124,6 +124,27 @@ void CDeal::RefreshStatus()
 }
 
 ///
+///
+///
+void CDeal::Refresh(void)
+{
+   if(order != NULL)
+      order.DealChanged(GetPointer(this));
+}
+///
+/// Связывает текущую сделку с ордером, которому она принадлежит.
+/// Идентификатор ордера выставившего сделку и id ордера должен совпадать.
+///
+void CDeal::LinqWithOrder(Order* parOrder)
+{
+   if(CheckPointer(parOrder) == POINTER_INVALID)
+      return;
+   if(parOrder.GetId() > 0 && orderId != parOrder.GetId())
+      return;
+   order = parOrder;
+}
+
+///
 /// Истина, если терминал содержит информацию о сделке с
 /// с текущим идентификатором и ложь в противном случае. Перед вызовом
 /// функции в терминал должна быть загружена история сделок и ордеров.
@@ -133,18 +154,6 @@ bool CDeal::MTContainsMe()
    if(HistoryDealGetInteger(GetId(), DEAL_TIME) > 0)
       return true;
    return false;
-}
-
-///
-/// Сбрасывает сделку в нулевое состояние DEAL_NULL,
-/// все переменные устанавливаются в 0.
-///
-void CDeal::ClearMe()
-{
-   status = DEAL_NULL;
-   direction = DIRECTION_NDEF;
-   SetId(0);
-   orderId = 0;
 }
 
 ///
@@ -162,6 +171,7 @@ void CDeal::ExecutedVolume(double vol)
 {
    if(vol < 0.0)return;
    volume = vol;
+   Refresh();
 }
 
 ///
