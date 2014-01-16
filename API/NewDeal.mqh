@@ -28,38 +28,50 @@ class CDeal : public Transaction
       CDeal(); 
       CDeal(ulong dealId);
       CDeal(CDeal* deal);
+      ~CDeal();
+      string Comment();
       void Init(ulong dealId);
       ulong OrderId();
       DEAL_STATUS Status();
       virtual double ExecutedVolume();
+      CTime* CopyExecutedTime();
       void ExecutedVolume(double vol);
       ENUM_DEAL_TYPE DealType();
       CDeal* Clone();
       void LinqWithOrder(Order* parOrder);
       void Refresh();
       Order* Order(){return order;}
+      
    private:
+      
       ///
       /// Если сделка принадлежит к ордеру, содержит ссылку на него.
       ///
       Order* order;
+      ///
+      /// Время совершения трейда.
+      ///
+      CTime* executedTime;
       void RefreshStatus1();
       virtual bool MTContainsMe();
-      void ClearMe1();
       ulong orderId;
       double volume;
       DEAL_STATUS status;
       ENUM_DEAL_TYPE type;
-      
+      ///
+      /// Комментрарий к сделке.
+      ///
+      string comment;
 };
 
 CDeal::CDeal(void) : Transaction(TRANS_DEAL)
 {
-   ;
+   executedTime = new CTime();
 }
 
 CDeal::CDeal(ulong dealId) : Transaction(TRANS_DEAL)
 {
+   executedTime = new CTime();
    Init(dealId);
 }
 
@@ -68,12 +80,18 @@ CDeal::CDeal(ulong dealId) : Transaction(TRANS_DEAL)
 ///
 CDeal::CDeal(CDeal* deal) : Transaction(TRANS_DEAL)
 {
+   executedTime = deal.CopyExecutedTime();
    status = deal.Status();
    volume = deal.ExecutedVolume();
    type = deal.DealType();
    SetId(deal.GetId());
    orderId = deal.OrderId();
    order = deal.Order();
+}
+
+CDeal::~CDeal(void)
+{
+   delete executedTime;
 }
 
 ///
@@ -104,6 +122,7 @@ void CDeal::Init(ulong dealId)
 {
    SetId(dealId);
    volume = HistoryDealGetDouble(dealId, DEAL_VOLUME);
+   executedTime.Tiks(HistoryDealGetInteger(dealId, DEAL_TIME_MSC));
    if(!MTContainsMe())
       return;
    type = (ENUM_DEAL_TYPE)HistoryDealGetInteger(GetId(), DEAL_TYPE);
@@ -180,4 +199,19 @@ void CDeal::ExecutedVolume(double vol)
 ENUM_DEAL_TYPE CDeal::DealType(void)
 {
    return type;
+}
+
+///
+/// Комментарий к сделке.
+///
+string CDeal::Comment(void)
+{
+   if(comment == NULL || comment == "")
+      comment = HistoryDealGetString(GetId(), DEAL_COMMENT);
+   return comment;
+}
+
+CTime* CDeal::CopyExecutedTime()
+{
+   return new CTime(executedTime.Tiks());
 }

@@ -31,7 +31,7 @@ class EventExchange
       {
          event = NULL;
       }
-      static void Add(CHedge* myHedge)
+      static void Add(HedgeManager* myHedge)
       {
          api = myHedge;
       }
@@ -45,7 +45,7 @@ class EventExchange
          ;
       }
       static Event* event;
-      static CHedge* api;
+      static HedgeManager* api;
       static ProtoNode* panel;
 };
 
@@ -462,7 +462,9 @@ class EventRefresh : public Event
       Event(Dir, EVENT_REFRESH, nodeId){;}
 };
 
-//class Position;
+///
+/// Содержит уведомление, о изменении позиции;
+///
 class EventRefreshPos : public Event
 {
    public:
@@ -474,6 +476,7 @@ class EventRefreshPos : public Event
    private:
       Position* m_pos;
 };
+
 ///
 /// Это событие генерируется терминалом 
 ///
@@ -521,6 +524,7 @@ class EventCreatePos : public Event
       ///
       Position* pos;
 };
+
 ///
 /// Это событие указывает на позицию, которая должна быть удалена из
 /// списка активных позиций.
@@ -545,6 +549,7 @@ class EventDelPos : public Event
       ulong positionId;
       Position* m_pos;
 };
+
 
 ///
 /// Это событие посылает команду закрыть позицию.

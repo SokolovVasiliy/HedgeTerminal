@@ -281,8 +281,9 @@ class Transaction : public CObject
       ///
       void SelectPendingTransaction()
       {
-         if(transType == TRANS_POSITION)
-            OrderSelect(currId);
+         if(transType == TRANS_ORDER ||
+            transType == TRANS_POSITION)
+            OrderSelect(currId);   
       }
       
       /*Для ускореня рассчетов, запоминает ранее рассчитанные цены, которые в дальнейшем будут неизменны*/

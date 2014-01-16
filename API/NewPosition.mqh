@@ -63,6 +63,15 @@ class CPosition : public Transaction
       CPosition(Order* inOrder);
       CPosition(Order* inOrder, Order* outOrder);
       ~CPosition();
+      
+      #ifndef HLIBRARY
+         /// Возвращает указатель на графическое представление текущей позиции. 
+         PosLine* PositionLine(){return positionLine;}
+      #endif
+      #ifndef HLIBRARY
+         /// Устанавливает указатель на графическое представление текущей позиции.
+         void PositionLine(CObject* pLine){positionLine = pLine;}
+      #endif
       InfoIntegration* Integrate(Order* order);
       static bool CheckOrderType(Order* checkOrder);
       POSITION_STATUS Status();
@@ -74,7 +83,12 @@ class CPosition : public Transaction
       virtual int Compare(const CObject* node, const int mode=0);
       void OrderChanged(Order* order);
       void Refresh();
+      void AsynchClose(double vol, string comment = NULL);
    private:
+      ///
+      /// Класс, для совершения торговых операций.
+      ///
+      CTrade trading;
       void Init();
       ///
       /// Определяет тип ордера, который был изменен.
@@ -115,6 +129,9 @@ class CPosition : public Transaction
       Order* initOrder;
       Order* closingOrder;
       POSITION_STATUS status;
+      #ifndef HLIBRARY
+         PosLine* positionLine;
+      #endif
 };
 
 ///
@@ -160,13 +177,16 @@ CPosition::CPosition(Order* inOrder, Order* outOrder) : Transaction(TRANS_POSITI
       return;
    if(inOrder.ExecutedVolume() != outOrder.ExecutedVolume())
       return;
-   //if(inOrder.PositionId() != outOrder.PositionId())
-   //   return;
+   ulong in_id = inOrder.PositionId();
+   ulong out_id = outOrder.PositionId();
+   if(inOrder.PositionId() != outOrder.PositionId())
+      return;
    status = POSITION_HISTORY;
    initOrder = inOrder;
    initOrder.LinkWithPosition(GetPointer(this));
-   outOrder = outOrder;
-   outOrder.LinkWithPosition(GetPointer(this));
+   closingOrder = outOrder;
+   closingOrder.LinkWithPosition(GetPointer(this));
+   Refresh();
 }
 
 bool CPosition::Compatible(CPosition *pos)
@@ -194,7 +214,6 @@ bool CPosition::Merge(CPosition *pos)
 {
    if(!Compatible(pos))
       return false;
-   
    //Merge init deals.
    Order* order = pos.InitOrder();
    //CArrayObj inDeals = in.D
@@ -232,7 +251,9 @@ InfoIntegration* CPosition::Integrate(Order* order)
       info = new InfoIntegration();
    }
    else if(CompatibleForClose(order))
+   {
       info = AddClosingOrder(order);
+   }
    else
    {
       info = new InfoIntegration();
@@ -351,6 +372,9 @@ static bool CPosition::CheckOrderType(Order* checkOrder)
    return true;
 }
 
+///
+///
+///
 void CPosition::Refresh(void)
 {
    CheckStatus();
@@ -359,12 +383,14 @@ void CPosition::Refresh(void)
    else
       SetId(0);
 }
+
 ///
 /// Обновляет статус позиции.
 ///
 POSITION_STATUS CPosition::CheckStatus()
 {
-   if(CheckPointer(initOrder) == POINTER_INVALID)
+   if(CheckPointer(initOrder) == POINTER_INVALID ||
+      initOrder.DealsTotal() == 0 || initOrder.ExecutedVolume() == 0.0)
    {
       status = POSITION_NULL;
       return status;
@@ -417,20 +443,23 @@ void CPosition::ExchangerOrder(ExchangerList& list)
 void CPosition::SplitOrder(ExchangerList &list)
 {
    //Объем, который нужно выполнить.
+   ulong in_id = list.inOrder.GetId();
+   ulong out_id = list.outOrder.GetId();
    double volTotal = list.outOrder.ExecutedVolume();
    if(list.inOrder.ExecutedVolume() < volTotal)
       return;
-   list.histOutOrder = list.outOrder.Clone();
+   
+   list.histOutOrder = list.outOrder;
    list.histInOrder = new Order();
    //Выполненный объем
    double exVol = 0.0;
-   for(int i = 0; i < list.inOrder.DealsTotal(); i++)
+   while(list.inOrder.DealsTotal())
    {
       //Объем, который осталось выполнить.
       double rVol = volTotal - exVol;
       //Если весь объем выполнен - выходим.
       if(rVol == 0.0)break;
-      CDeal* deal = list.inOrder.DealAt(i);
+      CDeal* deal = list.inOrder.DealAt(0);
       double curVol = deal.ExecutedVolume();
       if(deal.ExecutedVolume() > rVol)
       {
@@ -444,10 +473,7 @@ void CPosition::SplitOrder(ExchangerList &list)
       {
          exVol += deal.ExecutedVolume();
          list.histInOrder.AddDeal(deal.Clone());
-         list.inOrder.DeleteDealAt(i);
-         Order tmpOrder = list.inOrder;
-         int dt = tmpOrder.DealsTotal();
-         i--;
+         list.inOrder.DeleteDealAt(0);
       }
    }   
 }
@@ -459,6 +485,8 @@ int CPosition::Compare(const CObject* node, const int mode=0)
       case SORT_ORDER_ID:
       {
          const Transaction* trans = node;
+         ulong my_id = GetId();
+         ulong trans_id = trans.GetId();
          if(GetId() == trans.GetId())
             return EQUAL;
          if(GetId() < trans.GetId())
@@ -504,9 +532,7 @@ void CPosition::OrderChanged(Order* order)
 ///
 void CPosition::ChangedInitOrder()
 {
-   if(initOrder.Status() == ORDER_NULL)
-      DeleteAllOrders();
-   else if(initOrder.Status() == ORDER_EXECUTING)
+   if(initOrder.Status() == ORDER_EXECUTING)
       blocked = true;
    Refresh();
 }
@@ -526,4 +552,17 @@ void CPosition::DeleteAllOrders(void)
       delete closingOrder;
       closingOrder = NULL;
    }
+}
+
+///
+/// Закрывает текущую позицию асинхронно.
+///
+void CPosition::AsynchClose(double vol, string comment = NULL)
+{
+   trading.SetAsyncMode(true);
+   trading.SetExpertMagicNumber(initOrder.GetMagicForClose());
+   if(Direction() == DIRECTION_LONG)
+      trading.Sell(vol, Symbol(), 0.0, 0.0, 0.0, comment);
+   else if(Direction() == DIRECTION_SHORT)
+      trading.Buy(vol, Symbol(), 0.0, 0.0, 0.0, comment);
 }

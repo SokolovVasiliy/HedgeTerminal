@@ -16,7 +16,7 @@
 ///
 input int RefreshRate = 200;
 
-CHedge* api;
+HedgeManager* api;
 MainForm* HedgePanel;
 
 
@@ -30,7 +30,7 @@ void OnInit(void)
    EventSetMillisecondTimer(RefreshRate);
    HedgePanel = new MainForm();
    EventExchange::Add(HedgePanel);
-   api = new CHedge();
+   api = new HedgeManager();
    EventExchange::Add(api);
    
    //EventRedraw* redraw = new EventRedraw(EVENT_FROM_UP, "TERMINAL WINDOW");
