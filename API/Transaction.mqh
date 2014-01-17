@@ -105,7 +105,7 @@ class Transaction : public CObject
       ///
       /// Возвращает фактический выполненный объем транзакции.
       ///
-      virtual double ExecutedVolume()
+      virtual double VolumeExecuted()
       {
          return 0.0;
       }
@@ -247,23 +247,25 @@ class Transaction : public CObject
       ///
       /// Возвращает время срабатывания ордера/совершения сделки.
       ///
-      CTime* TimeExecuted()
+      virtual long TimeExecuted()
       {
          CTime* ctime = NULL;
          SelectHistoryTransaction();
          if(transType == TRANS_POSITION)
          {
             long msc = HistoryOrderGetInteger(currId, ORDER_TIME_DONE_MSC);
-            ctime = new CTime(msc);
-            return ctime;
+            return msc;
+            //ctime = new CTime(msc);
+            //return ctime;
          }
          if(transType == TRANS_DEAL)
          {
             long msc = HistoryDealGetInteger(currId, DEAL_TIME_MSC);
-            ctime = new CTime(msc);
-            return ctime;
+            return msc;
+            //ctime = new CTime(msc);
+            //return ctime;
          }
-         return NULL;
+         return 0;
       }
       ///
       /// Выбирает текущую транзакцию для дальнейшей работы с ней.

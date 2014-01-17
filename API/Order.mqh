@@ -31,54 +31,87 @@ class Order : public Transaction
       Order(ulong orderId);
       Order(CDeal* deal);
       Order(Order* order);
+      ~Order();
+      
       Order* AnigilateOrder(Order* order);
       void AddDeal(CDeal* deal);
+      
       string Comment();
-      CTime* CopyExecutedTime();
-      ulong GetMagicForClose();
+      long TimeSetup();
+      long TimeExecuted();
+      
+      Order* Clone();
+      int ContainsDeal(CDeal* deal);
+      
       void DeleteDealAt(int index);
       CDeal* DealAt(int index);
       int DealsTotal();
-      void AddVolume(int vol);
-      ENUM_ORDER_STATUS Status();
-      ENUM_ORDER_STATUS RefreshStatus(void);
+      void DealChanged(CDeal* deal);
+      
+      double PriceSetup();
+      double PriceExecuted();
+      
+      ulong GetMagicForClose();
+      
       void Init(ulong orderId);
+      bool IsPending();
+      
+      void LinkWithPosition(CPosition* pos); 
+      
       ulong PositionId();
       CPosition* Position(){return position;}
-      bool IsPending();
-      Order* Clone();
-      virtual double ExecutedVolume();
-      void LinkWithPosition(CPosition* pos);
-      void Refresh();
-      void DealChanged(CDeal* deal);
-      int ContainsDeal(CDeal* deal);
       
-      ~Order();
+      void Refresh();
+      
+      ENUM_ORDER_STATUS Status();
+      
+      
+      virtual double VolumeExecuted(void);
+      double VolumeSetup(void);
+      double VolumeReject(void);
+      
    private:
+      virtual bool IsHistory();
+      ENUM_ORDER_STATUS RefreshStatus(void);
       void RecalcValues(void);
-      void RecalcExecutedVolume(void);
-      void RecalcExecutedDate(void);
-      virtual bool MTContainsMe();
+      
       ///
       ///Если ордер принадлежит к позиции, содержит ссылку на нее.
       ///
       CPosition* position;
       ///
+      /// Содержит первоначальный объем, при постановки ордера.
+      ///
+      double volumeSetup;
+      ///
       /// Содержит выполненный объем ордера.
       ///
-      double executeVolume;
+      double volumeExecuted;
+      ///
+      /// Содержит время установки ордера.
+      ///
+      CTime timeSetup;
       ///
       /// Содержит время исполнения ордера.
       ///
-      CTime executedTime;
+      CTime timeExecuted;
+      ///
+      /// Содержит цену установки ордера.
+      ///
+      double priceSetup;
+      ///
+      /// Содержит средневзвешенную цену входа.
+      ///
+      double priceExecuted;
       ///
       /// Содержит статус ордера.
       ///
       ENUM_ORDER_STATUS status;
+      
       ///
       /// Содержит сделки ордера.
       ///
-      CArrayObj* deals;
+      CArrayObj deals;
       ///
       /// Содержит Комментарий к ордеру.
       ///
@@ -88,7 +121,7 @@ class Order : public Transaction
 /*PUBLIC MEMBERS*/
 Order::Order() : Transaction(TRANS_ORDER)
 {
-   deals = new CArrayObj();
+   
    status = ORDER_NULL;
 }
 ///
@@ -98,7 +131,6 @@ Order::Order() : Transaction(TRANS_ORDER)
 ///
 Order::Order(ulong idOrder):Transaction(TRANS_ORDER)
 {
-   deals = new CArrayObj();
    Init(idOrder);
 }
 
@@ -107,7 +139,6 @@ Order::Order(ulong idOrder):Transaction(TRANS_ORDER)
 ///
 Order::Order(CDeal* deal) : Transaction(TRANS_ORDER)
 {
-   deals = new CArrayObj();
    AddDeal(deal);
 }
 
@@ -116,9 +147,7 @@ Order::Order(CDeal* deal) : Transaction(TRANS_ORDER)
 ///
 Order::Order(Order *order) : Transaction(TRANS_ORDER)
 {
-   deals = new CArrayObj();
    SetId(order.GetId());
-   status = order.Status();
    for(int i = 0; i < order.DealsTotal(); i++)
    {
       CDeal* deal = order.DealAt(i);
@@ -126,7 +155,14 @@ Order::Order(Order *order) : Transaction(TRANS_ORDER)
       ndeal.LinqWithOrder(GetPointer(this));
       deals.Add(ndeal);
    }
+   status = order.Status();
    position = order.Position();
+   priceSetup = order.PriceSetup();
+   priceExecuted = order.PriceExecuted();
+   timeSetup = order.TimeSetup();
+   timeExecuted = order.TimeExecuted();
+   volumeSetup = order.VolumeSetup();
+   volumeExecuted = order.VolumeExecuted();
 }
 
 ///
@@ -139,11 +175,7 @@ Order* Order::Clone(void)
 
 Order::~Order(void)
 {
-   if(deals != NULL)
-   {
-      deals.Clear();
-      delete deals;
-   }
+   deals.Clear();
 }
 
 void Order::Init(ulong orderId)
@@ -190,7 +222,7 @@ void Order::DealChanged(CDeal* deal)
    int index = ContainsDeal(deal);
    if(index == -1)return;
    //CDeal* deal = deals.At(index);
-   //if(deal.ExecutedVolume() == 0)
+   //if(deal.VolumeExecuted() == 0)
    Refresh();
 }
 
@@ -232,9 +264,9 @@ ENUM_ORDER_STATUS Order::RefreshStatus()
       status = ORDER_PENDING;
       return status;
    }
-   if(MTContainsMe())
+   if(IsHistory())
    {
-      if(deals == NULL || deals.Total() == 0)
+      if(deals.Total() == 0)
          status = ORDER_NULL;
       else
          status = ORDER_HISTORY;   
@@ -253,9 +285,8 @@ ENUM_ORDER_STATUS Order::RefreshStatus()
 void Order::Refresh(void)
 {
    RefreshStatus();
-   //RecalcValues();
-   this.Comment();
-   if(status != NULL && GetId() == 0)
+   RecalcValues();
+   if(status != ORDER_NULL && GetId() == 0 && deals.Total() > 0)
    {
       CDeal* deal = deals.At(0);
       SetId(deal.OrderId());
@@ -264,13 +295,7 @@ void Order::Refresh(void)
    if(position != NULL)
       position.OrderChanged(GetPointer(this));
 }
-///
-/// Возвращает исполненный объем.
-///
-double Order::ExecutedVolume(void)
-{
-   return 1.0;
-}
+
 ///
 /// Добавляет сделку в список сделок ордера.
 ///
@@ -290,14 +315,12 @@ void Order::AddDeal(CDeal* deal)
    }
    if(GetId() == 0)
       SetId(deal.OrderId());
-   if(deals == NULL)
-      deals = new CArrayObj();
    deal.LinqWithOrder(GetPointer(this));
    int index = ContainsDeal(deal);
    if(index != -1)
    {
       CDeal* mdeal = deals.At(index);
-      mdeal.ExecutedVolume(deal.ExecutedVolume());
+      mdeal.VolumeExecuted(deal.VolumeExecuted());
       delete mdeal;
    }
    else
@@ -327,8 +350,6 @@ CDeal* Order::DealAt(int index)
 ///
 int Order::DealsTotal()
 {
-   if(deals == NULL)
-      return 0;
    return deals.Total();
 }
 
@@ -336,7 +357,7 @@ int Order::DealsTotal()
 /// Истина, если терминал содержит информацию об ордере с
 /// с текущим идентификатором и ложь в противном случае.
 ///
-bool Order::MTContainsMe()
+bool Order::IsHistory()
 {
    LoadHistory();
    if(HistoryOrderGetInteger(GetId(), ORDER_TIME_SETUP) > 0)
@@ -350,22 +371,6 @@ bool Order::IsPending()
 }
 
 ///
-/// Возвращает комментарий к ордеру.
-///
-string Order::Comment()
-{
-   if(comment == NULL || comment == "")
-   {
-      if(status == ORDER_EXECUTING || status == ORDER_PENDING)
-      {
-         OrderSelect(GetId());
-         comment = OrderGetString(ORDER_COMMENT);
-      }
-   }
-   return comment;
-}
-
-///
 /// Получает магик для закрытия данного ордера.
 ///
 ulong Order::GetMagicForClose(void)
@@ -374,56 +379,106 @@ ulong Order::GetMagicForClose(void)
 }
 
 ///
-/// Возвращает копию времени исполнения ордера.
+/// Возвращает комментарий к ордеру.
 ///
-CTime* Order::CopyExecutedTime()
+string Order::Comment()
 {
-   return new CTime(executedTime.Tiks());
+   return comment;
 }
 
 ///
-/// Пересчитывает все параметры ордера.
+/// Возвращает точное время установки ордера, в виде
+/// количества тиков прошедших с 01.01.1970 года.
+///
+long Order::TimeSetup()
+{
+   return timeSetup.Tiks();
+}
+
+///
+/// Возвращает точное время исполнения ордера, в виде
+/// количества тиков прошедших с 01.01.1970 года.
+///
+long Order::TimeExecuted()
+{
+   return timeExecuted.Tiks();
+}
+
+///
+/// Возвращает цену цену исполнения ордера.
+///
+double Order::PriceSetup(void)
+{
+   return priceSetup;
+}
+
+///
+/// Возвращает средневзвешенную цену исполнения ордера.
+///
+double Order::PriceExecuted(void)
+{
+   return priceExecuted;
+}
+
+///
+/// Возвращает первоначальный объем при постановке ордера.
+///
+double Order::VolumeSetup(void)
+{
+   return volumeSetup;
+}
+
+///
+/// Возвращает исполненный объем.
+///
+double Order::VolumeExecuted(void)
+{
+   return volumeExecuted;
+}
+
+///
+/// Возвращает неисполненный объем.
+///
+double Order::VolumeReject(void)
+{
+   return volumeSetup - volumeExecuted;
+}
+
+
+
+///
+/// Рассчитывает средневзвешенную цену входа.
 ///
 void Order::RecalcValues(void)
 {
-   RecalcExecutedVolume();
-   RecalcExecutedDate();
-}
-
-///
-/// Пересчитывает выполненный объем
-///
-void Order::RecalcExecutedVolume(void)
-{
-   executeVolume = 0.0;
-   
-   /*if(!isRefresh || executeVolume == 0.0)
-   {
-      executeVolume = 0.0;
-      for(int i = 0; i < deals.Total(); i++)
-      {
-         CDeal* deal = deals.At(i);
-         executeVolume += deal.ExecutedVolume();
-      }
-   }*/
-}
-
-///
-/// Пересчитывает дату исполнения сделки.
-///
-void Order::RecalcExecutedDate()
-{
-   // У отложенного ордера нет даты исполнения.
-   if(status == ORDER_PENDING)
-      return;
-   // Время исполнения ордера - это время исполнения самой
-   // последней его сделки.
+   priceExecuted = 0.0;
+   volumeExecuted = 0.0;
+   timeExecuted.Tiks(0);
+   //calc avrg price, executed volume and time.
    for(int i = 0; i < deals.Total(); i++)
    {
-      CDeal* mdeal = deals.At(i);
-      CTime* exTime = mdeal.CopyExecutedTime();
-      if(exTime.Tiks() > executedTime.Tiks())
-         executedTime.Tiks(exTime.Tiks());
-      delete exTime;
+      CDeal* deal = deals.At(i);
+      priceExecuted += deal.PriceExecuted()*deal.VolumeExecuted();
+      volumeExecuted += deal.VolumeExecuted();
+      if(timeExecuted.Tiks() < deal.TimeExecuted())
+         timeExecuted.Tiks(deal.TimeExecuted());
+   }
+   if(volumeExecuted > 0)
+      priceExecuted /= volumeExecuted;
+   //calc setup price and comment.
+   if(IsPending())
+   {
+      OrderSelect(GetId());
+      priceSetup = OrderGetDouble(ORDER_PRICE_OPEN);
+      volumeSetup = OrderGetDouble(ORDER_VOLUME_INITIAL);
+      timeSetup = OrderGetInteger(ORDER_TIME_SETUP_MSC);
+      comment = OrderGetString(ORDER_COMMENT);
+   }
+   else if(IsHistory())
+   {
+      priceSetup = HistoryOrderGetDouble(GetId(), ORDER_PRICE_OPEN);
+      volumeSetup = HistoryOrderGetDouble(GetId(), ORDER_VOLUME_INITIAL);
+      timeSetup = HistoryOrderGetInteger(ORDER_TIME_SETUP_MSC);
+      comment = HistoryOrderGetString(GetId(), ORDER_COMMENT);
    }
 }

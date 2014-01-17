@@ -28,14 +28,14 @@ class CDeal : public Transaction
       CDeal(); 
       CDeal(ulong dealId);
       CDeal(CDeal* deal);
-      ~CDeal();
       string Comment();
       void Init(ulong dealId);
       ulong OrderId();
       DEAL_STATUS Status();
-      virtual double ExecutedVolume();
-      CTime* CopyExecutedTime();
-      void ExecutedVolume(double vol);
+      virtual double VolumeExecuted();
+      void VolumeExecuted(double vol);
+      long TimeExecuted();
+      double PriceExecuted();
       ENUM_DEAL_TYPE DealType();
       CDeal* Clone();
       void LinqWithOrder(Order* parOrder);
@@ -43,7 +43,7 @@ class CDeal : public Transaction
       Order* Order(){return order;}
       
    private:
-      
+      virtual bool IsHistory();
       ///
       /// Если сделка принадлежит к ордеру, содержит ссылку на него.
       ///
@@ -51,27 +51,39 @@ class CDeal : public Transaction
       ///
       /// Время совершения трейда.
       ///
-      CTime* executedTime;
-      void RefreshStatus1();
-      virtual bool MTContainsMe();
+      CTime timeExecuted;
+      ///
+      /// Содержит идентификатор ордера, на основании которого совершена сделка.
+      ///
       ulong orderId;
-      double volume;
+      ///
+      /// Объем совершенной сделки.
+      ///
+      double volumeExecuted;
+      ///
+      /// Статус сделки.
+      ///
       DEAL_STATUS status;
+      ///
+      /// Тип сделки.
+      ///
       ENUM_DEAL_TYPE type;
       ///
-      /// Комментрарий к сделке.
+      /// Комментарий к сделке.
       ///
       string comment;
+      ///
+      /// Содержит цену исполнения сделки.
+      ///
+      double priceExecuted;
 };
 
 CDeal::CDeal(void) : Transaction(TRANS_DEAL)
 {
-   executedTime = new CTime();
 }
 
 CDeal::CDeal(ulong dealId) : Transaction(TRANS_DEAL)
 {
-   executedTime = new CTime();
    Init(dealId);
 }
 
@@ -80,19 +92,16 @@ CDeal::CDeal(ulong dealId) : Transaction(TRANS_DEAL)
 ///
 CDeal::CDeal(CDeal* deal) : Transaction(TRANS_DEAL)
 {
-   executedTime = deal.CopyExecutedTime();
-   status = deal.Status();
-   volume = deal.ExecutedVolume();
-   type = deal.DealType();
    SetId(deal.GetId());
    orderId = deal.OrderId();
+   status = deal.Status();
+   timeExecuted.Tiks(deal.TimeExecuted());
+   volumeExecuted = deal.VolumeExecuted();
+   priceExecuted = deal.PriceExecuted();
+   type = deal.DealType();
    order = deal.Order();
 }
 
-CDeal::~CDeal(void)
-{
-   delete executedTime;
-}
 
 ///
 /// Возвращает полную копию текущей сделки.
@@ -121,10 +130,11 @@ DEAL_STATUS CDeal::Status()
 void CDeal::Init(ulong dealId)
 {
    SetId(dealId);
-   volume = HistoryDealGetDouble(dealId, DEAL_VOLUME);
-   executedTime.Tiks(HistoryDealGetInteger(dealId, DEAL_TIME_MSC));
-   if(!MTContainsMe())
+   if(!IsHistory())
       return;
+   volumeExecuted = HistoryDealGetDouble(dealId, DEAL_VOLUME);
+   timeExecuted.Tiks(HistoryDealGetInteger(dealId, DEAL_TIME_MSC));
+   priceExecuted = HistoryDealGetDouble(dealId, DEAL_PRICE);
    type = (ENUM_DEAL_TYPE)HistoryDealGetInteger(GetId(), DEAL_TYPE);
    if(type == DEAL_TYPE_BUY || type == DEAL_TYPE_SELL)
    {
@@ -168,7 +178,7 @@ void CDeal::LinqWithOrder(Order* parOrder)
 /// с текущим идентификатором и ложь в противном случае. Перед вызовом
 /// функции в терминал должна быть загружена история сделок и ордеров.
 ///
-bool CDeal::MTContainsMe()
+bool CDeal::IsHistory()
 {
    if(HistoryDealGetInteger(GetId(), DEAL_TIME) > 0)
       return true;
@@ -178,18 +188,18 @@ bool CDeal::MTContainsMe()
 ///
 /// Совершенный объем сделки.
 ///
-double CDeal::ExecutedVolume()
+double CDeal::VolumeExecuted()
 {
-   return volume;
+   return volumeExecuted;
 }
 
 ///
 /// Устанавливает объем сделки.
 ///
-void CDeal::ExecutedVolume(double vol)
+void CDeal::VolumeExecuted(double vol)
 {
    if(vol < 0.0)return;
-   volume = vol;
+   volumeExecuted = vol;
    Refresh();
 }
 
@@ -202,7 +212,7 @@ ENUM_DEAL_TYPE CDeal::DealType(void)
 }
 
 ///
-/// Комментарий к сделке.
+/// Возвращает комментарий к сделке.
 ///
 string CDeal::Comment(void)
 {
@@ -211,7 +221,19 @@ string CDeal::Comment(void)
    return comment;
 }
 
-CTime* CDeal::CopyExecutedTime()
+///
+/// Возвращает точное время исполнения сделки, в виде
+/// количества тиков прошедших с 01.01.1970 года.
+///
+long CDeal::TimeExecuted(void)
 {
-   return new CTime(executedTime.Tiks());
+   return timeExecuted.Tiks();
+}
+
+///
+/// Возвращает цену исполнения сделки.
+///
+double CDeal::PriceExecuted(void)
+{
+   return priceExecuted;
 }

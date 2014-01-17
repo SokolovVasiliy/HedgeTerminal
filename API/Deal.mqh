@@ -95,7 +95,7 @@ class Deal : public Transaction
       ///
       CTime* Date()
       {
-         return TimeExecuted();
+         return new CTime(TimeExecuted());
       }
       ///
       /// Возвращает уникальный идентификатор сделки.

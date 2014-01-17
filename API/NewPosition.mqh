@@ -72,6 +72,26 @@ class CPosition : public Transaction
          /// Устанавливает указатель на графическое представление текущей позиции.
          void PositionLine(CObject* pLine){positionLine = pLine;}
       #endif
+      
+      string EntryComment(void);
+      string ExitComment(void);
+      
+      long EntryExecutedTime(void);
+      long ExitExecutedTime(void);
+      
+      long EntrySetupTime(void);
+      long ExitSetupTime(void);
+      
+      double EntryExecutedPrice(void);
+      double ExitExecutedPrice(void);
+      
+      double EntrySetupPrice(void);
+      double ExitSetupPrice(void);
+      
+      double VolumeSetup(void);
+      double VolumeRejected(void);
+      virtual double VolumeExecuted(void);
+      
       InfoIntegration* Integrate(Order* order);
       static bool CheckOrderType(Order* checkOrder);
       POSITION_STATUS Status();
@@ -175,7 +195,7 @@ CPosition::CPosition(Order* inOrder, Order* outOrder) : Transaction(TRANS_POSITI
    Init();
    if(inOrder == NULL || outOrder == NULL)
       return;
-   if(inOrder.ExecutedVolume() != outOrder.ExecutedVolume())
+   if(inOrder.VolumeExecuted() != outOrder.VolumeExecuted())
       return;
    ulong in_id = inOrder.PositionId();
    ulong out_id = outOrder.PositionId();
@@ -331,7 +351,7 @@ InfoIntegration* CPosition::AddClosingOrder(Order* outOrder)
    }
    ExchangerList list;
    bool revers = false;
-   if(outOrder.ExecutedVolume() <= initOrder.ExecutedVolume())
+   if(outOrder.VolumeExecuted() <= initOrder.VolumeExecuted())
    {
       list.inOrder = initOrder;
       list.outOrder = outOrder;
@@ -390,7 +410,7 @@ void CPosition::Refresh(void)
 POSITION_STATUS CPosition::CheckStatus()
 {
    if(CheckPointer(initOrder) == POINTER_INVALID ||
-      initOrder.DealsTotal() == 0 || initOrder.ExecutedVolume() == 0.0)
+      initOrder.DealsTotal() == 0 || initOrder.VolumeExecuted() == 0.0)
    {
       status = POSITION_NULL;
       return status;
@@ -422,7 +442,7 @@ void CPosition::ExchangerOrder(ExchangerList& list)
 {
    if(list.inOrder == NULL || list.outOrder == NULL)
       return;
-   if(list.outOrder.ExecutedVolume() <= list.inOrder.ExecutedVolume())
+   if(list.outOrder.VolumeExecuted() <= list.inOrder.VolumeExecuted())
    {
       SplitOrder(list);
    }
@@ -445,8 +465,8 @@ void CPosition::SplitOrder(ExchangerList &list)
    //Объем, который нужно выполнить.
    ulong in_id = list.inOrder.GetId();
    ulong out_id = list.outOrder.GetId();
-   double volTotal = list.outOrder.ExecutedVolume();
-   if(list.inOrder.ExecutedVolume() < volTotal)
+   double volTotal = list.outOrder.VolumeExecuted();
+   if(list.inOrder.VolumeExecuted() < volTotal)
       return;
    
    list.histOutOrder = list.outOrder;
@@ -460,18 +480,18 @@ void CPosition::SplitOrder(ExchangerList &list)
       //Если весь объем выполнен - выходим.
       if(rVol == 0.0)break;
       CDeal* deal = list.inOrder.DealAt(0);
-      double curVol = deal.ExecutedVolume();
-      if(deal.ExecutedVolume() > rVol)
+      double curVol = deal.VolumeExecuted();
+      if(deal.VolumeExecuted() > rVol)
       {
          CDeal* hDeal = deal.Clone();
-         hDeal.ExecutedVolume(rVol);
+         hDeal.VolumeExecuted(rVol);
          list.histInOrder.AddDeal(hDeal);
-         deal.ExecutedVolume(deal.ExecutedVolume() - rVol);
+         deal.VolumeExecuted(deal.VolumeExecuted() - rVol);
          exVol += rVol;
       }
-      else if(deal.ExecutedVolume() <= rVol)
+      else if(deal.VolumeExecuted() <= rVol)
       {
-         exVol += deal.ExecutedVolume();
+         exVol += deal.VolumeExecuted();
          list.histInOrder.AddDeal(deal.Clone());
          list.inOrder.DeleteDealAt(0);
       }
@@ -565,4 +585,115 @@ void CPosition::AsynchClose(double vol, string comment = NULL)
       trading.Sell(vol, Symbol(), 0.0, 0.0, 0.0, comment);
    else if(Direction() == DIRECTION_SHORT)
       trading.Buy(vol, Symbol(), 0.0, 0.0, 0.0, comment);
+}
+
+///
+/// Возвращает входищий комментарий позиции.
+///
+string CPosition::EntryComment(void)
+{
+   if(initOrder != NULL)
+      return initOrder.Comment();
+   return "";
+}
+
+///
+/// Возвращает исходящий комментарий позиции.
+///
+string CPosition::ExitComment(void)
+{
+   if(closingOrder != NULL)
+      return closingOrder.Comment();
+   return "";
+}
+
+///
+/// Возвращает точное время установки позиции, в виде
+/// количества тиков прошедших с 01.01.1970 года.
+///
+long CPosition::EntrySetupTime(void)
+{
+   if(initOrder != NULL)
+      return initOrder.TimeSetup();
+   return 0;
+}
+
+///
+/// Возвращает точное время приказа на закрытие позиции, в виде
+/// количества тиков прошедших с 01.01.1970 года.
+///
+long CPosition::ExitSetupTime(void)
+{
+   if(closingOrder != NULL)
+      return closingOrder.TimeSetup();
+   return 0;
+}
+
+///
+/// Возвращает точное время исполнения позиции, в виде
+/// количества тиков прошедших с 01.01.1970 года.
+///
+long CPosition::EntryExecutedTime(void)
+{
+   if(initOrder != NULL)
+      return initOrder.TimeExecuted();
+   return 0;
+}
+
+///
+/// Возвращает точное время фактического закрытия позиции, в виде
+/// количества тиков прошедших с 01.01.1970 года.
+///
+long CPosition::ExitExecutedTime(void)
+{
+   if(closingOrder != NULL)
+      return closingOrder.TimeExecuted();
+   return 0;
+}
+
+///
+/// Возвращает фактическую цену входа в позицию.
+///
+double CPosition::EntryExecutedPrice(void)
+{
+   if(initOrder != NULL)
+      return initOrder.PriceExecuted();
+   return 0.0;
+}
+
+///
+/// Возвращает фактическую цену выхода из позиции.
+///
+double CPosition::ExitExecutedPrice(void)
+{
+   if(closingOrder != NULL)
+      return closingOrder.PriceExecuted();
+   return 0.0;
+}
+
+///
+/// Возвращает размещенную цену входа в позицию.
+///
+double CPosition::EntrySetupPrice(void)
+{
+   if(initOrder != NULL)
+      return initOrder.PriceSetup();
+   return 0.0;
+}
+
+///
+/// Возвращает размещенную цену выхода из позиции.
+///
+double CPosition::ExitSetupPrice(void)
+{
+   if(closingOrder != NULL)
+      return closingOrder.PriceSetup();
+   return 0.0;
+}
+
+double CPosition::VolumeExecuted(void)
+{
+   if(closingOrder != NULL)
+      return closingOrder.VolumeExecuted();
+   return 0.0;
 }

@@ -404,7 +404,7 @@ class Position : public Transaction
       {
          Context(TRANS_IN);
          if(posStatus == POSITION_STATUS_NULL || posStatus == POSITION_STATUS_PENDING)return NULL;
-         return TimeExecuted();
+         return new CTime(TimeExecuted());
       }
       ///
       /// Возвращает время фактического выхода из позиции. Позиция должна быть закрыта.
@@ -414,7 +414,7 @@ class Position : public Transaction
          Context(TRANS_OUT);
          if(posStatus == POSITION_STATUS_NULL ||
             posStatus != POSITION_STATUS_CLOSED)return NULL;
-         return TimeExecuted();
+         return new CTime(TimeExecuted());
       }
       ///
       /// Возвращает первоначальный размещенный объем
