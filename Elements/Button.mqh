@@ -8,14 +8,11 @@ class Button : public TextNode
    public:
       Button(string myName, ENUM_ELEMENT_TYPE elType, ProtoNode* parNode) : TextNode(OBJ_BUTTON, elType, myName, parNode)
       {
-         color border = CheckPointer(Settings) != POINTER_INVALID ?
-                        Settings.ColorTheme.GetBorderColor() :
-                        clrBlack;
-         BorderColor(border);
+         SetColorsFromSettings();
       }
       Button(string myName, ProtoNode* parNode) : TextNode(OBJ_BUTTON, ELEMENT_TYPE_BOTTON, myName, parNode)
       {
-         BorderColor(clrBlack);
+         SetColorsFromSettings();
       }
       ///
       /// Возвращает состояние кнопки. Если кнопка невидима или отжата возвращает false.
@@ -46,6 +43,23 @@ class Button : public TextNode
          }
       }
    protected:
+      virtual void SetColorsFromSettings(void)
+      {
+         color borderColor;
+         color bgColor;
+         if(CheckPointer(Settings) != POINTER_INVALID)
+         {
+            borderColor = Settings.ColorTheme.GetBorderColor();
+            bgColor = Settings.ColorTheme.GetSystemColor1();
+         }
+         else
+         {
+            borderColor = clrBlack;
+            bgColor = clrWhiteSmoke;
+         }
+         BorderColor(borderColor);
+         BackgroundColor(bgColor);
+      }
       ///
       /// Обработчик события статус 'видимости внешнего узла изменен'.
       /// \param event - Событие типа 'видимость внешнего узла изменена'.

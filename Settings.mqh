@@ -9,11 +9,11 @@ class CTheme
       ///
       /// Возвращает цвет границы элементов.
       ///
-      color GetBorderColor(){return clrRed;}
+      color GetBorderColor(){return clrBlack;}
       ///
       /// Возвращает цвет текста.
       ///
-      color GetTextColor(){return clrRed;}
+      color GetTextColor(){return clrBlack;}
       ///
       /// Возвращает основной системный цвет.
       ///

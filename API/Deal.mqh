@@ -1,186 +1,253 @@
 #include "Transaction.mqh"
 
 ///
-/// Тип сделки по версии HedgePanel.
+/// Тип сделки.
 ///
-enum ENUM_DEAL_HEDGE_TYPE
+enum DEAL_STATUS
 {
-   ///
-   /// Сделка является одной из сделок открывающих позицию.
-   ///
-   DEAL_IN,
-   ///
-   /// Сделка является одной из сделок закрывающих позицию.
-   ///
-   DEAL_OUT,
-   ///
-   /// Сделка является неторговой операцией на счете. 
-   ///
-   DEAL_NO_TRADE
+    ///
+    /// Сделка отсутствует в теминале или неинициализирована.
+    ///
+    DEAL_NULL,
+    ///
+    /// Сделка является брокерской операцией на счете.
+    ///
+    DEAL_BROKERAGE,
+    ///
+    /// Сделка является торговой операцией на счете.
+    ///
+    DEAL_TRADE
 };
 
+///
+/// Сделка (трейд).
+///
 class Deal : public Transaction
 {
    public:
-      Deal(ulong inId) : Transaction(TRANS_DEAL)
-      {
-         SetId(inId);
-         SelectHistoryTransaction();
-         volExecuted = HistoryDealGetDouble(GetId(), DEAL_VOLUME);
-         //Пытаемся определить тип сделки.
-         //DetectTypeOfDeal();
-      }
+      Deal(); 
+      Deal(ulong dealId);
+      Deal(Deal* deal);
+      string Comment();
+      void Init(ulong dealId);
+      ulong OrderId();
+      DEAL_STATUS Status();
+      virtual double VolumeExecuted();
+      void VolumeExecuted(double vol);
+      long TimeExecuted();
+      double EntryExecutedPrice(void);
+      ENUM_DEAL_TYPE DealType();
+      Deal* Clone();
+      void LinqWithOrder(Order* parOrder);
+      void Refresh();
+      Order* Order(){return order;}
       
-      ///
-      /// Возвращает уникальный идентификатор эксперта, которому принадлежит данная сделка.
-      ///
-      virtual ulong Magic()
-      {
-         SelectHistoryTransaction();
-         return HistoryDealGetInteger(GetId(), DEAL_MAGIC);
-      }
-      ///
-      /// Возвращает название символа, по которому была совершена сделка.
-      ///
-      virtual string Symbol()
-      {
-         if(isSymbol)return symbol;
-         SelectHistoryTransaction();
-         symbol = HistoryDealGetString(GetId(), DEAL_SYMBOL);
-         isSymbol = true;
-         return symbol;
-      }
-      ///
-      /// Возвращает тип сделки.
-      ///
-      ENUM_DEAL_TYPE DealType()
-      {
-         SelectHistoryTransaction();
-         return (ENUM_DEAL_TYPE)HistoryDealGetInteger(GetId(), DEAL_TYPE);
-      }
-      ///
-      /// Возвращает направление, в котором совершена транзакция
-      ///
-      virtual ENUM_DIRECTION_TYPE Direction()
-      {
-         if(DealType() == DEAL_TYPE_BUY)
-            return DIRECTION_LONG;
-         else
-            return DIRECTION_SHORT;
-      }
-      ///
-      /// Возвращает тип сделки, в виде строки.
-      ///
-      string DealTypeAsString()
-      {
-         ENUM_DEAL_TYPE eType = DealType();
-         string type = EnumToString(eType);
-         type = StringSubstr(type, 10);
-         StringReplace(type, "_", " ");
-         return type;
-      }
-      ///
-      /// Возвращает цену, по которой была выполнина сделка.
-      ///
-      virtual double EntryPriceExecuted()
-      {
-         if(isEntryPriceExecuted)
-            return entryPriceExecuted;
-         entryPriceExecuted = Price();
-         isEntryPriceExecuted = true;
-         return entryPriceExecuted;
-      }
-      ///
-      /// Возвращает время совершения сделки.
-      ///
-      CTime* Date()
-      {
-         return new CTime(TimeExecuted());
-      }
-      ///
-      /// Возвращает уникальный идентификатор сделки.
-      ///
-      ulong Ticket(){return GetId();}
-      ///
-      /// Объем сделки.
-      ///
-      double VolumeExecuted()
-      {
-         if(volExecuted < 0.0)
-         {
-            SelectHistoryTransaction();
-            volExecuted = HistoryDealGetDouble(GetId(), DEAL_VOLUME);
-         }
-         return volExecuted;
-      }
-      ///
-      /// Возвращает комментарий к сделке.
-      ///
-      string Comment()
-      {
-         SelectHistoryTransaction();
-         return HistoryDealGetString(GetId(), DEAL_COMMENT);
-      }
-      ///
-      /// Возвращает текущую цену инструмента, по которому совершена сделка.
-      ///
-      virtual double CurrentPrice()
-      {
-         double price = 0.0;
-         if(DealType() == DEAL_TYPE_BUY)
-            price = SymbolInfoDouble(Symbol(), SYMBOL_BID);
-         if(DealType() == DEAL_TYPE_SELL)
-            price = SymbolInfoDouble(Symbol(), SYMBOL_ASK);
-         return price;
-      }
-      ///
-      /// Добавляет либо отнимает указаный объем к сделке
-      /// \param vol - Объем, который надо прибавить либо отнять.
-      ///
-      void AddVolume(double vol)
-      {
-         volExecuted += vol;
-         if(volExecuted < 0)volExecuted = 0;
-      }
+      virtual ENUM_DIRECTION_TYPE Direction(void);
    private:
-      ENUM_DEAL_HEDGE_TYPE InfoTypeOfDeal()
-      {
-         ulong dealId = GetId();
-         //LoadHistory();
-         orderId = HistoryDealGetInteger(dealId, DEAL_ORDER);
-         if((DealType() != DEAL_TYPE_BUY &&
-            DealType() != DEAL_TYPE_SELL) ||
-            orderId == 0)
-         {
-            return DEAL_NO_TRADE;
-         }
-         ulong magic = HistoryOrderGetInteger(orderId, ORDER_MAGIC);
-         ulong inOrderId = MagicToTicket(magic);
-         if(inOrderId == 0)
-            return DEAL_IN;
-         else
-            return DEAL_OUT;
-      }
-      //void FindInOrderId
-      ulong MagicToTicket(ulong magic)
-      {
-         if(magic == 0)return 0;
-         //TODO: Написать функцию шифрования маджика.
-         ulong inOrderId = magic;
-         //LoadHistory();
-         if(!HistoryOrderSelect(inOrderId))return 0;
-         return inOrderId;
-      }
+      virtual bool IsHistory();
       ///
-      /// Ранее рассчитаный объем позиции.
+      /// Если сделка принадлежит к ордеру, содержит ссылку на него.
       ///
-      double volExecuted;
+      Order* order;
       ///
-      /// Истина, если объем позиции был ранее рассчитан.
+      /// Время совершения трейда.
       ///
-      bool isVolExecuted;
+      CTime timeExecuted;
       ///
-      /// Идентификатор ордера, на основании которого совершена сделка.
+      /// Содержит идентификатор ордера, на основании которого совершена сделка.
       ///
       ulong orderId;
+      ///
+      /// Объем совершенной сделки.
+      ///
+      double volumeExecuted;
+      ///
+      /// Статус сделки.
+      ///
+      DEAL_STATUS status;
+      ///
+      /// Тип сделки.
+      ///
+      ENUM_DEAL_TYPE type;
+      ///
+      /// Комментарий к сделке.
+      ///
+      string comment;
+      ///
+      /// Содержит цену исполнения сделки.
+      ///
+      double priceExecuted;
 };
+
+Deal::Deal(void) : Transaction(TRANS_DEAL)
+{
+}
+
+Deal::Deal(ulong dealId) : Transaction(TRANS_DEAL)
+{
+   Init(dealId);
+}
+
+///
+/// Создает новый экзмепляр сделки - полную копию deal.
+///
+Deal::Deal(Deal* deal) : Transaction(TRANS_DEAL)
+{
+   SetId(deal.GetId());
+   orderId = deal.OrderId();
+   status = deal.Status();
+   timeExecuted.Tiks(deal.TimeExecuted());
+   volumeExecuted = deal.VolumeExecuted();
+   priceExecuted = deal.EntryExecutedPrice();
+   type = deal.DealType();
+   order = deal.Order();
+}
+
+
+///
+/// Возвращает полную копию текущей сделки.
+///
+Deal* Deal::Clone(void)
+{
+   return new Deal(GetPointer(this));
+}
+///
+/// Возвращает идентификатор ордера, на основании которого произведена торговая сделка.
+/// Если тип сделки DEAL_BROKERAGE или информация об ордере недоступна возвращается 0.
+///
+ulong Deal::OrderId()
+{
+   return orderId;
+}
+
+///
+/// Возвращает тип сделки.
+///
+DEAL_STATUS Deal::Status()
+{
+   return status;
+}
+
+void Deal::Init(ulong dealId)
+{
+   SetId(dealId);
+   if(!IsHistory())
+      return;
+   volumeExecuted = HistoryDealGetDouble(dealId, DEAL_VOLUME);
+   timeExecuted.Tiks(HistoryDealGetInteger(dealId, DEAL_TIME_MSC));
+   priceExecuted = HistoryDealGetDouble(dealId, DEAL_PRICE);
+   type = (ENUM_DEAL_TYPE)HistoryDealGetInteger(GetId(), DEAL_TYPE);
+   if(type == DEAL_TYPE_BUY || type == DEAL_TYPE_SELL)
+   {
+      status = DEAL_TRADE;
+      orderId = HistoryDealGetInteger(GetId(), DEAL_ORDER);
+      if(type == DEAL_TYPE_BUY)
+         direction = DIRECTION_LONG;
+      else
+         direction = DIRECTION_SHORT;
+   }
+   else
+   {
+      status = DEAL_BROKERAGE;
+      direction = DIRECTION_NDEF;
+   }
+}
+
+///
+///
+///
+void Deal::Refresh(void)
+{
+   if(order != NULL)
+      order.DealChanged(GetPointer(this));
+}
+///
+/// Связывает текущую сделку с ордером, которому она принадлежит.
+/// Идентификатор ордера выставившего сделку и id ордера должен совпадать.
+///
+void Deal::LinqWithOrder(Order* parOrder)
+{
+   if(CheckPointer(parOrder) == POINTER_INVALID)
+      return;
+   if(parOrder.GetId() > 0 && orderId != parOrder.GetId())
+      return;
+   order = parOrder;
+}
+
+///
+/// Истина, если терминал содержит информацию о сделке с
+/// с текущим идентификатором и ложь в противном случае. Перед вызовом
+/// функции в терминал должна быть загружена история сделок и ордеров.
+///
+bool Deal::IsHistory()
+{
+   if(HistoryDealGetInteger(GetId(), DEAL_TIME) > 0)
+      return true;
+   return false;
+}
+
+///
+/// Совершенный объем сделки.
+///
+double Deal::VolumeExecuted()
+{
+   return volumeExecuted;
+}
+
+///
+/// Устанавливает объем сделки.
+///
+void Deal::VolumeExecuted(double vol)
+{
+   if(vol < 0.0)return;
+   volumeExecuted = vol;
+   Refresh();
+}
+
+///
+/// Возвращает тип сделки ENUM_DEAL_TYPE.
+///
+ENUM_DEAL_TYPE Deal::DealType(void)
+{
+   return type;
+}
+
+///
+/// Возвращает комментарий к сделке.
+///
+string Deal::Comment(void)
+{
+   if(comment == NULL || comment == "")
+      comment = HistoryDealGetString(GetId(), DEAL_COMMENT);
+   return comment;
+}
+
+///
+/// Возвращает точное время исполнения сделки, в виде
+/// количества тиков прошедших с 01.01.1970 года.
+///
+long Deal::TimeExecuted(void)
+{
+   return timeExecuted.Tiks();
+}
+
+///
+/// Возвращает цену исполнения сделки.
+///
+double Deal::EntryExecutedPrice(void)
+{
+   return priceExecuted;
+}
+
+///
+/// Направление сделки.
+///
+ENUM_DIRECTION_TYPE Deal::Direction()
+{
+   if(type == DEAL_TYPE_BUY)
+      return DIRECTION_LONG;
+   if(type == DEAL_TYPE_SELL)
+      return DIRECTION_SHORT;
+   else
+      return DIRECTION_NDEF;
+}

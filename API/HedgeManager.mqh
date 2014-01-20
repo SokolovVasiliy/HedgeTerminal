@@ -69,7 +69,7 @@ class HedgeManager
       ///
       void AddNewDeal(ulong ticket)
       {
-         CDeal* deal = new CDeal(ticket);
+         Deal* deal = new Deal(ticket);
          if(deal.Status() == DEAL_BROKERAGE)
          {
             delete deal;
@@ -81,7 +81,7 @@ class HedgeManager
             delete order;
             return;
          }
-         CPosition* actPos = FindOrCreateActivePosForOrder(order);
+         Position* actPos = FindOrCreateActivePosForOrder(order);
          InfoIntegration* result = actPos.Integrate(order);
          int iActive = ActivePos.Search(actPos);
          if(actPos.Status() == POSITION_NULL)
@@ -118,7 +118,7 @@ class HedgeManager
       /// Ќаходит уже существующую или создает новую нулевую
       /// позицию, которой может принадлежать переданный ордер.
       ///
-      CPosition* FindOrCreateActivePosForOrder(Order* order)
+      Position* FindOrCreateActivePosForOrder(Order* order)
       {
          
          ulong posId = order.PositionId();
@@ -133,23 +133,26 @@ class HedgeManager
                return ActivePos.At(iActive);
          }
          //јктивной позиции нет? - значит это открывающий ордер новой позиции.
-         return new CPosition();
+         return new Position();
       }
       
       ///
       /// ¬носит в список исторических позиций новую историческую позицию.
       ///
-      void IntegrateHistoryPos(CPosition* histPos)
+      void IntegrateHistoryPos(Position* histPos)
       {
          int iHist = HistoryPos.Search(histPos);
          if(iHist != -1)
          {
-            CPosition* pos = HistoryPos.At(iHist);
+            Position* pos = HistoryPos.At(iHist);
             pos.Merge(histPos);
             delete histPos;
          }
          else
+         {
             HistoryPos.InsertSort(histPos);
+            SendEventRefreshPos(histPos);
+         }
       }
       ///
       /// For API: ¬озвращает количество активных позиций
@@ -168,9 +171,9 @@ class HedgeManager
       ///
       /// For API: ¬озвращает активную позицию под номером n из списка позиций.
       ///
-      CPosition* ActivePosAt(int n)
+      Position* ActivePosAt(int n)
       {
-         CPosition* pos = ActivePos.At(n);
+         Position* pos = ActivePos.At(n);
          return pos;
       }
       
@@ -196,28 +199,26 @@ class HedgeManager
       ///
       /// ќтправл€ет событие "обновление позиции".
       ///
-      void SendEventRefreshPos(CPosition* pos)
+      void SendEventRefreshPos(Position* pos)
       {
          //¬ библиотеке HedgeAPI панели нет, а значит нет и передваемых ей событий.
-         /*#ifndef HLIBRARY
+         #ifndef HLIBRARY
             EventRefreshPos* event = new EventRefreshPos(pos);
             EventExchange::PushEvent(event);
             delete event;
-         #endif*/
+         #endif
       }
       
       ///
       /// ќтправл€ет событие удаление из списка позиций.
       ///
-      void SendEventDelPos(CPosition* pos)
+      void SendEventDelPos(Position* pos)
       {
-         /* TODO: Ќаписать соответсвтующий Event
          #ifndef HLIBRARY
             EventDelPos* event = new EventDelPos(pos);
             EventExchange::PushEvent(event);
             delete event;
          #endif
-         */
       }
       
       

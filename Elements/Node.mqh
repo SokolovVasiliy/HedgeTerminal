@@ -369,6 +369,8 @@ class ProtoNode : public CObject
          if(visible)
             ObjectSetInteger(MAIN_WINDOW, nameId, OBJPROP_BORDER_COLOR, borderColor);
       }
+      
+      
       ///
       /// Возвращает цвет рамки текстовой метки.
       ///
@@ -462,6 +464,25 @@ class ProtoNode : public CObject
          }
       }
    protected:
+      
+      virtual void SetColorsFromSettings(void)
+      {
+         color borderColor;
+         color bgColor;
+         if(CheckPointer(Settings) != POINTER_INVALID)
+         {
+            borderColor = Settings.ColorTheme.GetBorderColor();
+            bgColor = Settings.ColorTheme.GetSystemColor1();
+         }
+         else
+         {
+            borderColor = clrBlack;
+            bgColor = clrWhiteSmoke;
+         }
+         BorderColor(borderColor);
+         BackgroundColor(bgColor);
+      }
+      
       ///
       /// Вовращает истину, если обект находится под курсором мыши,
       /// и ложь в противном случе.

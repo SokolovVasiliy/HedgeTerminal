@@ -270,7 +270,7 @@ class PosLine : public AbstractLine
          //Закрываем текущую позицию.
          if(event.Direction() == EVENT_FROM_DOWN && event.EventId() == EVENT_CLOSE_POS)
          {
-            if(pos.PositionStatus() != POSITION_STATUS_OPEN)return;
+            if(pos.Status() != POSITION_ACTIVE)return;
             string value = GetStringValue(COLUMN_EXIT_COMMENT);
             pos.AsynchClose(pos.VolumeExecuted(), value);
          }
@@ -375,35 +375,33 @@ class PosLine : public AbstractLine
                value = pos.Symbol();
                break;
             case COLUMN_ENTRY_ORDER_ID:
-               value = (string)pos.EntryOrderID();
+               value = (string)pos.EntryOrderId();
+               
                break;
             case COLUMN_EXIT_ORDER_ID:
-               value = (string)pos.ExitOrderID();
+               value = (string)pos.ExitOrderId();
                break;
             case COLUMN_EXIT_MAGIC:
                value = (string)pos.ExitMagic();
                break;
             case COLUMN_ENTRY_DATE:
-               ctime = pos.EntryExecutedDate();   
+               ctime = new CTime(pos.EntryExecutedTime());
                value = ctime.TimeToString(TIME_DATE | TIME_MINUTES);
                delete ctime;
                break;
             case COLUMN_EXIT_DATE:
-               ctime = pos.ExitExecutedDate();   
+               ctime = new CTime(pos.ExitExecutedTime());   
                value = ctime.TimeToString(TIME_DATE | TIME_MINUTES);
                delete ctime;
                break;
             case COLUMN_TYPE:
-               value = pos.PositionTypeAsString();
+               value = pos.TypeAsString();
                break;
             case COLUMN_VOLUME:
                value = pos.VolumeToString(pos.VolumeExecuted());
                break;
             case COLUMN_ENTRY_PRICE:
-               if(pos.PositionStatus() == POSITION_STATUS_PENDING)
-                  value = pos.PriceToString(pos.EntryPricePlaced());
-               else
-                  value = pos.PriceToString(pos.EntryPriceExecuted());
+               value = pos.PriceToString(pos.EntryExecutedPrice());
                break;
             case COLUMN_SL:
                value = pos.PriceToString(pos.StopLossLevel());
@@ -418,7 +416,7 @@ class PosLine : public AbstractLine
                   value = CharToString(168);
                break;
             case COLUMN_EXIT_PRICE:
-               value = pos.PriceToString(pos.ExitPriceExecuted());
+               value = pos.PriceToString(pos.ExitExecutedPrice());
                break;
             case COLUMN_CURRENT_PRICE:
                value = pos.PriceToString(pos.CurrentPrice());
@@ -525,16 +523,16 @@ class DealLine : public AbstractLine
                break;
             case COLUMN_ENTRY_ORDER_ID:
                if(entryDeal != NULL)
-                  value = (string)entryDeal.Ticket();
+                  value = (string)entryDeal.GetId();
                break;
             case COLUMN_EXIT_ORDER_ID:
                if(exitDeal != NULL)
-                  value = (string)exitDeal.Ticket();
+                  value = (string)exitDeal.GetId();
                break;
             case COLUMN_ENTRY_DATE:
                if(entryDeal != NULL)
                {
-                  CTime* ctime = entryDeal.Date();   
+                  CTime* ctime = new CTime(entryDeal.TimeExecuted());   
                   value = ctime.TimeToString(TIME_DATE | TIME_MINUTES);
                   delete ctime;
                }
@@ -542,7 +540,7 @@ class DealLine : public AbstractLine
             case COLUMN_EXIT_DATE:
                if(exitDeal != NULL)
                {
-                  CTime* ctime = exitDeal.Date();   
+                  CTime* ctime = new CTime(exitDeal.TimeExecuted());
                   value = ctime.TimeToString(TIME_DATE | TIME_MINUTES);
                   delete ctime;
                }
@@ -556,7 +554,7 @@ class DealLine : public AbstractLine
                break;
             case COLUMN_ENTRY_PRICE:
                if(entryDeal != NULL)
-                  value = entryDeal.PriceToString(entryDeal.EntryPriceExecuted());
+                  value = entryDeal.PriceToString(entryDeal.EntryExecutedPrice());
                break;
             case COLUMN_SL:
                value = "-";
@@ -572,7 +570,7 @@ class DealLine : public AbstractLine
                break;
             case COLUMN_EXIT_PRICE:
                if(exitDeal != NULL)
-                  value = exitDeal.PriceToString(exitDeal.EntryPriceExecuted());
+                  value = exitDeal.PriceToString(exitDeal.EntryExecutedPrice());
                break;
             case COLUMN_CURRENT_PRICE:
                if(pos != NULL)

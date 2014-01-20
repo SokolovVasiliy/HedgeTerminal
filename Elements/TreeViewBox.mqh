@@ -45,6 +45,7 @@ class TreeViewBox : public Label
                childNodes.Add(twb);
             }*/
          //}
+         SetColorsFromSettings();
          ReadOnly(true);
          Font("Arial");
          Align(ALIGN_CENTER);

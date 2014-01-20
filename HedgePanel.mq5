@@ -30,6 +30,9 @@ void OnInit(void)
    EventSetMillisecondTimer(RefreshRate);
    HedgePanel = new MainForm();
    EventExchange::Add(HedgePanel);
+   EventRefresh* refresh = new EventRefresh(EVENT_FROM_UP, "TERMINAL REFRESH");
+   HedgePanel.Event(refresh);
+   delete refresh;
    api = new HedgeManager();
    EventExchange::Add(api);
    

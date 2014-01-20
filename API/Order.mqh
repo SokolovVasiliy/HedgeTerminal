@@ -29,47 +29,49 @@ class Order : public Transaction
    public:
       Order(void);
       Order(ulong orderId);
-      Order(CDeal* deal);
+      Order(Deal* deal);
       Order(Order* order);
       ~Order();
       
       Order* AnigilateOrder(Order* order);
-      void AddDeal(CDeal* deal);
+      void AddDeal(Deal* deal);
       
       string Comment();
       long TimeSetup();
       long TimeExecuted();
       
       Order* Clone();
-      int ContainsDeal(CDeal* deal);
+      int ContainsDeal(Deal* deal);
       
       void DeleteDealAt(int index);
-      CDeal* DealAt(int index);
+      Deal* DealAt(int index);
       int DealsTotal();
-      void DealChanged(CDeal* deal);
+      void DealChanged(Deal* deal);
       
       double PriceSetup();
-      double PriceExecuted();
+      double EntryExecutedPrice(void);
       
       ulong GetMagicForClose();
       
       void Init(ulong orderId);
       bool IsPending();
       
-      void LinkWithPosition(CPosition* pos); 
+      void LinkWithPosition(Position* pos); 
       
       ulong PositionId();
-      CPosition* Position(){return position;}
+      Position* Position(){return position;}
       
       void Refresh();
       
-      ENUM_ORDER_STATUS Status();
+      ENUM_ORDER_STATUS Status(void);
       
-      
+      virtual string TypeAsString(void);
+      //ENUM_ORDER_TYPE Type(void){return type;}
       virtual double VolumeExecuted(void);
       double VolumeSetup(void);
       double VolumeReject(void);
       
+      virtual ENUM_DIRECTION_TYPE Direction(void);
    private:
       virtual bool IsHistory();
       ENUM_ORDER_STATUS RefreshStatus(void);
@@ -78,7 +80,7 @@ class Order : public Transaction
       ///
       ///Если ордер принадлежит к позиции, содержит ссылку на нее.
       ///
-      CPosition* position;
+      Position* position;
       ///
       /// Содержит первоначальный объем, при постановки ордера.
       ///
@@ -107,6 +109,10 @@ class Order : public Transaction
       /// Содержит статус ордера.
       ///
       ENUM_ORDER_STATUS status;
+      ///
+      /// Содержит тип ордера.
+      ///
+      ENUM_ORDER_TYPE type;
       
       ///
       /// Содержит сделки ордера.
@@ -137,7 +143,7 @@ Order::Order(ulong idOrder):Transaction(TRANS_ORDER)
 ///
 /// Создает новый ордер на одной из его сделок.
 ///
-Order::Order(CDeal* deal) : Transaction(TRANS_ORDER)
+Order::Order(Deal* deal) : Transaction(TRANS_ORDER)
 {
    AddDeal(deal);
 }
@@ -150,15 +156,15 @@ Order::Order(Order *order) : Transaction(TRANS_ORDER)
    SetId(order.GetId());
    for(int i = 0; i < order.DealsTotal(); i++)
    {
-      CDeal* deal = order.DealAt(i);
-      CDeal* ndeal = deal.Clone();
+      Deal* deal = order.DealAt(i);
+      Deal* ndeal = deal.Clone();
       ndeal.LinqWithOrder(GetPointer(this));
       deals.Add(ndeal);
    }
    status = order.Status();
    position = order.Position();
    priceSetup = order.PriceSetup();
-   priceExecuted = order.PriceExecuted();
+   priceExecuted = order.EntryExecutedPrice();
    timeSetup = order.TimeSetup();
    timeExecuted = order.TimeExecuted();
    volumeSetup = order.VolumeSetup();
@@ -201,7 +207,7 @@ ulong Order::PositionId()
 ///
 /// Устанавливает ссылку на позицию, к которой принадлежит данный ордер.
 ///
-void Order::LinkWithPosition(CPosition* pos)
+void Order::LinkWithPosition(Position* pos)
 {
    if(CheckPointer(pos) == POINTER_INVALID)
       return;
@@ -217,11 +223,11 @@ void Order::LinkWithPosition(CPosition* pos)
 /// Сделка, принадлежащая этому ордеру, вызывает эту функцию,
 /// когда ее состояние изменилось.
 ///
-void Order::DealChanged(CDeal* deal)
+void Order::DealChanged(Deal* deal)
 {
    int index = ContainsDeal(deal);
    if(index == -1)return;
-   //CDeal* deal = deals.At(index);
+   //Deal* deal = deals.At(index);
    //if(deal.VolumeExecuted() == 0)
    Refresh();
 }
@@ -232,11 +238,11 @@ void Order::DealChanged(CDeal* deal)
 /// индекс этой сделки в списке сделок. Если сделки с
 /// таким id нет - возвращает -1.
 ///
-int Order::ContainsDeal(CDeal* changeDeal)
+int Order::ContainsDeal(Deal* changeDeal)
 {
    for(int i = 0; i < deals.Total(); i++)
    {
-      CDeal* deal = deals.At(i);
+      Deal* deal = deals.At(i);
       if(changeDeal.GetId() == deal.GetId())
          return i;
    }
@@ -288,7 +294,7 @@ void Order::Refresh(void)
    RecalcValues();
    if(status != ORDER_NULL && GetId() == 0 && deals.Total() > 0)
    {
-      CDeal* deal = deals.At(0);
+      Deal* deal = deals.At(0);
       SetId(deal.OrderId());
    }
    //TODO: RefreshPriceAndVol();
@@ -299,7 +305,7 @@ void Order::Refresh(void)
 ///
 /// Добавляет сделку в список сделок ордера.
 ///
-void Order::AddDeal(CDeal* deal)
+void Order::AddDeal(Deal* deal)
 {
    if(deal.Status() == DEAL_BROKERAGE ||
       deal.Status() == DEAL_NULL)
@@ -319,7 +325,7 @@ void Order::AddDeal(CDeal* deal)
    int index = ContainsDeal(deal);
    if(index != -1)
    {
-      CDeal* mdeal = deals.At(index);
+      Deal* mdeal = deals.At(index);
       mdeal.VolumeExecuted(deal.VolumeExecuted());
       delete mdeal;
    }
@@ -340,7 +346,7 @@ void Order::DeleteDealAt(int index)
 ///
 /// Возвращает сделку находящуюся в списке сделок по индексу index.
 ///
-CDeal* Order::DealAt(int index)
+Deal* Order::DealAt(int index)
 {
    return deals.At(index);
 }
@@ -415,7 +421,7 @@ double Order::PriceSetup(void)
 ///
 /// Возвращает средневзвешенную цену исполнения ордера.
 ///
-double Order::PriceExecuted(void)
+double Order::EntryExecutedPrice(void)
 {
    return priceExecuted;
 }
@@ -444,7 +450,30 @@ double Order::VolumeReject(void)
    return volumeSetup - volumeExecuted;
 }
 
+///
+/// Возвращает тип ордера в виде строки.
+///
+string Order::TypeAsString(void)
+{
+   string stype = EnumToString(type);
+   stype = StringSubstr(stype, 11);
+   StringReplace(stype, "_", " ");
+   //StringReplace(type, "STOP LIMIT", "SL");
+   //StringReplace(type, "STOP", "S");
+   //StringReplace(type, "LIMIT", "L");
+   return stype;
+}
 
+///
+/// Направление ордера.
+///
+ENUM_DIRECTION_TYPE Order::Direction()
+{
+   if(type % 2 == 0)
+      return DIRECTION_LONG;
+   else
+      return DIRECTION_SHORT;
+}
 
 ///
 /// Рассчитывает средневзвешенную цену входа.
@@ -457,8 +486,8 @@ void Order::RecalcValues(void)
    //calc avrg price, executed volume and time.
    for(int i = 0; i < deals.Total(); i++)
    {
-      CDeal* deal = deals.At(i);
-      priceExecuted += deal.PriceExecuted()*deal.VolumeExecuted();
+      Deal* deal = deals.At(i);
+      priceExecuted += deal.EntryExecutedPrice()*deal.VolumeExecuted();
       volumeExecuted += deal.VolumeExecuted();
       if(timeExecuted.Tiks() < deal.TimeExecuted())
          timeExecuted.Tiks(deal.TimeExecuted());
@@ -473,12 +502,16 @@ void Order::RecalcValues(void)
       volumeSetup = OrderGetDouble(ORDER_VOLUME_INITIAL);
       timeSetup = OrderGetInteger(ORDER_TIME_SETUP_MSC);
       comment = OrderGetString(ORDER_COMMENT);
+      symbol = OrderGetString(ORDER_SYMBOL);
+      type = OrderGetInteger(ORDER_TYPE);
    }
    else if(IsHistory())
    {
       priceSetup = HistoryOrderGetDouble(GetId(), ORDER_PRICE_OPEN);
       volumeSetup = HistoryOrderGetDouble(GetId(), ORDER_VOLUME_INITIAL);
-      timeSetup = HistoryOrderGetInteger(ORDER_TIME_SETUP_MSC);
+      timeSetup = HistoryOrderGetInteger(GetId(), ORDER_TIME_SETUP_MSC);
       comment = HistoryOrderGetString(GetId(), ORDER_COMMENT);
+      symbol = HistoryOrderGetString(GetId(), ORDER_SYMBOL);
+      type = HistoryOrderGetInteger(GetId(), ORDER_TYPE);
    }
 }

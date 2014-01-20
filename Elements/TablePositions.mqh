@@ -267,14 +267,29 @@ class TablePositions : public Table
          //ѕовторно разворачивать уже развернутую позицию не надо.
          //if(posLine.IsRestory())return;
          Position* pos = posLine.Position();
-         ulong order_id = pos.EntryOrderID();
+         ulong order_id = pos.EntryOrderId();
          //ѕозици€ содержит сделки, которые необходимо раскрыть.
-         CArrayObj* entryDeals = pos.EntryDeals();
-         CArrayObj* exitDeals = pos.ExitDeals();
+         //CArrayObj* entryDeals = pos.EntryDeals();
+         Order* entryOrder = pos.EntryOrder();
+         CArrayObj entryDeals;
+         if(entryOrder != NULL)
+         {
+            for(int i = 0; i < entryOrder.DealsTotal(); i++)
+               entryDeals.Add(entryOrder.DealAt(i));
+         }
+         
+         //CArrayObj* exitDeals = pos.ExitDeals();
+         Order* exitOrder = pos.ExitOrder();
+         CArrayObj exitDeals;
+         if(exitOrder != NULL)
+         {
+            for(int i = 0; i < exitOrder.DealsTotal(); i++)
+               exitDeals.Add(entryOrder.DealAt(i));
+         }   
          //  оличество дополнительных строк будет равно максимальном
          // количеству сделок одной из сторон
-         int entryTotal = entryDeals != NULL ? entryDeals.Total() : 0;
-         int exitTotal = exitDeals != NULL ? exitDeals.Total() : 0;
+         int entryTotal = entryDeals.Total();
+         int exitTotal = exitDeals.Total();
          int total;
          int fontSize = 8;
          if(entryTotal > 0 && entryTotal >= exitTotal)
@@ -288,10 +303,10 @@ class TablePositions : public Table
          {
             //“екуща€ сделка
             Deal* entryDeal = NULL;
-            if(entryDeals != NULL && i < entryDeals.Total())
+            if(i < entryDeals.Total())
                entryDeal = entryDeals.At(i);
             Deal* exitDeal = NULL;
-            if(exitDeals != NULL && i < exitDeals.Total())
+            if(i < exitDeals.Total())
                exitDeal = exitDeals.At(i);
             bool isLast = i == total-1 ? true : false;
             DealLine* nline = new DealLine(workArea, TableType(), pos, entryDeal, exitDeal, isLast);
@@ -326,10 +341,10 @@ class TablePositions : public Table
       bool IsItForMe(Position* pos)
       {
          if(CheckPointer(pos) == POINTER_INVALID)return false;
-         ENUM_POSITION_STATUS pType = pos.PositionStatus();
+         POSITION_STATUS pType = pos.Status();
          ENUM_TABLE_TYPE tType = TableType();
-         bool rs = (pos.PositionStatus() == POSITION_STATUS_OPEN && TableType() == TABLE_POSACTIVE) ||
-                   (pos.PositionStatus() == POSITION_STATUS_CLOSED && TableType() == TABLE_POSHISTORY);
+         bool rs = ((pos.Status() == POSITION_NULL || pos.Status() == POSITION_ACTIVE) && TableType() == TABLE_POSACTIVE) ||
+                   (pos.Status() == POSITION_HISTORY && TableType() == TABLE_POSHISTORY);
          return rs;
       }
 };

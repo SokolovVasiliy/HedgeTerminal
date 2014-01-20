@@ -195,6 +195,7 @@ class ClickScroll : public Button
    public:
       ClickScroll(ProtoNode* parNode, Table* tbl, ENUM_CLICK_SCROLL tClick) : Button("ScrollClickDn", parNode)
       {
+         SetColorsFromSettings();
          if(parNode.TypeElement() == ELEMENT_TYPE_SCROLL)
             scroll = parNode;
          typeClick = tClick;
@@ -213,8 +214,6 @@ class ClickScroll : public Button
             bColor = Settings.ColorTheme.GetBorderColor();
             bgrColor = Settings.ColorTheme.GetSystemColor2();
          }
-         BackgroundColor(bgrColor);
-         BorderColor(bColor);
          table = tbl;
       }
    private:

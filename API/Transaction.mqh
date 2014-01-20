@@ -6,8 +6,6 @@
 class Position;
 class Deal;
 class Order;
-class CDeal;
-class CPosition;
 #ifndef HLIBRARY
 class PosLine;
 #endif
@@ -99,7 +97,15 @@ class Transaction : public CObject
       ///
       virtual double CurrentPrice()
       {
-         return 0.0;
+         double price = 0.0;
+         //Имеем дело с покупками?
+         if(Direction() == DIRECTION_LONG)
+            price = SymbolInfoDouble(this.Symbol(), SYMBOL_BID);
+         else if(Direction() == DIRECTION_SHORT)
+            price = SymbolInfoDouble(this.Symbol(), SYMBOL_ASK);
+         else
+            price = 0.0;
+         return price;
       }
       
       ///
@@ -114,9 +120,8 @@ class Transaction : public CObject
       ///
       virtual double ProfitInPips()
       {
-         double delta = 0.0;
-         delta = CurrentPrice() - EntryPriceExecuted();
-         if(Direction() == DIRECTION_SHORT)
+         double delta = CurrentPrice() - EntryExecutedPrice();
+         if(direction == DIRECTION_SHORT)
             delta *= -1.0;
          return delta;
       }
@@ -188,6 +193,13 @@ class Transaction : public CObject
       ///
       ulong GetId(){return currId;}
       
+      ///
+      /// Возвращает тип транзакции в виде строки.
+      ///
+      virtual string TypeAsString()
+      {
+         return "transaction";
+      }
    protected:
       ///
       /// Истина, если терминал содержит информацию о транзакции с
@@ -201,7 +213,7 @@ class Transaction : public CObject
       ///
       /// Возвращает цену входа трназакции на рынок.
       ///
-      virtual double EntryPriceExecuted(){return 0.0;}
+      virtual double EntryExecutedPrice(){return 0.0;}
       ///
       /// Возвращает тип транзакции.
       ///
@@ -325,10 +337,10 @@ class Transaction : public CObject
       ulong currId; 
 };
 
-#include "Position.mqh"
+//#include "Position.mqh"
+//#include "Deal.mqh"
 #include "Deal.mqh"
-#include "NewDeal.mqh"
 #include "Order.mqh"
-#include "NewPosition.mqh"
+#include "Position.mqh"
 
 

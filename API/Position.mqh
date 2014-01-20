@@ -1,845 +1,833 @@
 #include "Transaction.mqh"
+#include "Order.mqh"
+#include "..\Log.mqh"
+
+class Position;
 
 ///
-/// Статус позиции/Сделки.
+/// Info about the Integration.
 ///
-enum ENUM_POSITION_STATUS
+class InfoIntegration
+{
+   public:
+      InfoIntegration();
+      bool IsSuccess;
+      string InfoMessage;
+      Position* ActivePosition;
+      Position* HistoryPosition;
+};
+
+
+InfoIntegration::InfoIntegration(void)
+{
+   ActivePosition = new Position();
+   HistoryPosition = new Position();
+   InfoMessage = "";
+}
+
+///
+/// Статус позиции.
+///
+enum POSITION_STATUS
 {
    ///
-   /// Позиция не определена.
+   /// Нулевая позиция.
    ///
-   POSITION_STATUS_NULL,
+   POSITION_NULL,
    ///
-   /// Позиция находится в состоянии изменения и недоступна для управления.
+   /// Активная позиция.
    ///
-   POSITION_STATUS_BLOCKED,
+   POSITION_ACTIVE,
    ///
-   /// Позиция открыта.
+   /// Историческая позиция.
    ///
-   POSITION_STATUS_OPEN,
-   ///
-   /// Позиция закрыта.
-   ///
-   POSITION_STATUS_CLOSED,
-   ///
-   /// Позиция отложена.
-   ///
-   POSITION_STATUS_PENDING
+   POSITION_HISTORY,
 };
 
 ///
-/// Класс представляет позицию.
+/// Используется для компановки ордеров как параметр функции ExchangerOrder.
 ///
+struct ExchangerList
+{
+   public:
+      Order* inOrder;
+      Order* outOrder;
+      Order* histInOrder;
+      Order* histOutOrder;
+};
+
 class Position : public Transaction
 {
    public:
-      ///
-      /// Инициирует отложенную позицию.
-      ///
-      Position(ulong in_ticket) : Transaction(TRANS_POSITION)
-      {
-         InitPosition(in_ticket);
-      }
-      ///
-      /// Инициирует активную позицию.
-      ///
-      Position(ulong in_ticket, CArrayLong* in_deals) : Transaction(TRANS_POSITION)
-      {
-         InitPosition(in_ticket, in_deals);
-      }
-      ///
-      /// Инициирует завершенную позицию.
-      ///
-      Position(ulong in_ticket, CArrayLong* in_deals, ulong out_ticket, CArrayLong* out_deals) : Transaction(TRANS_POSITION)
-      {
-         InitPosition(in_ticket, in_deals, out_ticket, out_deals);
-      }
+      Position(void);
+      Position(Order* inOrder);
+      Position(Order* inOrder, Order* outOrder);
+      ~Position();
       
-      Position(ulong in_ticket, CArrayObj* in_deals, ulong out_ticket, CArrayObj* out_deals): Transaction(TRANS_POSITION)
-      {
-         InitPositionByDeal(in_ticket, in_deals, out_ticket, out_deals);
-      }
-      ///
-      /// Возвращает указатель на строку отображающей представление позиции.
-      ///
       #ifndef HLIBRARY
-      PosLine* PositionLine()
-      {
-         return positionLine;
-      }
+         /// Возвращает указатель на графическое представление текущей позиции. 
+         PosLine* PositionLine(){return positionLine;}
       #endif
-      ///
-      /// Устанавливает указатель на строку отображающей представление позиции.
-      ///
       #ifndef HLIBRARY
-      void PositionLine(CObject* pLine){positionLine = pLine;}
+         /// Устанавливает указатель на графическое представление текущей позиции.
+         void PositionLine(CObject* pLine){positionLine = pLine;}
       #endif
+      ulong EntryOrderId(void);
+      ulong ExitOrderId(void);
       
-      ///
-      /// Закрывает часть объема позиции закрывающим трейдом с тикетом dealId.
-      ///
-      CArrayObj* AnnihilationDeal(ulong tradeId)
-      {
-         CArrayObj* resDeals = new CArrayObj();
-         if(posStatus != POSITION_STATUS_OPEN)
-         {
-            LogWriter("Selected position #" + (string)EntryOrderID() + " has status" + EnumToString(posStatus) +
-                      ". Closing deal #" + (string)tradeId + " will be not close this position.", MESSAGE_TYPE_WARNING);
-            return resDeals;
-         }
-         Deal* newTrade = new Deal(tradeId);
-         double volDel = newTrade.VolumeExecuted();
-         //формируем трейды исторической позиции.
-         for(int i = 0; i < entryDeals.Total(); i++)
-         {
-            Deal* deal = entryDeals.At(i);
-            Deal* resDeal = new Deal(deal.Ticket());
-            resDeals.Add(resDeal);
-            resDeal.AddVolume((-1)* resDeal.VolumeExecuted());
-            if(volDel >= deal.VolumeExecuted())
-            {
-               resDeal.AddVolume(deal.VolumeExecuted());
-               volDel -= deal.VolumeExecuted();
-               entryDeals.Delete(i);
-               i--;
-            }
-            else
-            {
-               resDeal.AddVolume(volDel);
-               deal.AddVolume((-1)*volDel);
-               break;
-            }
-         }
-         return resDeals;
-      }
-      ///
-      /// Добавляет к активной позиции новую входящую сделку с тикетом dealId.
-      /// \return Истина, если добавление прошло успешно, ложь в противном случае.
-      ///
-      bool AddActiveDeal(ulong dealId)
-      {
-         if(posStatus != POSITION_STATUS_PENDING &&
-            posStatus != POSITION_STATUS_OPEN)
-         {
-            LogWriter("Status of selected position is " + EnumToString(posStatus) +
-            ". Add new deal not possible", MESSAGE_TYPE_WARNING);
-            return false;
-         }
-         Deal* deal = new Deal(dealId);
-         int iDeal = entryDeals.Search(deal);
-         if(iDeal == -1)
-         {
-            posStatus = POSITION_STATUS_OPEN;
-            return entryDeals.InsertSort(deal);
-         }
-         else
-         {
-            LogWriter("Deal with #" + (string)dealId + " already exists in position #" + (string)EntryOrderID() +
-                      " Double adding not effect.", MESSAGE_TYPE_WARNING);
-            return false;
-         }
-      }
-      ///
-      /// Объединяет сделки. 
-      ///
-      void MergeDeals(CArrayObj* resDeals, ulong dealId)
-      {
-         exitDeals.Add(new Deal(dealId));
-         for(int i = 0; i < resDeals.Total(); i++)
-         {
-            Deal* addDeal = resDeals.At(i);
-            int iDeal = entryDeals.Search(addDeal);
-            if(iDeal == -1)
-               entryDeals.InsertSort(addDeal);
-            else
-            {
-               Deal* deal = entryDeals.At(iDeal);
-               deal.AddVolume(addDeal.VolumeExecuted());
-            }
-         }
-      }
-      ///
-      /// Возвращает направление, в котором совершена транзакция
-      ///
-      virtual ENUM_DIRECTION_TYPE Direction()
-      {
-         if(PositionType() % 2 == 0)
-            return DIRECTION_LONG;
-         return DIRECTION_SHORT;
-      }
-      ///
-      /// Возвращает сделки совершенные при входе в позицию.
-      ///
-      CArrayObj* EntryDeals()
-      {
-         return GetPointer(entryDeals);
-      }
-      ///
-      /// Возвращает сделки совершенные при выходе из позиции.
-      ///
-      CArrayObj* ExitDeals()
-      {
-         return GetPointer(exitDeals);
-      }
-      ///
-      /// Возвращает магический номер позиции/сделки.
-      ///
-      virtual ulong Magic()
-      {
-         Context(TRANS_IN);
-         if(posStatus == POSITION_STATUS_PENDING)
-         {
-            SelectPendingTransaction();
-            return OrderGetInteger(ORDER_MAGIC);
-         }
-         else if(posStatus != POSITION_STATUS_NULL)
-         {
-            SelectHistoryTransaction();
-            return HistoryOrderGetInteger(GetId(), ORDER_MAGIC);
-         }
-         return 0;
-      }
-      ///
-      /// Возвращает магический номер позиции/сделки.
-      ///
-      virtual ulong ExitMagic()
-      {
-         Context(TRANS_OUT);
-         if(posStatus == POSITION_STATUS_PENDING)
-         {
-            SelectPendingTransaction();
-            return OrderGetInteger(ORDER_MAGIC);
-         }
-         else if(posStatus != POSITION_STATUS_NULL)
-         {
-            SelectHistoryTransaction();
-            return HistoryOrderGetInteger(GetId(), ORDER_MAGIC);
-         }
-         return 0;
-      }
-      ///
-      /// Закрывает текущую позицию асинхронно.
-      ///
-      void AsynchClose(double vol, string comment = NULL)
-      {
-         trading.SetAsyncMode(true);
-         trading.SetExpertMagicNumber(EntryOrderID());
-         if(Direction() == DIRECTION_LONG)
-            trading.Sell(vol, Symbol(), 0.0, 0.0, 0.0, comment);
-         else if(Direction() == DIRECTION_SHORT)
-            trading.Buy(vol, Symbol(), 0.0, 0.0, 0.0, comment);
-      }
-      ///
-      /// Возвращает название символа, по которому была совершена сделка.
-      ///
-      virtual string Symbol()
-      {
-         if(isSymbol)return symbol;
-         if(posStatus == POSITION_STATUS_PENDING)
-         {
-            SelectPendingTransaction();
-            symbol = OrderGetString(ORDER_SYMBOL);
-            isSymbol = true;
-            return symbol;
-         }
-         else if(posStatus != POSITION_STATUS_NULL)
-         {
-            SelectHistoryTransaction();
-            symbol = HistoryOrderGetString(GetId(), ORDER_SYMBOL);
-            isSymbol = true;
-            return symbol;
-         }
-         return "";
-      }
-      ///
-      /// Возвращает профит в пунктах инструмента.
-      ///
-      virtual double ProfitInPips()
-      {
-         
-         double delta = 0.0;
-         if(posStatus == POSITION_STATUS_NULL ||
-            posStatus == POSITION_STATUS_PENDING)
-            return 0.0;
-         if(posStatus == POSITION_STATUS_OPEN)
-            delta = CurrentPrice() - EntryPriceExecuted();   
-         if(posStatus == POSITION_STATUS_CLOSED)
-            delta = ExitPriceExecuted() - EntryPriceExecuted();
-         if(Direction() == DIRECTION_SHORT)
-            delta *= -1.0;
-         return delta;
-      }
-      ///
-      /// Возвращает тип позиции.
-      ///
-      ENUM_ORDER_TYPE PositionType()
-      {
-         Context(TRANS_IN);
-         if(posStatus == POSITION_STATUS_PENDING)
-         {
-            SelectPendingTransaction();
-            return (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE);
-         }
-         else if(posStatus != POSITION_STATUS_NULL)
-         {
-            SelectHistoryTransaction();
-            return (ENUM_ORDER_TYPE)HistoryOrderGetInteger(GetId(), ORDER_TYPE);
-         }
-         return (ENUM_ORDER_TYPE)0;
-      }
-      ///
-      /// Возвращает тип позиции в виде текстовой строки.
-      ///
-      string PositionTypeAsString()
-      {
-         ENUM_ORDER_TYPE posType = PositionType();
-         string type = EnumToString(posType);
-         type = StringSubstr(type, 11);
-         StringReplace(type, "_", " ");
-         //StringReplace(type, "STOP LIMIT", "SL");
-         //StringReplace(type, "STOP", "S");
-         //StringReplace(type, "LIMIT", "L");
-         return type;
-         //ORDER_TYPE_
-      }
-      ///
-      /// Возвращает статус позиции.
-      ///
-      ENUM_POSITION_STATUS PositionStatus()
-      {
-         return posStatus;
-      }
-      ///
-      /// Комментарий входа в позицию.
-      ///
-      string EntryComment()
-      {
-         Context(TRANS_IN);
-         return GetComment();
-      }
-      ///
-      /// Комментарий входа в позицию.
-      ///
-      string ExitComment()
-      {
-         Context(TRANS_OUT);
-         return GetComment();
-      }
-      ///
-      /// Возвращает идентификатор ордера, открывающего позицию.
-      ///
-      ulong EntryOrderID()
-      {
-         Context(TRANS_IN);
-         return GetId();
-      }
-      ///
-      /// Возвращает идентификатор ордера, закрывающего позицию.
-      ///
-      ulong ExitOrderID()
-      {
-         Context(TRANS_OUT);
-         return GetId();
-      }
-      ///
-      /// Возвращает цену, по которой был размещен ОТЛОЖЕННЫЙ ордер на вход в позицию.
-      /// Если ордер на вход в позицию рыночный будет возвращено 0.0.
-      ///
-      double EntryPricePlaced()
-      {
-         Context(TRANS_IN);
-         return GetPricePlaced();
-      }
-      ///
-      /// Возвращает цену, по которой фактически произошло срабатывания ордера.
-      ///
-      virtual double EntryPriceExecuted()
-      {
-         Context(TRANS_IN);
-         return GetPriceExecuted();
-      }
-      ///
-      /// Возвращает цену, по которой был размещен ордер на выход из позиции.
-      ///
-      double ExitPricePlaced()
-      {
-         Context(TRANS_OUT);
-         return GetPricePlaced();
-      }
-      ///
-      /// Возвращает цену, по которой фактически произошло срабатывания ордера.
-      ///
-      virtual double ExitPriceExecuted()
-      {
-         if(posStatus != POSITION_STATUS_CLOSED)return 0.0;
-         Context(TRANS_OUT);
-         return GetPriceExecuted();
-      }
-      ///
-      /// Возвращает время установки ордера.
-      ///
-      CTime* EntrySetupDate()
-      {
-         Context(TRANS_IN);
-         return SetupTime();
-      }
-      ///
-      /// Возвращает время установки ордера.
-      ///
-      CTime* ExitSetupDate()
-      {
-         // Если позиция еще не закрылась, то и времени размещения закрывающего
-         // ее ордера у нее нет.
-         if(POSITION_STATUS_CLOSED)
-         {
-            Context(TRANS_OUT);
-            return SetupTime();
-         }
-         else return NULL;
-      }
-      ///
-      /// Возвращает время фактического выполнения ордера. Ордер, чье время исполнения существует, должен быть исполненным.
-      ///
-      CTime* EntryExecutedDate()
-      {
-         Context(TRANS_IN);
-         if(posStatus == POSITION_STATUS_NULL || posStatus == POSITION_STATUS_PENDING)return NULL;
-         return new CTime(TimeExecuted());
-      }
-      ///
-      /// Возвращает время фактического выхода из позиции. Позиция должна быть закрыта.
-      ///
-      CTime* ExitExecutedDate()
-      {
-         Context(TRANS_OUT);
-         if(posStatus == POSITION_STATUS_NULL ||
-            posStatus != POSITION_STATUS_CLOSED)return NULL;
-         return new CTime(TimeExecuted());
-      }
-      ///
-      /// Возвращает первоначальный размещенный объем
-      ///
-      double VolumeInit()
-      {
-         Context(TRANS_IN);
-         double vol = 0.0;
-         if(posStatus == POSITION_STATUS_PENDING)
-         {
-            SelectPendingTransaction();
-            vol = OrderGetDouble(ORDER_VOLUME_INITIAL);
-         }
-         else if(posStatus != POSITION_STATUS_NULL)
-         {
-            SelectHistoryTransaction();
-            vol = HistoryOrderGetDouble(GetId(), ORDER_VOLUME_INITIAL);
-         }
-         return vol;
-      }
-      ///
-      /// Невыполненный объем ордера.
-      ///
-      double VolumeReject()
-      {
-         Context(TRANS_IN);
-         double vol = 0.0;
-         //Не активные позиции по определению не имеют невыполненого объема ?
-         //if(posStatus == NULL || posStatus == POSITION_STATUS_PENDING)return 0;
-         if(posStatus == NULL)return vol;
-         if(posStatus == POSITION_STATUS_PENDING)
-         {
-            SelectPendingTransaction();
-            vol = OrderGetDouble(ORDER_VOLUME_CURRENT);
-         }
-         else if(posStatus != POSITION_STATUS_NULL)
-         {
-            SelectHistoryTransaction();
-            vol = HistoryOrderGetDouble(GetId(), ORDER_VOLUME_CURRENT);
-         }
-         return vol;
-      }
-      ///
-      /// Выполненный объем позиции.
-      ///
-      double VolumeExecuted()
-      {
-         if(posStatus == POSITION_STATUS_PENDING ||
-            posStatus == POSITION_STATUS_NULL)
-            return 0.0;
-         // Объем у активных и исторических позиций равен
-         // сумме объемов всех входящих сделок.
-         int total = entryDeals.Total();
-         double total_vol = 0.0;
-         for(int i = 0; i < total; i++)
-         {
-            Deal* deal = entryDeals.At(i);
-            total_vol += deal.VolumeExecuted();
-         }
-         return total_vol;
-      }
-      ///
-      /// Возвращает текущую цену инструмента, по которому совершена транзакция.
-      ///
-      virtual double CurrentPrice()
-      {
-         double price = 0.0;
-         //Имеем дело с покупками?
-         if(PositionType() % 2 == 0)
-            price = SymbolInfoDouble(this.Symbol(), SYMBOL_BID);
-         else
-            price = SymbolInfoDouble(this.Symbol(), SYMBOL_ASK);
-         //printf("CurentPrice(): " + price);
-         return price;
-      }
-      ///
-      /// Возвращает позицию, ассоциированную с защитной остановкой StopLoss
-      ///
-      Position* StopLoss()
-      {
-         return stopLoss;
-      }
-      ///
-      /// Возвращает позицию, ассоциированную с защитной остановкой TakeProfit
-      ///
-      Position* TakeProfit()
-      {
-         return takeProfit;
-      }
-      ///
-      /// Возвращает истину, если используется стоп-лосс.
-      ///
-      bool UsingStopLoss()
-      {
-         if(CheckPointer(stopLoss) != POINTER_INVALID)return true;
-         return false;
-      }
-      ///
-      /// Возвращает истину, если используется тейк-профит.
-      ///
-      bool UsingTakeProfit()
-      {
-         if(CheckPointer(takeProfit) != POINTER_INVALID)return true;
-         return false;
-      }
-      ///
-      /// Возвращает уровень защитной остановки stoploss.
-      ///
-      double StopLossLevel()
-      {
-         if(CheckPointer(stopLoss) == POINTER_INVALID)return 0.0;
-         return stopLoss.EntryPricePlaced();
-      }
-      ///
-      /// Устанавливает новый уровень защитной остановки stoploss.
-      ///
-      void StopLossLevel(double level)
-      {
-         ;
-      }
-      ///
-      /// Устанавливает новый уровень взятия прибыли takeprofit.
-      ///
-      void TakeProfitLevel(double level)
-      {
-         ;
-      }
-      ///
-      /// Возвращает уровень защитной остановки takeprofit.
-      ///
-      double TakeProfitLevel()
-      {
-         if(CheckPointer(takeProfit) == POINTER_INVALID)return 0.0;
-         return takeProfit.EntryPricePlaced();
-      }
-      ///
-      /// Удаляет защитную остановку stoploss.
-      ///
-      void DeleteStopLoss()
-      {
-         ;
-      }
-      ///
-      /// Удаляет уровень взятия прибыли takeprofit.
-      ///
-      void DeleteTakeProfit()
-      {
-         ;
-      }
-      ///
-      /// Добавляет новую входящую сделку в список входящих сделок.
-      ///
-      void AddEntryDeal(Deal* deal)
-      {
-         entryDeals.Add(deal);
-      }
-      ///
-      /// Добавляет новую исходящую сделку в список исходящих сделок.
-      ///
-      void AddExitDeal(Deal* deal)
-      {
-         //Добавить исходящую сделку можно только в закрытую позицию.
-         if(posStatus != POSITION_STATUS_CLOSED)return;
-         entryDeals.Add(deal);
-      }
+      ulong EntryMagic(void);
+      ulong ExitMagic(void);
       
-      ///
-      /// Переопределяем сравнение.
-      ///
-      virtual int Compare(const CObject *node, const int mode=0)
-      {
-         const Position* myPos = node;
-         //Значение, которое будет сравниваться.
-         switch(mode)
-         {
-            case SORT_ORDER_ID:
-               SetId(inOrderId);
-            default:
-            {
-               ulong orderId = myPos.EntryOrderID();
-               if(GetId() > orderId)
-                  return GREATE;
-               if(GetId() < orderId)
-                  return LESS;
-               //else
-               return EQUAL;
-            }
-         }
-         return EQUAL;
-      }
-      ///
-      /// Возвращает целочисленное значение, которое необходимо сравнить с другим экземляром Transaction
-      ///
-      virtual ulong GetCompareValueInt(ENUM_SORT_TRANSACTION sortType)
-      {
-         switch(sortType)
-         {
-            case SORT_ORDER_ID:
-               return inOrderId;
-            case SORT_EXIT_ORDER_ID:
-               return outOrderId;
-         }
-         return 0;
-      }
+      string EntryComment(void);
+      string ExitComment(void);
+      
+      long EntryExecutedTime(void);
+      long ExitExecutedTime(void);
+      
+      long EntrySetupTime(void);
+      long ExitSetupTime(void);
+      
+      double EntryExecutedPrice(void);
+      double ExitExecutedPrice(void);
+      
+      double EntrySetupPrice(void);
+      double ExitSetupPrice(void);
+      
+      double VolumeSetup(void);
+      double VolumeRejected(void);
+      virtual double VolumeExecuted(void);
+      
+      string Symbol(void);
+      
+      double StopLossLevel(void);
+      double TakeProfitLevel(void);
+      void StopLossLevel(double level);
+      void TakeProfitLevel(double level);
+      bool UsingStopLoss(void);
+      void UsingStopLoss(bool useStopLoss);
+      
+      InfoIntegration* Integrate(Order* order);
+      static bool CheckOrderType(Order* checkOrder);
+      POSITION_STATUS Status();
+      static void ExchangerOrder(ExchangerList& list);
+      bool Merge(Position* pos);
+      Order* EntryOrder(){return initOrder;}
+      Order* ExitOrder(){return closingOrder;}
+      bool Compatible(Position* pos);
+      virtual int Compare(const CObject* node, const int mode=0);
+      void OrderChanged(Order* order);
+      void Refresh();
+      void AsynchClose(double vol, string comment = NULL);
+      virtual string TypeAsString(void);
+      virtual ENUM_DIRECTION_TYPE Direction(void);
    private:
-      enum ENUM_TRANSACTION_CONTEXT
-      {
-         TRANS_IN,
-         TRANS_OUT
-      };
-      ///
-      /// Инициализирует новую отрытую позицию с уже готовыми сделками.
-      ///
-      void InitPosition(ulong in_ticket, CArrayLong* in_deals = NULL, ulong out_ticket = 0, CArrayLong* out_deals = NULL)
-      {
-         #ifndef HLIBRARY
-         positionLine = NULL;
-         #endif
-         //entryDeals = new CArrayObj();
-         //exitDeals = new CArrayObj();
-         SetStatus(in_ticket, in_deals, out_ticket, out_deals);
-         if(posStatus == POSITION_STATUS_NULL)return;
-         inOrderId = in_ticket;
-         //Добавляем сделки инициирующего ордера.
-         if(posStatus == POSITION_STATUS_OPEN ||
-            posStatus == POSITION_STATUS_CLOSED)
-         {
-            for(int i = 0; i < in_deals.Total(); i++)
-            {
-               ulong id = in_deals.At(i);
-               Deal* deal = new Deal(id);
-               entryDeals.Add(deal);
-            }
-         }
-         //Добавляем сделки закрывающего ордера.
-         if(posStatus == POSITION_STATUS_CLOSED)
-         {
-            for(int i = 0; i < out_deals.Total(); i++)
-            {
-               ulong id = out_deals.At(i);
-               Deal* deal = new Deal(id);
-               exitDeals.Add(deal);
-            }
-         }
-         outOrderId = out_ticket;
-      }
-      ///
-      /// Инициирует позицию с уже готовыми входящими и исходящими трейдами
-      ///
-      void InitPositionByDeal(ulong in_ticket, CArrayObj* in_deals = NULL, ulong out_ticket = 0, CArrayObj* out_deals = NULL)
-      {
-         SetStatus(in_ticket, in_deals, out_ticket, out_deals);
-         if(posStatus == POSITION_STATUS_NULL)return;
-         //if(CheckPointer(in_deals) != POINTER_INVALID)
-         //   entryDeals = in_deals;
-         //if(CheckPointer(out_deals) != POINTER_INVALID)
-         //   exitDeals = out_deals;   
-      }
-      ///
-      /// Устанавливает статус текущей позиции, на основании переданных значений.
-      ///
-      void SetStatus(ulong in_ticket, CArray* in_deals = NULL, ulong out_ticket = 0, CArray* out_deals = NULL)
-      {
-         if(in_ticket > 0)
-            inOrderId = in_ticket;
-         if(out_ticket > 0)
-            outOrderId = out_ticket;
-         SetId(inOrderId);
-         entryDeals.Sort(SORT_ORDER_ID);
-         exitDeals.Sort(SORT_ORDER_ID);
-         if(in_ticket == 0)
-         {
-            posStatus = POSITION_STATUS_NULL;
-            return;
-         }
-         if(CheckPointer(in_deals) == POINTER_INVALID)
-            posStatus = POSITION_STATUS_PENDING;
-         else if(out_ticket == 0 || CheckPointer(out_deals) == POINTER_INVALID)
-            posStatus = POSITION_STATUS_OPEN;
-         else
-            posStatus = POSITION_STATUS_CLOSED;
-      }
-      ///
-      /// Возвращает время установки открывающего/закрывающего ордера. Если время установки ордера не известно, например, ордер не инициализирован,
-      /// будет возвращено NULL.
-      ///
-      CTime* SetupTime()
-      {
-         CTime* ctime = NULL;
-         if(posStatus == POSITION_STATUS_NULL)return ctime;
-         if(posStatus == POSITION_STATUS_PENDING)
-         {
-            SelectPendingTransaction();
-            long msc = OrderGetInteger(ORDER_TIME_SETUP_MSC);
-            ctime = new CTime(msc);
-            return ctime;
-         }
-         else
-         {
-            SelectHistoryTransaction();
-            long msc = HistoryOrderGetInteger(GetId(), ORDER_TIME_SETUP_MSC);
-            ctime = new CTime(msc);
-            return ctime;
-         }
-      }
-      ///
-      /// Получает комментарий, ассоциированный с текущим оредром.
-      ///
-      string GetComment()
-      {
-         if(posStatus == POSITION_STATUS_NULL)return "not def.";
-         if(posStatus == POSITION_STATUS_PENDING)
-         {
-            SelectPendingTransaction();
-            return OrderGetString(ORDER_COMMENT);
-         }
-         else
-         {
-            SelectHistoryTransaction();
-            return HistoryOrderGetString(GetId(), ORDER_COMMENT);
-         }
-      }
-      ///
-      /// Возвращает цену, по которой был размещен ордер.
-      ///
-      double GetPricePlaced()
-      {
-         if(posStatus != POSITION_STATUS_PENDING)
-            return Price();
-         else
-            return Price(true);
-      }
-      ///
-      /// Возвращает цену, по которой был размещен ордер.
-      ///
-      double GetPriceExecuted()
-      {
-         if(Context() == TRANS_IN && isEntryPriceExecuted)
-            return entryPriceExecuted;
-         //Считаем среднюю эффективную цену входа
-         CArrayObj* deals = NULL;
-         if(Context() == TRANS_IN)
-            deals = GetPointer(entryDeals);
-         else
-            deals = GetPointer(exitDeals);
-         double vol_total = 0.0;
-         double price_total = 0.0;
-         for(int i = 0; i < deals.Total(); i++)
-         {
-            Deal* deal = deals.At(i);
-            vol_total += deal.VolumeExecuted();
-            price_total += deal.VolumeExecuted() * deal.EntryPriceExecuted();
-         }
-         double avrg_price = vol_total == 0 ? 0.0 : price_total / vol_total;
-         if(Context() == TRANS_IN)
-         {
-            entryPriceExecuted = avrg_price;
-            isEntryPriceExecuted = true;
-         }
-         return avrg_price;
-      }
-      ///
-      /// Устанавливает контекст - идентификатор входящей или исходящей транзакции, с которым производится работа.
-      ///
-      void Context(ENUM_TRANSACTION_CONTEXT context)
-      {
-         currContext = context;
-         ulong id = currContext == TRANS_IN ? inOrderId : outOrderId;
-         SetId(id);
-      }
-      ///
-      /// Возвращает текущий контекст.
-      ///
-      ENUM_TRANSACTION_CONTEXT Context(){return currContext;}
-      ///
-      /// Статус позиции.
-      ///
-      ENUM_POSITION_STATUS posStatus;
-      ///
-      /// Текущий установленный контекст.
-      ///
-      ENUM_TRANSACTION_CONTEXT currContext;
-      ///
-      /// Уникальный идентификатор ордера, открывающего сделку.
-      ///
-      ulong inOrderId;
-      ///
-      /// Уникальный идентификатор ордера, закрывающего сделку.
-      ///
-      ulong outOrderId;
-      ///
-      /// Связанная с этой позицией другая позиция, представляющая защитную остановку stoploss.
-      ///
-      Position* stopLoss;
-      ///
-      /// Связанная с этой позицией другая позиция, представляющая уровень взятия прибыли takeprofit.
-      ///
-      Position* takeProfit;
-      ///
-      /// Содержит сделки инициирующие выход из позиции.
-      ///
-      CArrayObj entryDeals;
-      ///
-      /// Содержит сделки инициирующие выход из позиции.
-      ///
-      CArrayObj exitDeals;
       ///
       /// Класс, для совершения торговых операций.
       ///
       CTrade trading;
+      void Init();
       ///
-      /// Указатель на строку, - визуальное представление данной позиции.
+      /// Определяет тип ордера, который был изменен.
       ///
+      enum ENUM_CHANGED_ORDER
+      {
+         ///
+         /// Этот ордер не принадлежит к текущей позиции.
+         ///
+         CHANGED_ORDER_NDEF,
+         ///
+         /// Этот ордер инициализурет позицию. 
+         ///
+         CHANGED_ORDER_INIT,
+         ///
+         /// Этот ордер закрывает позицию.
+         ///
+         CHANGED_ORDER_CLOSED
+      };
+      ///
+      /// Флаг блокировки, истина, если позиция находится в процессе изменения.
+      ///
+      bool blocked;
+      ///
+      /// Время начала блокировки.
+      ///
+      CTime* blockedTime;
+      ENUM_CHANGED_ORDER DetectChangedOrder(Order* order);
+      void ChangedInitOrder();
+      void DeleteAllOrders();
+      static void SplitOrder(ExchangerList& list);
+      virtual bool MTContainsMe();
+      bool CompatibleForInit(Order* order);
+      bool CompatibleForClose(Order* order);
+      InfoIntegration* AddClosingOrder(Order* outOrder);
+      void AddInitialOrder(Order* inOrder);
+      POSITION_STATUS CheckStatus(void);
+      Order* initOrder;
+      Order* closingOrder;
+      POSITION_STATUS status;
       #ifndef HLIBRARY
-      PosLine* positionLine;
+         PosLine* positionLine;
       #endif
-      ///
-      /// Истина, если требуется полный пересчет параметра позиции. Ложь -
-      /// когда будет возвращен ранее расчитанный параметр позиции.
-      ///
-      bool fullCounting;
-      ///
-      /// Истина, если позиция заблокирована для изменений. Ложь в противном случае.
-      /// Заблокированная позиция не может быть изменена, закрыта, в нее не может быть добавлен
-      /// новый трейд.
-      ///
-      //bool isBlocked;
 };
+
+///
+/// Инициализирует сложные объекты.
+///
+void Position::Init()
+{
+   blockedTime = new CTime();
+}
+///
+/// Деинициализирует позицию.
+///
+Position::~Position()
+{
+   delete blockedTime;
+   DeleteAllOrders();
+}
+///
+/// Создает неактивную позицию со статусом POSITION_NULL.
+///
+Position::Position() : Transaction(TRANS_POSITION)
+{
+   Init();
+   status = POSITION_NULL;
+}
+
+///
+/// В случае успеха создает активную позицию. В случае неудачи
+/// будет создана позиция со статусом POSITION_NULL.
+///
+Position::Position(Order* inOrder) : Transaction(TRANS_POSITION)
+{
+   Init();
+   Integrate(inOrder);
+}
+///
+/// Создает историческу позицию. Объемы исходящего и входящего ордеров должны быть равны.
+///
+Position::Position(Order* inOrder, Order* outOrder) : Transaction(TRANS_POSITION)
+{
+   Init();
+   if(inOrder == NULL || outOrder == NULL)
+      return;
+   if(inOrder.VolumeExecuted() != outOrder.VolumeExecuted())
+      return;
+   ulong in_id = inOrder.PositionId();
+   ulong out_id = outOrder.PositionId();
+   if(inOrder.PositionId() != outOrder.PositionId())
+      return;
+   status = POSITION_HISTORY;
+   initOrder = inOrder;
+   initOrder.LinkWithPosition(GetPointer(this));
+   closingOrder = outOrder;
+   closingOrder.LinkWithPosition(GetPointer(this));
+   Refresh();
+}
+
+bool Position::Compatible(Position *pos)
+{
+   if(pos.Status() == POSITION_NULL)
+      return false;
+   if(pos.GetId() != GetId())
+      return false;
+   if(pos.Status() != pos.Status())
+      return false;
+   if(pos.Status() == POSITION_HISTORY)
+   {
+      Order* clOrder = pos.ExitOrder();
+      if(clOrder.GetId() != closingOrder.GetId())
+         return false;
+   }
+   return true;
+}
+///
+/// Объединяет переданную позицию с текущей позицией.
+/// После удачного объеденения переданная позиция лишается всех ее сделок
+/// и переходит в состояние POSITION_NULL.
+///
+bool Position::Merge(Position *pos)
+{
+   if(!Compatible(pos))
+      return false;
+   //Merge init deals.
+   Order* order = pos.EntryOrder();
+   //CArrayObj inDeals = in.D
+   while(order.DealsTotal())
+   {
+      Deal* ndeal = new Deal(order.DealAt(0));
+      initOrder.AddDeal(ndeal);
+      order.DeleteDealAt(0);
+   }
+   order = pos.ExitOrder();
+   if(order == NULL)
+      return true;
+   while(order.DealsTotal())
+   {
+      Deal* ndeal = new Deal(order.DealAt(0));
+      closingOrder.AddDeal(ndeal);
+      order.DeleteDealAt(0);
+   }
+   return true;
+}
+
+///
+/// Интегрирует ордер в текущую позицию. После успешной интеграции статус позиции
+/// и все ее свойства могут измениться. Результатом интеграции могут стать
+/// новые созданные позиции, как активные так и исторические.
+/// \return Класс содержит информацию об интеграции и может быть уничтожен внешним
+/// объектом.
+///
+InfoIntegration* Position::Integrate(Order* order)
+{
+   InfoIntegration* info = NULL;
+   if(CompatibleForInit(order))
+   {
+      AddInitialOrder(order);
+      info = new InfoIntegration();
+   }
+   else if(CompatibleForClose(order))
+   {
+      info = AddClosingOrder(order);
+   }
+   else
+   {
+      info = new InfoIntegration();
+      info.InfoMessage = "Proposed order #" + (string)order.GetId() +
+      "can not be integrated in position #" + (string)GetId() +
+      ". Position and order has not compatible types";
+   }
+   
+   return info;
+}
+
+///
+/// Возвращает истину, если ордер может быть добавлен в позицию как открывающий.
+///
+bool Position::CompatibleForInit(Order *order)
+{
+   if(status == POSITION_NULL)
+      return true;
+   if(initOrder.GetId() == order.GetId())
+      return true;
+   else
+      return false;
+}
+
+///
+/// Возвращает истину, если ордер может быть закрывающим ордером позиции.
+///
+bool Position::CompatibleForClose(Order *order)
+{
+   //Закрыть можно только активную позицию.
+   if(status != POSITION_ACTIVE)
+      return false;
+   if(order.PositionId() == GetId())
+      return true;
+   return false;
+}
+
+///
+/// Добавляет инициирующий ордер в позицию.
+///
+void Position::AddInitialOrder(Order *inOrder)
+{
+   //contextOrder = initOrder;
+   //Position* pos = AddOrder(inOrder);
+   if(status == POSITION_NULL)
+   {
+      initOrder = inOrder;
+      Refresh();
+      inOrder.LinkWithPosition(GetPointer(this));
+   }
+   else if(status == POSITION_ACTIVE)
+   {
+      for(int i = 0; i < inOrder.DealsTotal(); i++)
+      {
+         Deal* deal = inOrder.DealAt(i);
+         Deal* mDeal = deal.Clone();
+         mDeal.LinqWithOrder(initOrder);
+         initOrder.AddDeal(mDeal);
+      }
+      delete inOrder;
+   }
+   return;
+}
+
+///
+/// Добавляет закрывающий ордер в активную позицию.
+///
+InfoIntegration* Position::AddClosingOrder(Order* outOrder)
+{
+   InfoIntegration* info = new InfoIntegration();
+   if(!CompatibleForClose(outOrder))
+   {
+      info.InfoMessage = "Closing order has not compatible id with position id.";
+      return info;
+   }
+   ExchangerList list;
+   bool revers = false;
+   if(outOrder.VolumeExecuted() <= initOrder.VolumeExecuted())
+   {
+      list.inOrder = initOrder;
+      list.outOrder = outOrder;
+   }
+   else
+   {
+      list.outOrder = initOrder;
+      list.inOrder = outOrder;
+      revers = true;
+   }
+   SplitOrder(list);
+   //Refresh();
+   if(revers)
+   {
+      delete info.ActivePosition;
+      info.ActivePosition = new Position(list.outOrder);
+      Order* tmp = list.histInOrder;
+      list.inOrder = list.histOutOrder;
+      list.outOrder = tmp;   
+   }
+   delete info.HistoryPosition;
+   info.HistoryPosition = new Position(list.histInOrder, list.histOutOrder);
+   return info;
+}
+
+///
+/// Проверяет, является ли статус переданного ордера совместимым с понятием "позиция".
+/// \return Истина, если ордер может принадлежать позиции, ложь в противном случае.
+///
+static bool Position::CheckOrderType(Order* checkOrder)
+{
+   bool isNull = CheckPointer(checkOrder) == POINTER_INVALID;
+   if(isNull || checkOrder.Type() == ORDER_NULL ||
+      checkOrder.Type() == ORDER_PENDING)
+   {
+      return false;
+   }
+   return true;
+}
+
+///
+///
+///
+void Position::Refresh(void)
+{
+   CheckStatus();
+   if(initOrder != NULL)
+      SetId(initOrder.GetId());
+   else
+      SetId(0);
+}
+
+///
+/// Обновляет статус позиции.
+///
+POSITION_STATUS Position::CheckStatus()
+{
+   if(CheckPointer(initOrder) == POINTER_INVALID ||
+      initOrder.DealsTotal() == 0 || initOrder.VolumeExecuted() == 0.0)
+   {
+      status = POSITION_NULL;
+      return status;
+   }
+   if(CheckPointer(closingOrder) != POINTER_INVALID)
+      status = POSITION_HISTORY;
+   else
+      status = POSITION_ACTIVE;
+   return status;
+}
+
+POSITION_STATUS Position::Status()
+{
+   return status;
+}
+
+///
+/// Истина, если терминал содержит информацию об позиции с
+/// с текущим идентификатором и ложь в противном случае.
+///
+bool Position::MTContainsMe()
+{
+   if(status == POSITION_NULL)
+      return false;
+   return true;
+}
+
+void Position::ExchangerOrder(ExchangerList& list)
+{
+   if(list.inOrder == NULL || list.outOrder == NULL)
+      return;
+   if(list.outOrder.VolumeExecuted() <= list.inOrder.VolumeExecuted())
+   {
+      SplitOrder(list);
+   }
+   else
+   {
+      ExchangerList exchList;
+      exchList.inOrder = list.outOrder;
+      exchList.outOrder = list.outOrder;
+      SplitOrder(exchList);
+      exchList.inOrder = list.outOrder;
+      exchList.outOrder = list.outOrder;
+   }
+}
+
+///
+/// Изменяет структуру ордеров и создает новые.
+///
+void Position::SplitOrder(ExchangerList &list)
+{
+   //Объем, который нужно выполнить.
+   ulong in_id = list.inOrder.GetId();
+   ulong out_id = list.outOrder.GetId();
+   double volTotal = list.outOrder.VolumeExecuted();
+   if(list.inOrder.VolumeExecuted() < volTotal)
+      return;
+   
+   list.histOutOrder = list.outOrder;
+   list.histInOrder = new Order();
+   //Выполненный объем
+   double exVol = 0.0;
+   while(list.inOrder.DealsTotal())
+   {
+      //Объем, который осталось выполнить.
+      double rVol = volTotal - exVol;
+      //Если весь объем выполнен - выходим.
+      if(rVol == 0.0)break;
+      Deal* deal = list.inOrder.DealAt(0);
+      double curVol = deal.VolumeExecuted();
+      if(deal.VolumeExecuted() > rVol)
+      {
+         Deal* hDeal = deal.Clone();
+         hDeal.VolumeExecuted(rVol);
+         list.histInOrder.AddDeal(hDeal);
+         deal.VolumeExecuted(deal.VolumeExecuted() - rVol);
+         exVol += rVol;
+      }
+      else if(deal.VolumeExecuted() <= rVol)
+      {
+         exVol += deal.VolumeExecuted();
+         list.histInOrder.AddDeal(deal.Clone());
+         list.inOrder.DeleteDealAt(0);
+      }
+   }   
+}
+
+int Position::Compare(const CObject* node, const int mode=0)
+{
+   switch(mode)
+   {
+      case SORT_ORDER_ID:
+      {
+         const Transaction* trans = node;
+         ulong my_id = GetId();
+         ulong trans_id = trans.GetId();
+         if(GetId() == trans.GetId())
+            return EQUAL;
+         if(GetId() < trans.GetId())
+            return LESS;
+         return GREATE;
+      }
+   }
+   return 0;
+}
+
+///
+/// Определяет тип ордера, который был изменен.
+///
+ENUM_CHANGED_ORDER Position::DetectChangedOrder(Order *order)
+{
+   if(status == POSITION_NULL)
+      return CHANGED_ORDER_NDEF;
+   if(initOrder.GetId() == order.GetId())
+      return CHANGED_ORDER_INIT;
+   if(status == POSITION_HISTORY &&
+      closingOrder.GetId() == order.GetId())
+      return CHANGED_ORDER_CLOSED;      
+   return CHANGED_ORDER_INIT;
+}
+
+void Position::OrderChanged(Order* order)
+{
+    ENUM_CHANGED_ORDER changedType = DetectChangedOrder(order);
+    switch(changedType)
+    {
+      case CHANGED_ORDER_NDEF:
+         return;
+      case CHANGED_ORDER_INIT:
+         ChangedInitOrder();
+         break;
+      case CHANGED_ORDER_CLOSED:
+         break;
+    }
+}
+
+///
+/// Обрабатывает изменения инициирующего ордера.
+///
+void Position::ChangedInitOrder()
+{
+   if(initOrder.Status() == ORDER_EXECUTING)
+      blocked = true;
+   Refresh();
+}
+
+///
+/// Удаляет все ордера.
+///
+void Position::DeleteAllOrders(void)
+{
+   if(initOrder != NULL)
+   {
+      delete initOrder;
+      initOrder = NULL;
+   }
+   if(closingOrder != NULL)
+   {
+      delete closingOrder;
+      closingOrder = NULL;
+   }
+}
+
+///
+/// Закрывает текущую позицию асинхронно.
+///
+void Position::AsynchClose(double vol, string comment = NULL)
+{
+   trading.SetAsyncMode(true);
+   trading.SetExpertMagicNumber(initOrder.GetMagicForClose());
+   if(Direction() == DIRECTION_LONG)
+      trading.Sell(vol, Symbol(), 0.0, 0.0, 0.0, comment);
+   else if(Direction() == DIRECTION_SHORT)
+      trading.Buy(vol, Symbol(), 0.0, 0.0, 0.0, comment);
+}
+
+///
+/// Возвращает входищий комментарий позиции.
+///
+string Position::EntryComment(void)
+{
+   if(initOrder != NULL)
+      return initOrder.Comment();
+   return "";
+}
+
+///
+/// Возвращает исходящий комментарий позиции.
+///
+string Position::ExitComment(void)
+{
+   if(closingOrder != NULL)
+      return closingOrder.Comment();
+   return "";
+}
+
+///
+/// Возвращает точное время установки позиции, в виде
+/// количества тиков прошедших с 01.01.1970 года.
+///
+long Position::EntrySetupTime(void)
+{
+   if(initOrder != NULL)
+      return initOrder.TimeSetup();
+   return 0;
+}
+
+///
+/// Возвращает точное время приказа на закрытие позиции, в виде
+/// количества тиков прошедших с 01.01.1970 года.
+///
+long Position::ExitSetupTime(void)
+{
+   if(closingOrder != NULL)
+      return closingOrder.TimeSetup();
+   return 0;
+}
+
+///
+/// Возвращает точное время исполнения позиции, в виде
+/// количества тиков прошедших с 01.01.1970 года.
+///
+long Position::EntryExecutedTime(void)
+{
+   if(initOrder != NULL)
+      return initOrder.TimeExecuted();
+   return 0;
+}
+
+///
+/// Возвращает точное время фактического закрытия позиции, в виде
+/// количества тиков прошедших с 01.01.1970 года.
+///
+long Position::ExitExecutedTime(void)
+{
+   if(closingOrder != NULL)
+      return closingOrder.TimeExecuted();
+   return 0;
+}
+
+///
+/// Возвращает фактическую цену входа в позицию.
+///
+double Position::EntryExecutedPrice(void)
+{
+   if(initOrder != NULL)
+      return initOrder.EntryExecutedPrice();
+   return 0.0;
+}
+
+///
+/// Возвращает фактическую цену выхода из позиции.
+///
+double Position::ExitExecutedPrice(void)
+{
+   if(closingOrder != NULL)
+      return closingOrder.EntryExecutedPrice();
+   return 0.0;
+}
+
+///
+/// Возвращает размещенную цену входа в позицию.
+///
+double Position::EntrySetupPrice(void)
+{
+   if(initOrder != NULL)
+      return initOrder.PriceSetup();
+   return 0.0;
+}
+
+///
+/// Возвращает размещенную цену выхода из позиции.
+///
+double Position::ExitSetupPrice(void)
+{
+   if(closingOrder != NULL)
+      return closingOrder.PriceSetup();
+   return 0.0;
+}
+
+///
+/// Возвращает фактический исполненный объем позиции.
+///
+double Position::VolumeExecuted(void)
+{
+   if(initOrder != NULL)
+      return initOrder.VolumeExecuted();
+   return 0.0;
+}
+
+///
+/// Возвращает идентификатор входящящего ордера позиции.
+///
+ulong Position::EntryOrderId()
+{
+   if(initOrder != NULL)
+      return initOrder.GetId();
+   return 0;
+}
+
+///
+/// Возвращает идентификатор исходящего ордера позиции.
+///
+ulong Position::ExitOrderId()
+{
+   if(closingOrder != NULL)
+      return closingOrder.GetId();
+   return 0;
+}
+
+///
+/// Возвращает магический номер входящего ордера.
+///
+ulong Position::EntryMagic(void)
+{
+   if(initOrder != NULL)
+      return initOrder.Magic();
+   return 0;
+}
+
+///
+/// Возвращает магический номер закрывающего ордера.
+///
+ulong Position::ExitMagic(void)
+{
+   if(closingOrder != NULL)
+      return closingOrder.Magic();
+   return 0;
+}
+
+///
+/// Возвращает уровень стоп-лосса.
+///
+double Position::StopLossLevel(void)
+{
+   return 0.0;
+}
+
+///
+/// Устанавливает уровень стоп-лосса.
+///
+void Position::StopLossLevel(double level)
+{
+}
+
+///
+/// Возвращает уровень тейк-профита.
+///
+double Position::TakeProfitLevel(void)
+{
+   return 0.0;
+}
+
+///
+/// Устанавливает уровень тейк-профита.
+///
+void Position::TakeProfitLevel(double level)
+{
+}
+
+///
+/// Истина, если используется стоп-лосс, ложь в противном случае.
+///
+bool Position::UsingStopLoss(void)
+{
+   return false;
+}
+
+///
+/// Включает (useStopLoss=true) или отключает (useStopLoss=false) использования стоп-лосса.
+///
+void Position::UsingStopLoss(bool useStopLoss)
+{
+}
+
+///
+/// Возвращает символ, по которому открыта позиция.
+///
+string Position::Symbol()
+{
+   if(initOrder != NULL)
+      return initOrder.Symbol();
+   return "";
+}
+
+///
+/// Возвращает тип позиции.
+///
+string Position::TypeAsString(void)
+{
+   if(initOrder != NULL)
+      return initOrder.TypeAsString();
+   return this.TypeAsString();
+}
+
+///
+/// Направление позиции.
+///
+ENUM_DIRECTION_TYPE Position::Direction()
+{
+   if(initOrder != NULL)
+      return initOrder.Direction();
+   return DIRECTION_NDEF;
+}

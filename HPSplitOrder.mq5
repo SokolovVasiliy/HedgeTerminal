@@ -18,23 +18,23 @@ void OnStart()
    ExchangerList list;
    list.inOrder = GenManualInOrder();
    list.outOrder = GenManualOutOrder();
-   CPosition::ExchangerOrder(list);
+   Position::ExchangerOrder(list);
    Order* hInOrder = list.histInOrder;
    Order* hOutOrder = list.histOutOrder;
    int k = 6;
    for(int i = 0; i < list.inOrder.DealsTotal(); i++)
    {
-      CDeal* in_deal = list.inOrder.DealAt(i);
+      Deal* in_deal = list.inOrder.DealAt(i);
       printf("in: " + (string)in_deal.ExecutedVolume());
    }
    /*for(int i = 0; i < exch.histInOrder.DealsTotal(); i++)
    {
-      CDeal* in_deal = exch.histInOrder.DealAt(i);
+      Deal* in_deal = exch.histInOrder.DealAt(i);
       printf("hist_in: " + (string)in_deal.ExecutedVolume());
    }
    for(int i = 0; i < exch.histOutOrder.DealsTotal(); i++)
    {
-      CDeal* out_deal = exch.histOutOrder.DealAt(i);
+      Deal* out_deal = exch.histOutOrder.DealAt(i);
       printf("hist_out: " + (string)out_deal.ExecutedVolume());
    }*/
    delete list.histInOrder;
@@ -79,9 +79,9 @@ Order* GenRandomOrder()
    return order;
 }
 
-CDeal* GetDeal(double vol)
+Deal* GetDeal(double vol)
 {
-   CDeal* deal = new CDeal(IN_DEAL_ID);
+   Deal* deal = new Deal(IN_DEAL_ID);
    deal.ExecutedVolume(vol);
    return deal;
 }
