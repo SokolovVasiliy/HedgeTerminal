@@ -264,50 +264,42 @@ class TablePositions : public Table
          //Функция умеет развертывать только позиции, и с другими элеменатми работать не может.
          if(node.TypeElement() != ELEMENT_TYPE_POSITION)return;
          PosLine* posLine = node;
+         
          //Повторно разворачивать уже развернутую позицию не надо.
          //if(posLine.IsRestory())return;
          Position* pos = posLine.Position();
          ulong order_id = pos.EntryOrderId();
-         //Позиция содержит сделки, которые необходимо раскрыть.
-         //CArrayObj* entryDeals = pos.EntryDeals();
-         Order* entryOrder = pos.EntryOrder();
-         CArrayObj entryDeals;
-         if(entryOrder != NULL)
-         {
-            for(int i = 0; i < entryOrder.DealsTotal(); i++)
-               entryDeals.Add(entryOrder.DealAt(i));
-         }
          
-         //CArrayObj* exitDeals = pos.ExitDeals();
+         Order* entryOrder = pos.EntryOrder();
+         CArrayObj* entryDeals = NULL;
+         
          Order* exitOrder = pos.ExitOrder();
          CArrayObj exitDeals;
-         if(exitOrder != NULL)
-         {
-            for(int i = 0; i < exitOrder.DealsTotal(); i++)
-               exitDeals.Add(entryOrder.DealAt(i));
-         }   
+            
          // Количество дополнительных строк будет равно максимальном
          // количеству сделок одной из сторон
-         int entryTotal = entryDeals.Total();
-         int exitTotal = exitDeals.Total();
-         int total;
-         int fontSize = 8;
+         int entryTotal = CheckPointer(entryOrder) != POINTER_INVALID ?
+                          entryOrder.DealsTotal() : 0;
+         int exitTotal = CheckPointer(exitOrder) != POINTER_INVALID ?
+                          exitOrder.DealsTotal() : 0;
+         int total = 0;
          if(entryTotal > 0 && entryTotal >= exitTotal)
             total = entryTotal;
          else if(exitTotal > 0 && exitTotal > exitTotal)
             total = exitTotal;
          else return;
-         color clrSlave = clrSlateGray;
+         //color clrSlave = clrSlateGray;
+         //int fontSize = 8;
          //Перебираем сделки
          for(int i = 0; i < total; i++)
          {
             //Текущая сделка
             Deal* entryDeal = NULL;
-            if(i < entryDeals.Total())
-               entryDeal = entryDeals.At(i);
+            if(entryOrder != NULL && i < entryOrder.DealsTotal())
+               entryDeal = entryOrder.DealAt(i);
             Deal* exitDeal = NULL;
-            if(i < exitDeals.Total())
-               exitDeal = exitDeals.At(i);
+            if(exitOrder != NULL && i < exitOrder.DealsTotal())
+               exitDeal = exitOrder.DealAt(i);
             bool isLast = i == total-1 ? true : false;
             DealLine* nline = new DealLine(workArea, TableType(), pos, entryDeal, exitDeal, isLast);
             workArea.Add(nline, event.NLine()+1);

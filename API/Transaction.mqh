@@ -135,8 +135,8 @@ class Transaction : public CObject
       string ProfitAsString()
       {
          double d = ProfitInPips();
-         int digits = (int)SymbolInfoInteger(Symbol(), SYMBOL_DIGITS);
-         double point = SymbolInfoDouble(Symbol(), SYMBOL_POINT);
+         int digits = (int)SymbolInfoInteger(this.Symbol(), SYMBOL_DIGITS);
+         double point = SymbolInfoDouble(this.Symbol(), SYMBOL_POINT);
          string points = point == 0 ? "0p." : DoubleToString(d/point, 0) + "p.";
          return points;
       }
@@ -202,15 +202,6 @@ class Transaction : public CObject
       }
    protected:
       ///
-      /// Истина, если терминал содержит информацию о транзакции с
-      /// с текущим идентификатором и ложь в противном случае. Перед вызовом
-      /// функции в терминал должна быть загружена история сделок и ордеров.
-      ///
-      virtual bool MTContainsMe()
-      {
-         return true;
-      }
-      ///
       /// Возвращает цену входа трназакции на рынок.
       ///
       virtual double EntryExecutedPrice(){return 0.0;}
@@ -223,39 +214,7 @@ class Transaction : public CObject
       /// Устанавливает уникальный идентификатор транзакции.
       ///
       void SetId(ulong id){currId = id;}
-      ///
-      /// Функция возвращает цену, по которой была совершена сделка, либо цену, на которую было установлено срабатывание ордера.
-      /// \param isPending - истина, если ордер необходимо искать среди отложенных, активных ордеров, и ложь, если ордер уже сработал,
-      /// и информацию о нем необходимо искать в списки исторических ордеров.
-      double Price(bool isPending = false)
-      {
-         double price = 0.0;
-         if(!isPending){
-            SelectHistoryTransaction();
-            switch(transType)
-            {
-               case TRANS_DEAL:
-                  return HistoryDealGetDouble(currId, DEAL_PRICE);
-               case TRANS_POSITION:
-                  return HistoryOrderGetDouble(currId, ORDER_PRICE_OPEN);
-               default:
-                  return 0.0;
-            }
-         }
-         else
-         {
-            SelectPendingTransaction();
-            switch(transType)
-            {
-               case TRANS_POSITION:
-                  return OrderGetDouble(ORDER_PRICE_OPEN);
-               // Отложенными могут быть только ордера, поэтому прочие торговые операции
-               // искать в активных ордерах бессмысленно.
-               default:
-                  return 0.0;
-            }
-         }
-      }
+      
       ///
       /// Возвращает время срабатывания ордера/совершения сделки.
       ///

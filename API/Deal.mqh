@@ -96,13 +96,13 @@ Deal::Deal(Deal* deal) : Transaction(TRANS_DEAL)
    SetId(deal.GetId());
    orderId = deal.OrderId();
    status = deal.Status();
+   symbol = deal.Symbol();
    timeExecuted.Tiks(deal.TimeExecuted());
    volumeExecuted = deal.VolumeExecuted();
    priceExecuted = deal.EntryExecutedPrice();
    type = deal.DealType();
    order = deal.Order();
 }
-
 
 ///
 /// ¬озвращает полную копию текущей сделки.
@@ -137,6 +137,8 @@ void Deal::Init(ulong dealId)
    timeExecuted.Tiks(HistoryDealGetInteger(dealId, DEAL_TIME_MSC));
    priceExecuted = HistoryDealGetDouble(dealId, DEAL_PRICE);
    type = (ENUM_DEAL_TYPE)HistoryDealGetInteger(GetId(), DEAL_TYPE);
+   symbol = HistoryDealGetString(dealId, DEAL_SYMBOL);
+   comment = HistoryDealGetString(dealId, DEAL_COMMENT);
    if(type == DEAL_TYPE_BUY || type == DEAL_TYPE_SELL)
    {
       status = DEAL_TRADE;

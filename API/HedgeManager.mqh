@@ -62,6 +62,14 @@ class HedgeManager
             ulong ticket = HistoryDealGetTicket(dealsCountNow);
             AddNewDeal(ticket);
          }
+         //анализ status_blocked.
+         total = OrdersTotal();
+         for(; ordersCountNow < total; ordersCountNow++)
+         {
+            ulong ticket = OrderGetTicket(ordersCountNow);
+            OrderSelect(ticket);
+            ProcessingOrder(ticket);
+         }
       }
       
       ///
@@ -115,10 +123,27 @@ class HedgeManager
       }
       
       ///
+      /// Обрабатывает исполняющий ордер.
+      ///
+      void ProcessingOrder(ulong ticket)
+      {
+         Order* ActOrder = new Order(ticket);
+         if(ActOrder.Status() == ORDER_NULL)return;
+         if(ActOrder.OrderState() != ORDER_STATE_STARTED)return;
+         Position* actPos = FindOrCreateActivePosForOrder(ActOrder, false);
+         if(actPos == NULL)return;
+         actPos.ProcessingNewOrder(ActOrder.GetId());
+         delete ActOrder;
+      }
+      
+      ///
       /// Находит уже существующую или создает новую нулевую
       /// позицию, которой может принадлежать переданный ордер.
+      /// \param order - ордер, позицию для которого необходимо найти.
+      /// \param createPos - флаг, указывающий что в случае, если позиция не была найдена,
+      /// необходимо создать новую позицию.
       ///
-      Position* FindOrCreateActivePosForOrder(Order* order)
+      Position* FindOrCreateActivePosForOrder(Order* order, bool createPos=true)
       {
          
          ulong posId = order.PositionId();
@@ -133,7 +158,9 @@ class HedgeManager
                return ActivePos.At(iActive);
          }
          //Активной позиции нет? - значит это открывающий ордер новой позиции.
-         return new Position();
+         if(createPos)
+            return new Position();
+         return NULL;
       }
       
       ///
@@ -244,4 +271,8 @@ class HedgeManager
       /// Количество сделок, которое поступило в течении заданного периода.
       ///
       int dealsCountNow;
+      ///
+      /// Текущее количество обработанных активных ордеров.
+      ///
+      int ordersCountNow;
 };

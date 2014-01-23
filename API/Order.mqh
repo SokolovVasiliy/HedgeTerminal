@@ -66,12 +66,14 @@ class Order : public Transaction
       ENUM_ORDER_STATUS Status(void);
       
       virtual string TypeAsString(void);
-      //ENUM_ORDER_TYPE Type(void){return type;}
+      ENUM_ORDER_TYPE OrderType(void){return type;}
+      ENUM_ORDER_STATE OrderState(void){return state;}
       virtual double VolumeExecuted(void);
       double VolumeSetup(void);
       double VolumeReject(void);
       
       virtual ENUM_DIRECTION_TYPE Direction(void);
+      bool InProcessing();
    private:
       virtual bool IsHistory();
       ENUM_ORDER_STATUS RefreshStatus(void);
@@ -110,10 +112,13 @@ class Order : public Transaction
       ///
       ENUM_ORDER_STATUS status;
       ///
-      /// Содержит тип ордера.
+      /// Тип ордера.
       ///
       ENUM_ORDER_TYPE type;
-      
+      ///
+      /// Состояние ордера.
+      ///
+      ENUM_ORDER_STATE state;
       ///
       /// Содержит сделки ордера.
       ///
@@ -161,6 +166,7 @@ Order::Order(Order *order) : Transaction(TRANS_ORDER)
       ndeal.LinqWithOrder(GetPointer(this));
       deals.Add(ndeal);
    }
+   comment = order.Comment();
    status = order.Status();
    position = order.Position();
    priceSetup = order.PriceSetup();
@@ -169,6 +175,8 @@ Order::Order(Order *order) : Transaction(TRANS_ORDER)
    timeExecuted = order.TimeExecuted();
    volumeSetup = order.VolumeSetup();
    volumeExecuted = order.VolumeExecuted();
+   type = order.OrderType();
+   state = order.OrderState();
 }
 
 ///
@@ -348,7 +356,8 @@ void Order::DeleteDealAt(int index)
 ///
 Deal* Order::DealAt(int index)
 {
-   return deals.At(index);
+   Deal* deal = deals.At(index);
+   return deal;
 }
 
 ///
@@ -374,6 +383,26 @@ bool Order::IsHistory()
 bool Order::IsPending()
 {
    return OrderSelect(GetId());
+}
+
+///
+/// Возвращает истину, если ордер находится в состоянии модификации.
+///
+bool Order::InProcessing()
+{
+   if(!IsPending())return false;
+   ENUM_ORDER_STATE m_state = (ENUM_ORDER_STATE)OrderGetInteger(ORDER_STATE);
+   switch(m_state)
+   {
+      case ORDER_STATE_STARTED:
+      case ORDER_STATE_REQUEST_ADD:
+      case ORDER_STATE_REQUEST_CANCEL:
+      case ORDER_STATE_REQUEST_MODIFY:
+         return true;
+      default:
+         return false;
+   }
+   return false;
 }
 
 ///
@@ -503,7 +532,8 @@ void Order::RecalcValues(void)
       timeSetup = OrderGetInteger(ORDER_TIME_SETUP_MSC);
       comment = OrderGetString(ORDER_COMMENT);
       symbol = OrderGetString(ORDER_SYMBOL);
-      type = OrderGetInteger(ORDER_TYPE);
+      type = (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE);
+      state = (ENUM_ORDER_STATE)OrderGetInteger(ORDER_STATE);
    }
    else if(IsHistory())
    {
@@ -512,6 +542,7 @@ void Order::RecalcValues(void)
       timeSetup = HistoryOrderGetInteger(GetId(), ORDER_TIME_SETUP_MSC);
       comment = HistoryOrderGetString(GetId(), ORDER_COMMENT);
       symbol = HistoryOrderGetString(GetId(), ORDER_SYMBOL);
-      type = HistoryOrderGetInteger(GetId(), ORDER_TYPE);
+      type = (ENUM_ORDER_TYPE)HistoryOrderGetInteger(GetId(), ORDER_TYPE);
+      state = (ENUM_ORDER_STATE)HistoryOrderGetInteger(GetId(), ORDER_STATE);
    }
 }

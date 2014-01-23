@@ -45,20 +45,20 @@ class Button : public TextNode
    protected:
       virtual void SetColorsFromSettings(void)
       {
-         color borderColor;
-         color bgColor;
+         color m_borderColor;
+         color m_bgColor;
          if(CheckPointer(Settings) != POINTER_INVALID)
          {
-            borderColor = Settings.ColorTheme.GetBorderColor();
-            bgColor = Settings.ColorTheme.GetSystemColor1();
+            m_borderColor = Settings.ColorTheme.GetBorderColor();
+            m_bgColor = Settings.ColorTheme.GetSystemColor1();
          }
          else
          {
-            borderColor = clrBlack;
-            bgColor = clrWhiteSmoke;
+            m_borderColor = clrBlack;
+            m_bgColor = clrWhiteSmoke;
          }
-         BorderColor(borderColor);
-         BackgroundColor(bgColor);
+         BorderColor(m_borderColor);
+         BackgroundColor(m_bgColor);
       }
       ///
       /// Обработчик события статус 'видимости внешнего узла изменен'.

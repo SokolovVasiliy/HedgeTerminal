@@ -120,6 +120,8 @@ class Position : public Transaction
       void AsynchClose(double vol, string comment = NULL);
       virtual string TypeAsString(void);
       virtual ENUM_DIRECTION_TYPE Direction(void);
+      void ProcessingNewOrder(long ticket);
+      bool IsBlocked();
    private:
       ///
       /// Класс, для совершения торговых операций.
@@ -151,7 +153,11 @@ class Position : public Transaction
       ///
       /// Время начала блокировки.
       ///
-      CTime* blockedTime;
+      CTime blockedTime;
+      ///
+      /// Содержит список тикетов ордеров принадлежащих текущей позиции, которые находятся в процессе обработки.
+      ///
+      CArrayLong processingOrders;
       ENUM_CHANGED_ORDER DetectChangedOrder(Order* order);
       void ChangedInitOrder();
       void DeleteAllOrders();
@@ -168,21 +174,13 @@ class Position : public Transaction
       #ifndef HLIBRARY
          PosLine* positionLine;
       #endif
+      
 };
-
-///
-/// Инициализирует сложные объекты.
-///
-void Position::Init()
-{
-   blockedTime = new CTime();
-}
 ///
 /// Деинициализирует позицию.
 ///
 Position::~Position()
 {
-   delete blockedTime;
    DeleteAllOrders();
 }
 ///
@@ -190,7 +188,7 @@ Position::~Position()
 ///
 Position::Position() : Transaction(TRANS_POSITION)
 {
-   Init();
+   
    status = POSITION_NULL;
 }
 
@@ -200,7 +198,7 @@ Position::Position() : Transaction(TRANS_POSITION)
 ///
 Position::Position(Order* inOrder) : Transaction(TRANS_POSITION)
 {
-   Init();
+   
    Integrate(inOrder);
 }
 ///
@@ -208,7 +206,7 @@ Position::Position(Order* inOrder) : Transaction(TRANS_POSITION)
 ///
 Position::Position(Order* inOrder, Order* outOrder) : Transaction(TRANS_POSITION)
 {
-   Init();
+   
    if(inOrder == NULL || outOrder == NULL)
       return;
    if(inOrder.VolumeExecuted() != outOrder.VolumeExecuted())
@@ -443,17 +441,6 @@ POSITION_STATUS Position::Status()
    return status;
 }
 
-///
-/// Истина, если терминал содержит информацию об позиции с
-/// с текущим идентификатором и ложь в противном случае.
-///
-bool Position::MTContainsMe()
-{
-   if(status == POSITION_NULL)
-      return false;
-   return true;
-}
-
 void Position::ExchangerOrder(ExchangerList& list)
 {
    if(list.inOrder == NULL || list.outOrder == NULL)
@@ -595,12 +582,19 @@ void Position::DeleteAllOrders(void)
 ///
 void Position::AsynchClose(double vol, string comment = NULL)
 {
+   if(IsBlocked())
+   {
+      printf("Position is blocked. Try letter");
+      return;
+   }
    trading.SetAsyncMode(true);
    trading.SetExpertMagicNumber(initOrder.GetMagicForClose());
    if(Direction() == DIRECTION_LONG)
       trading.Sell(vol, Symbol(), 0.0, 0.0, 0.0, comment);
    else if(Direction() == DIRECTION_SHORT)
       trading.Buy(vol, Symbol(), 0.0, 0.0, 0.0, comment);
+   blocked = true;
+   blockedTime.SetDateTime(TimeCurrent());
 }
 
 ///
@@ -830,4 +824,51 @@ ENUM_DIRECTION_TYPE Position::Direction()
    if(initOrder != NULL)
       return initOrder.Direction();
    return DIRECTION_NDEF;
+}
+
+///
+/// Обрабатывает еще не исполненные ордера, которые относятся к данной позиции,
+///
+void Position::ProcessingNewOrder(long ticket)
+{
+   Order* order = new Order(ticket);
+   if(order.Status() == ORDER_NULL || order.PositionId() != GetId())
+      return;
+   if(!order.InProcessing())return;
+   int index = processingOrders.Search(order.GetId());
+   if(index == -1)
+      processingOrders.InsertSort(order.GetId());
+   delete order;
+}
+
+///
+/// Возвращает истину, если позиция находится в состоянии изменения и ложь в противном случае.
+///
+bool Position::IsBlocked(void)
+{
+   if(processingOrders.Total())
+   {
+      blocked = false;
+      blockedTime.Tiks(0);
+      for(int i = 0; i < processingOrders.Total(); i++)
+      {
+         ulong ticket = processingOrders.At(i);
+         Order* order = new Order(ticket);
+         if(!order.InProcessing())
+            processingOrders.Delete(i);
+         delete order;
+      }
+   }
+   if(blocked)
+   {
+      datetime elepseTime = TimeCurrent() - blockedTime.ToDatetime();
+      if(elepseTime > 180)
+      {
+         blocked = false;
+         blockedTime.Tiks(0);
+      }
+   }
+   if(blocked || processingOrders.Total() > 0)
+      return true;
+   return false;
 }
