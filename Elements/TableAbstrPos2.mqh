@@ -546,7 +546,7 @@ class DealLine : public AbstractLine
                }
                break;
             case COLUMN_TYPE:
-               value = "-";
+               value = "deal";
                break;
             case COLUMN_VOLUME:
                if(entryDeal != NULL)

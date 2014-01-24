@@ -85,13 +85,10 @@ void  OnTradeTransaction(
       const MqlTradeResult&         result
    )
 {
-   //printf("OnTradeTransaction: " + EnumToString(trans.type));
-   if(trans.type == TRADE_TRANSACTION_DEAL_ADD)
-   {
-      /*EventAddDeal* deal = new EventAddDeal(trans.deal, trans.order);  
-      api.Event(deal);
-      delete deal;*/
-   }
+   //MqlTradeTransaction m_trans = trans;
+   EventRequestNotice* event_request = new EventRequestNotice(trans, request, result);
+   api.Event(event_request);
+   delete event_request;
 }
 int chartEventCount;
 ///
@@ -121,7 +118,6 @@ void OnChartEvent(const int id,
       EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, "TERMINAL WINDOW", true, 0, 0, X, Y);
       HedgePanel.Event(command);
       delete command;
-      
    }
    //Определяем, является ли событие нажатием на одну из кнопок HP
    if(id == CHARTEVENT_OBJECT_CLICK)

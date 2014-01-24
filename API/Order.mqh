@@ -58,6 +58,8 @@ class Order : public Transaction
       
       void LinkWithPosition(Position* pos); 
       
+      ulong Magic(){return magic;}
+      
       ulong PositionId();
       Position* Position(){return position;}
       
@@ -78,11 +80,14 @@ class Order : public Transaction
       virtual bool IsHistory();
       ENUM_ORDER_STATUS RefreshStatus(void);
       void RecalcValues(void);
-      
       ///
-      ///Если ордер принадлежит к позиции, содержит ссылку на нее.
+      /// Если ордер принадлежит к позиции, содержит ссылку на нее.
       ///
       Position* position;
+      ///
+      /// Содержит теоретический идентификатор позиции, к которой может принадлежать текущий ордер.
+      ///
+      ulong positionId;
       ///
       /// Содержит первоначальный объем, при постановки ордера.
       ///
@@ -127,6 +132,10 @@ class Order : public Transaction
       /// Содержит Комментарий к ордеру.
       ///
       string comment;
+      ///
+      /// Магический номер эксперта, выставившего ордер.
+      ///
+      ulong magic;
 };
 
 /*PUBLIC MEMBERS*/
@@ -204,7 +213,10 @@ void Order::Init(ulong orderId)
 ///
 ulong Order::PositionId()
 {
+   //ulong id = HedgeManager::PositionId(GetId());
    //Ордер закрывающий?
+   //return magic;
+   return HedgeManager::PositionId(magic);
    ulong posId = HistoryOrderGetInteger(GetId(), ORDER_MAGIC);
    if(HistoryOrderGetInteger(posId, ORDER_TIME_DONE) > 0)
       return posId;
@@ -219,12 +231,17 @@ void Order::LinkWithPosition(Position* pos)
 {
    if(CheckPointer(pos) == POINTER_INVALID)
       return;
-   if(pos.GetId() > 0 && pos.GetId() != PositionId())
+   ulong posId = pos.GetId();
+   if(posId == 0 || pos.GetId() == GetId() || pos.GetId() == HedgeManager::CanPositionId(magic))
+      position = pos;
+   else
+      LogWriter("Link order failed: this order has a different id with position id.", MESSAGE_TYPE_WARNING);
+   /*if(pos.GetId() > 0 && pos.GetId() != PositionId())
    {
       LogWriter("Link order failed: this order has a different id with position id.", MESSAGE_TYPE_WARNING);
       return;
    }
-   position = pos;
+   position = pos;*/
 }
 
 ///
@@ -286,10 +303,7 @@ ENUM_ORDER_STATUS Order::RefreshStatus()
          status = ORDER_HISTORY;   
    }
    else
-   {
-      SetId(0);
       status = ORDER_NULL;
-   }
    return status;
 }
 
@@ -534,6 +548,7 @@ void Order::RecalcValues(void)
       symbol = OrderGetString(ORDER_SYMBOL);
       type = (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE);
       state = (ENUM_ORDER_STATE)OrderGetInteger(ORDER_STATE);
+      magic = OrderGetInteger(ORDER_MAGIC);
    }
    else if(IsHistory())
    {
@@ -544,5 +559,6 @@ void Order::RecalcValues(void)
       symbol = HistoryOrderGetString(GetId(), ORDER_SYMBOL);
       type = (ENUM_ORDER_TYPE)HistoryOrderGetInteger(GetId(), ORDER_TYPE);
       state = (ENUM_ORDER_STATE)HistoryOrderGetInteger(GetId(), ORDER_STATE);
+      magic = HistoryOrderGetInteger(GetId(), ORDER_MAGIC);
    }
 }

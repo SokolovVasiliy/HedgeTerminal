@@ -2,17 +2,17 @@
 #include <Arrays\ArrayObj.mqh>
 
 #include "Order.mqh"
-
+#include "..\Events.mqh"
 ///
 ///  ласс позиции
 ///
 class HedgeManager
 {
    public:
+      
       ///
       /// ¬ режиме работы в панеле подключаем событийную модель.
       ///
-      #ifndef HLIBRARY
       void Event(Event* event)
       {
          ENUM_EVENT enEvent = event.EventId();
@@ -21,9 +21,11 @@ class HedgeManager
             case EVENT_REFRESH:
                OnRefresh();
                break;
+            case EVENT_REQUEST_NOTICE:
+               OnRequestNotice(event);
+               break;
          }
       }
-      #endif
       
       ///
       ///
@@ -46,13 +48,57 @@ class HedgeManager
          HistoryPos.Clear();
          delete HistoryPos;
       }
-      
+      ///
+      /// ¬озвращает идентификатор позиции, которой принадлежит ордер или сделка с magic_id
+      ///
+      static ulong PositionId(ulong magic_id)
+      {
+         Order* order = new Order(magic_id);
+         ulong posId = 0;
+         int index = ActivePos.Search(order);
+         if(index > -1)
+         {
+            Position* actPos = ActivePos.At(index);
+            posId = actPos.GetId();
+         }
+         index = HistoryPos.Search(order);
+         if(index > -1)
+         {
+            Position* histPos = HistoryPos.At(index);
+            posId = histPos.GetId();
+         }
+         delete order;
+         return posId;
+      }
+      ///
+      /// ¬озвращает идентификатор позиции которой может принадлежать транзакци€ с магическим номером magic_id.
+      /// ‘актически позиции может не существовать.
+      ///
+      static ulong CanPositionId(ulong magic_id)
+      {
+         return magic_id;
+      }
+      ///
+      /// ќбрабатывает поступление новых событий.
+      ///
+      void OnRequestNotice(EventRequestNotice* event)
+      {
+         TradeResult* result = event.GetResult();
+         //—нимаем блок с позиций, к которым относ€тс€ отклоненные ордера.
+         if(result.IsRejected())
+         {
+            TradeRequest* request = event.GetRequest();
+            //Order* order = new Order(request.magic);
+            //FindOrCreateActivePosForOrder(
+         }
+      }
       ///
       /// —ледит за поступлением новых трейдов и ордеров.
       ///
       void OnRefresh()
       {
-         LoadHistory();
+         //LoadHistory();
+         HistorySelect(0, TimeCurrent());
          int total = HistoryDealsTotal();
          //int total = 5;
          //ѕеребираем все доступные трейды и формируем на их основе прототипы будущих позиций типа COrder
@@ -64,6 +110,10 @@ class HedgeManager
          }
          //анализ status_blocked.
          total = OrdersTotal();
+         //≈сли какой-либо из активных ордеров переместилс€ в историю,
+         //то также измен€ем количество запомненных активных ордеров.
+         if(ordersCountNow > total)
+            ordersCountNow = total;
          for(; ordersCountNow < total; ordersCountNow++)
          {
             ulong ticket = OrderGetTicket(ordersCountNow);
@@ -145,9 +195,11 @@ class HedgeManager
       ///
       Position* FindOrCreateActivePosForOrder(Order* order, bool createPos=true)
       {
-         
-         ulong posId = order.PositionId();
          ulong currId = order.GetId();
+         int dbg = 3;
+         if(currId == 1009045374)
+            dbg = 4;
+         ulong posId = order.PositionId();
          if(posId != 0)
          {
             int total = ActivePos.Total();
@@ -262,11 +314,11 @@ class HedgeManager
       ///
       /// —писок активных позиций.
       ///
-      CArrayObj* ActivePos;
+      static CArrayObj* ActivePos;
       ///
       /// —писок исторических, закрытых позиций.
       ///
-      CArrayObj* HistoryPos;
+      static CArrayObj* HistoryPos;
       ///
       ///  оличество сделок, которое поступило в течении заданного периода.
       ///

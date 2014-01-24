@@ -162,12 +162,12 @@ class Position : public Transaction
       void ChangedInitOrder();
       void DeleteAllOrders();
       static void SplitOrder(ExchangerList& list);
-      virtual bool MTContainsMe();
       bool CompatibleForInit(Order* order);
       bool CompatibleForClose(Order* order);
       InfoIntegration* AddClosingOrder(Order* outOrder);
       void AddInitialOrder(Order* inOrder);
       POSITION_STATUS CheckStatus(void);
+      void ResetBlocked(void);
       Order* initOrder;
       Order* closingOrder;
       POSITION_STATUS status;
@@ -206,14 +206,13 @@ Position::Position(Order* inOrder) : Transaction(TRANS_POSITION)
 ///
 Position::Position(Order* inOrder, Order* outOrder) : Transaction(TRANS_POSITION)
 {
-   
    if(inOrder == NULL || outOrder == NULL)
       return;
    if(inOrder.VolumeExecuted() != outOrder.VolumeExecuted())
       return;
    ulong in_id = inOrder.PositionId();
    ulong out_id = outOrder.PositionId();
-   if(inOrder.PositionId() != outOrder.PositionId())
+   if(inOrder.GetId() != HedgeManager::CanPositionId(outOrder.Magic()))
       return;
    status = POSITION_HISTORY;
    initOrder = inOrder;
@@ -283,10 +282,12 @@ InfoIntegration* Position::Integrate(Order* order)
    {
       AddInitialOrder(order);
       info = new InfoIntegration();
+      ResetBlocked();
    }
    else if(CompatibleForClose(order))
    {
       info = AddClosingOrder(order);
+      ResetBlocked();
    }
    else
    {
@@ -589,12 +590,18 @@ void Position::AsynchClose(double vol, string comment = NULL)
    }
    trading.SetAsyncMode(true);
    trading.SetExpertMagicNumber(initOrder.GetMagicForClose());
+   bool resTrans = false;
    if(Direction() == DIRECTION_LONG)
-      trading.Sell(vol, Symbol(), 0.0, 0.0, 0.0, comment);
+      resTrans = trading.Sell(vol, Symbol(), 0.0, 0.0, 0.0, comment);
    else if(Direction() == DIRECTION_SHORT)
-      trading.Buy(vol, Symbol(), 0.0, 0.0, 0.0, comment);
-   blocked = true;
-   blockedTime.SetDateTime(TimeCurrent());
+      resTrans = trading.Buy(vol, Symbol(), 0.0, 0.0, 0.0, comment);
+   if(resTrans)
+   {
+      blocked = true;
+      blockedTime.SetDateTime(TimeCurrent());
+   }
+   else
+      printf(trading.ResultRetcodeDescription());
 }
 
 ///
@@ -842,14 +849,22 @@ void Position::ProcessingNewOrder(long ticket)
 }
 
 ///
+/// —брасывает блокировку позиции.
+///
+void Position::ResetBlocked(void)
+{
+   blocked = false;
+   blockedTime.Tiks(0);
+}
+
+///
 /// ¬озвращает истину, если позици€ находитс€ в состо€нии изменени€ и ложь в противном случае.
 ///
 bool Position::IsBlocked(void)
 {
    if(processingOrders.Total())
    {
-      blocked = false;
-      blockedTime.Tiks(0);
+      ResetBlocked();
       for(int i = 0; i < processingOrders.Total(); i++)
       {
          ulong ticket = processingOrders.At(i);
@@ -861,12 +876,9 @@ bool Position::IsBlocked(void)
    }
    if(blocked)
    {
-      datetime elepseTime = TimeCurrent() - blockedTime.ToDatetime();
+      long elepseTime = TimeCurrent() - blockedTime.ToDatetime();
       if(elepseTime > 180)
-      {
-         blocked = false;
-         blockedTime.Tiks(0);
-      }
+         ResetBlocked();
    }
    if(blocked || processingOrders.Total() > 0)
       return true;

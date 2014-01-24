@@ -245,10 +245,9 @@ enum ENUM_BUTTON_STATE
 #include "Keys.mqh"
 #include "Time.mqh"
 #include "Log.mqh"
-#include "API\API.mqh"
-#ifndef HLIBRARY
+#include "API\MqlTransactions.mqh"
 #include "Events.mqh"
-#endif
+#include "API\API.mqh"
 #ifndef HLIBRARY
    #include "Elements\Node.mqh"
    #include "Elements\Elements.mqh"

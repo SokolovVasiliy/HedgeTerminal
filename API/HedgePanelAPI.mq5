@@ -13,7 +13,7 @@
 #include "..\Globals.mqh"
 
 #include "..\Prototypes.mqh"
-CHedge hedge;
+HedgeManager hedge;
 
 
 ///
@@ -121,13 +121,13 @@ ulong HedgePositionGetInteger(ENUM_HEDGE_POSITION_PROP_INTEGER property) export
       case HEDGE_POSITION_MAGIC:
          return CurrentPosition.Magic();
       case HEDGE_POSITION_ENTRY_TIME_SETUP:
-         return GetTiks(CurrentPosition.EntrySetupDate());
+         return CurrentPosition.EntryExecutedTime();
       case HEDGE_POSITION_ENTRY_TIME_EXECUTED:
          return CurrentPosition.EntryExecutedTime();
       case HEDGE_POSITION_EXIT_TIME_SETUP:
-         return GetTiks(CurrentPosition.ExitSetupDate()); 
+         return CurrentPosition.ExitExecutedTime(); 
       case HEDGE_POSITION_EXIT_TIME_EXECUTED:
-         return CurrentPosition.ExitExecutedDate(); 
+         return CurrentPosition.ExitExecutedTime(); 
    }
    return 0;
 }
@@ -146,7 +146,7 @@ double HedgePositionGetDouble(ENUM_HEDGE_POSITION_PROP_DOUBLE property) export
       case HEDGE_POSITION_VOLUME:
          return CurrentPosition.VolumeExecuted();
       case HEDGE_POSITION_PRICE_OPEN:
-         return CurrentPosition.EntryPriceExecuted();
+         return CurrentPosition.EntryExecutedPrice();
       case HEDGE_POSITION_PROFIT_POINTS:
          return CurrentPosition.ProfitInPips();
    }
@@ -270,14 +270,13 @@ bool ClosePos(HedgeTradeRequest& request, MqlTradeResult& result)
       result.comment = "Hedge position not selected.";
       return false;
    }
-   if(CurrentPosition.Status() == POSITION_STATUS_BLOCKED ||
-      CurrentPosition.Status() == POSITION_STATUS_NULL)
+   if(CurrentPosition.Status() == POSITION_NULL)
    {
       result.retcode = TRADE_RETCODE_LOCKED;
       result.comment = "Hedge position is locked.";
       return false;
    }
-   if(CurrentPosition.Status() == POSITION_STATUS_CLOSED)
+   if(CurrentPosition.Status() == POSITION_HISTORY)
    {
       result.retcode = TRADE_RETCODE_POSITION_CLOSED;
       result.comment = "Position has already been closed.";

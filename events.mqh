@@ -1,10 +1,12 @@
 #include <Arrays\ArrayObj.mqh>
-
+#include "\API\MqlTransactions.mqh"
 #ifndef EVENTS_MQH
    #define EVENTS_MQH
 #endif
 
 class Event;
+class HedgeManager;
+class Position;
 /*
   Идентификаторы событий и их параметры
 */
@@ -153,7 +155,11 @@ enum ENUM_EVENT
    ///
    /// Идентификатор события-приказа "Обновить представление позиции".
    ///
-   EVENT_REFRESH_POS
+   EVENT_REFRESH_POS,
+   ///
+   /// Идентификатор события "Ответ торгового сервера".
+   ///
+   EVENT_REQUEST_NOTICE
 };
 
 
@@ -248,7 +254,34 @@ class Event
       ProtoNode* node;
 };
 
-
+/* TERMINAL EVENTS*/
+///
+/// Событие "получен торговый запрос".
+///
+class EventRequestNotice : public Event
+{
+   public:
+      EventRequestNotice(const MqlTradeTransaction& mqlTrans, const MqlTradeRequest& mqlRequest, const MqlTradeResult& mqlResult) :
+      Event(EVENT_FROM_UP, EVENT_REQUEST_NOTICE, "WINDOW TERMINAL")
+      {
+         trans = new TradeTransaction(mqlTrans);
+         request = new TradeRequest(mqlRequest);
+         result = new TradeResult(mqlResult);
+      }
+      ~EventRequestNotice()
+      {
+         delete trans;
+         delete request;
+         delete result;
+      }
+      TradeTransaction* GetTransaction(){return trans;}
+      TradeRequest* GetRequest(){return request;}
+      TradeResult* GetResult(){return result;}
+   private:
+      TradeTransaction* trans;
+      TradeRequest* request;
+      TradeResult* result;
+};
 
 ///
 /// Событие EVENT_NODE_VISIBLE
@@ -321,6 +354,7 @@ class EventMove : Event
       long yDist;
       ENUM_COOR_CONTEXT context;
 };
+
 ///
 /// События EVENT_NEW_TICK
 ///
@@ -730,7 +764,7 @@ class EventMouseMove : public Event
       int mask;
 };
 
-//#ifndef HLIBRARY
+#ifndef HLIBRARY
 //class CheckBox;
 class EventCheckBoxChanged : public Event
 {
@@ -758,7 +792,7 @@ class EventCheckBoxChanged : public Event
       bool isChecked;
       ENUM_BUTTON_STATE state;
 };
-//ifndef
+#ifndef
 
 ///
 /// Это событие посылает графический объект после того, как был нажат
