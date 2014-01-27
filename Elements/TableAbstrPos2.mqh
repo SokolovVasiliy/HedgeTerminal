@@ -95,7 +95,7 @@ class AbstractLine : public Line
       ///
       virtual TextNode* GetDefaultEl(DefColumn* el)
       {
-         TextNode* build = NULL;
+         EditNode* build = NULL;
          build = new Label(el.Name(), GetPointer(this));
          //build.BorderColor(clrRed);
          build.OptimalWidth(el.OptimalWidth());
@@ -296,14 +296,27 @@ class PosLine : public AbstractLine
                delete comby;
                comby = GetProfitEl(el);
                break;
+            case COLUMN_VOLUME:
+               comby.element = GetDefaultEditEl(el);
+               comby.value = comby.element;
+               break;
             default:
                comby.element = GetDefaultEl(el);
                comby.value = comby.element;
+               //if(cType == COLUMN_VOLUME)
+               //   comby.element.Edit(true);
                break;
          }
          if(CheckPointer(comby.value) != POINTER_INVALID)   
             comby.value.Text(GetStringValue(cType));
          return comby;
+      }
+      
+      EditNode* GetDefaultEditEl(DefColumn* el)
+      {
+         EditNode* enode = GetDefaultEl(el);
+         enode.ReadOnly(false);
+         return enode;
       }
       
       TextNode* GetCollapseEl(DefColumn* el)

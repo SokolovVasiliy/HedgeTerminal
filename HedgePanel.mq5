@@ -85,7 +85,6 @@ void  OnTradeTransaction(
       const MqlTradeResult&         result
    )
 {
-   //MqlTradeTransaction m_trans = trans;
    EventRequestNotice* event_request = new EventRequestNotice(trans, request, result);
    api.Event(event_request);
    delete event_request;
@@ -133,6 +132,12 @@ void OnChartEvent(const int id,
       EventKeyDown* key = new EventKeyDown((int)lparam, mask);
       HedgePanel.Event(key);
       delete key;
+   }
+   if(id == CHARTEVENT_OBJECT_ENDEDIT)
+   {
+      EventEndEdit* endEdit = new EventEndEdit(sparam);
+      HedgePanel.Event(endEdit);
+      delete endEdit;
    }
    ChartRedraw(MAIN_WINDOW);
 }

@@ -149,6 +149,10 @@ enum ENUM_EVENT
    ///
    EVENT_KEYDOWN,
    ///
+   /// Завершение редактирования текста.
+   ///
+   EVENT_END_EDIT,
+   ///
    /// Идентификатор события "Совершена новая сделка".
    ///
    EVENT_ADD_DEAL,
@@ -256,7 +260,7 @@ class Event
 
 /* TERMINAL EVENTS*/
 ///
-/// Событие "получен торговый запрос".
+/// Событие "получено торговое событие".
 ///
 class EventRequestNotice : public Event
 {
@@ -535,6 +539,32 @@ class EventObjectClick : public Event
       ///
       string pushObjName;
 };
+
+///
+/// Это событие генерируется терминалом 
+///
+class EventObjectClick : public Event
+{
+   public:
+      EventObjectClick(string pushName): Event(EVENT_FROM_UP, EVENT_OBJ_CLICK, "TERMINAL WINDOW")
+      {
+         pushObjName = pushName;
+      }
+      ///
+      /// Возвращает название объекта, по которому было произведено нажатие.
+      ///
+      string PushObjName(){return pushObjName;}
+      virtual Event* Clone()
+      {
+         return new EventObjectClick(pushObjName);
+      }
+   private:
+      ///
+      /// Хранит название узла, по которому было произведено нажатие.
+      ///
+      string pushObjName;
+};
+
 
 ///
 /// Событие "Новая позиция создана".

@@ -29,6 +29,7 @@ class Order : public Transaction
    public:
       Order(void);
       Order(ulong orderId);
+      Order(TradeRequest& request);
       Order(Deal* deal);
       Order(Order* order);
       ~Order();
@@ -80,6 +81,7 @@ class Order : public Transaction
       virtual bool IsHistory();
       ENUM_ORDER_STATUS RefreshStatus(void);
       void RecalcValues(void);
+      void RecalcPosId(void);
       ///
       /// Если ордер принадлежит к позиции, содержит ссылку на нее.
       ///
@@ -163,6 +165,21 @@ Order::Order(Deal* deal) : Transaction(TRANS_ORDER)
 }
 
 ///
+/// Создает ордер, используя информацию из торгового запроса.
+///
+Order::Order(TradeRequest& request) : Transaction(TRANS_ORDER)
+{
+   SetId(request.order);
+   magic = request.magic;
+   volumeSetup = request.volume;
+   priceSetup = request.price;
+   symbol = request.symbol;
+   type = request.type;
+   comment = request.comment;
+   RecalcPosId();
+}
+
+///
 /// Создает полную копию ордера order.
 ///
 Order::Order(Order *order) : Transaction(TRANS_ORDER)
@@ -186,6 +203,7 @@ Order::Order(Order *order) : Transaction(TRANS_ORDER)
    volumeExecuted = order.VolumeExecuted();
    type = order.OrderType();
    state = order.OrderState();
+   magic = order.Magic();
 }
 
 ///
@@ -213,15 +231,7 @@ void Order::Init(ulong orderId)
 ///
 ulong Order::PositionId()
 {
-   //ulong id = HedgeManager::PositionId(GetId());
-   //Ордер закрывающий?
-   //return magic;
-   return HedgeManager::PositionId(magic);
-   ulong posId = HistoryOrderGetInteger(GetId(), ORDER_MAGIC);
-   if(HistoryOrderGetInteger(posId, ORDER_TIME_DONE) > 0)
-      return posId;
-   //Ордер открывающий.
-   return GetId();
+   return positionId;
 }
 
 ///
@@ -561,4 +571,14 @@ void Order::RecalcValues(void)
       state = (ENUM_ORDER_STATE)HistoryOrderGetInteger(GetId(), ORDER_STATE);
       magic = HistoryOrderGetInteger(GetId(), ORDER_MAGIC);
    }
+   RecalcPosId();
+}
+
+///
+/// Рассчитывает идентификатор позиции, которой может
+/// принадлежать текущий ордер.
+///
+void Order::RecalcPosId()
+{
+   positionId = magic;
 }

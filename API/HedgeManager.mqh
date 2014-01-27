@@ -48,28 +48,7 @@ class HedgeManager
          HistoryPos.Clear();
          delete HistoryPos;
       }
-      ///
-      /// ¬озвращает идентификатор позиции, которой принадлежит ордер или сделка с magic_id
-      ///
-      static ulong PositionId(ulong magic_id)
-      {
-         Order* order = new Order(magic_id);
-         ulong posId = 0;
-         int index = ActivePos.Search(order);
-         if(index > -1)
-         {
-            Position* actPos = ActivePos.At(index);
-            posId = actPos.GetId();
-         }
-         index = HistoryPos.Search(order);
-         if(index > -1)
-         {
-            Position* histPos = HistoryPos.At(index);
-            posId = histPos.GetId();
-         }
-         delete order;
-         return posId;
-      }
+      
       ///
       /// ¬озвращает идентификатор позиции которой может принадлежать транзакци€ с магическим номером magic_id.
       /// ‘актически позиции может не существовать.
@@ -78,19 +57,19 @@ class HedgeManager
       {
          return magic_id;
       }
+      
       ///
-      /// ќбрабатывает поступление новых событий.
+      /// ѕеренаправл€ет торговые событи€ на конкретные активные позиции,
+      /// к которым они относ€тс€.
       ///
       void OnRequestNotice(EventRequestNotice* event)
       {
-         TradeResult* result = event.GetResult();
-         //—нимаем блок с позиций, к которым относ€тс€ отклоненные ордера.
-         if(result.IsRejected())
-         {
-            TradeRequest* request = event.GetRequest();
-            //Order* order = new Order(request.magic);
-            //FindOrCreateActivePosForOrder(
-         }
+         TradeRequest* request = event.GetRequest();
+         Order* order = new Order(request);
+         Position* ActPos = FindActivePosById(order.PositionId());
+         delete order;
+         if(ActPos != NULL)
+            ActPos.Event(event);
       }
       ///
       /// —ледит за поступлением новых трейдов и ордеров.
@@ -98,30 +77,60 @@ class HedgeManager
       void OnRefresh()
       {
          //LoadHistory();
-         HistorySelect(0, TimeCurrent());
+         datetime t_now = TimeCurrent();
+         HistorySelect(timeBegin, t_now);
+         //TODO.
+         //timeBegin = t_now;
          int total = HistoryDealsTotal();
-         //int total = 5;
          //ѕеребираем все доступные трейды и формируем на их основе прототипы будущих позиций типа COrder
          for(; dealsCountNow < total; dealsCountNow++)
          {  
-            //LoadHistory();
             ulong ticket = HistoryDealGetTicket(dealsCountNow);
             AddNewDeal(ticket);
          }
-         //анализ status_blocked.
-         total = OrdersTotal();
-         //≈сли какой-либо из активных ордеров переместилс€ в историю,
-         //то также измен€ем количество запомненных активных ордеров.
-         if(ordersCountNow > total)
-            ordersCountNow = total;
-         for(; ordersCountNow < total; ordersCountNow++)
+         CheckModifyOrders();
+      }
+      ///
+      /// Ќаходит среди активных ордеров измен€ющие свой статус и
+      /// уведомл€ет об этом позиции, к которым они могут принадлежать.
+      ///
+      void CheckModifyOrders()
+      {
+         if(ordersCountNow != OrdersTotal())
          {
-            ulong ticket = OrderGetTicket(ordersCountNow);
-            OrderSelect(ticket);
-            ProcessingOrder(ticket);
+            for(int i = 0; i < OrdersTotal(); i++)
+            {
+               ulong ticket = OrderGetTicket(i);
+               OrderSelect(ticket);
+               ENUM_ORDER_STATE state = (ENUM_ORDER_STATE)OrderGetInteger(ORDER_STATE);
+               if(!IsOrderModify(state))continue;
+               Order* order = new Order(ticket);
+               Position* ActPos = FindActivePosById(order.PositionId());
+               delete order;
+               if(ActPos == NULL)continue;
+               ActPos.NoticeModify();
+            }
+            ordersCountNow = OrdersTotal();
          }
       }
-      
+      ///
+      /// ¬озвращает истину, если статус ордера указывает на то, что он находитс€
+      /// в процессе модификации.
+      ///
+      bool IsOrderModify(ENUM_ORDER_STATE state)
+      {
+         switch(state)
+         {
+            case ORDER_STATE_STARTED:
+            case ORDER_STATE_REQUEST_ADD:
+            case ORDER_STATE_REQUEST_CANCEL:
+            case ORDER_STATE_REQUEST_MODIFY:
+               return true;
+            default:
+               return false;
+         }
+         return false;
+      }
       ///
       /// »нтегрирует новую сделку в систему позиций.
       ///
@@ -139,7 +148,9 @@ class HedgeManager
             delete order;
             return;
          }
-         Position* actPos = FindOrCreateActivePosForOrder(order);
+         Position* actPos = FindActivePosById(order.PositionId());
+         if(actPos == NULL)
+            actPos = new Position();
          InfoIntegration* result = actPos.Integrate(order);
          int iActive = ActivePos.Search(actPos);
          if(actPos.Status() == POSITION_NULL)
@@ -173,45 +184,19 @@ class HedgeManager
       }
       
       ///
-      /// ќбрабатывает исполн€ющий ордер.
+      /// Ќаходит активную позицию в списке активных позиций, чей
+      /// id равен posId.
       ///
-      void ProcessingOrder(ulong ticket)
+      Position* FindActivePosById(ulong posId)
       {
-         Order* ActOrder = new Order(ticket);
-         if(ActOrder.Status() == ORDER_NULL)return;
-         if(ActOrder.OrderState() != ORDER_STATE_STARTED)return;
-         Position* actPos = FindOrCreateActivePosForOrder(ActOrder, false);
-         if(actPos == NULL)return;
-         actPos.ProcessingNewOrder(ActOrder.GetId());
-         delete ActOrder;
-      }
-      
-      ///
-      /// Ќаходит уже существующую или создает новую нулевую
-      /// позицию, которой может принадлежать переданный ордер.
-      /// \param order - ордер, позицию дл€ которого необходимо найти.
-      /// \param createPos - флаг, указывающий что в случае, если позици€ не была найдена,
-      /// необходимо создать новую позицию.
-      ///
-      Position* FindOrCreateActivePosForOrder(Order* order, bool createPos=true)
-      {
-         ulong currId = order.GetId();
-         int dbg = 3;
-         if(currId == 1009045374)
-            dbg = 4;
-         ulong posId = order.PositionId();
          if(posId != 0)
          {
-            int total = ActivePos.Total();
             Order* inOrder = new Order(posId);
             int iActive = ActivePos.Search(inOrder);
             delete inOrder;
             if(iActive != -1)
                return ActivePos.At(iActive);
          }
-         //јктивной позиции нет? - значит это открывающий ордер новой позиции.
-         if(createPos)
-            return new Position();
          return NULL;
       }
       
@@ -327,4 +312,8 @@ class HedgeManager
       /// “екущее количество обработанных активных ордеров.
       ///
       int ordersCountNow;
+      ///
+      /// ¬рем€, с которого происходит загрузка иситории.
+      ///
+      datetime timeBegin;
 };

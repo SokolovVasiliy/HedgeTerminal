@@ -1,6 +1,7 @@
 #include "Transaction.mqh"
 #include "Order.mqh"
 #include "..\Log.mqh"
+#include "..\Events.mqh"
 
 class Position;
 
@@ -122,6 +123,8 @@ class Position : public Transaction
       virtual ENUM_DIRECTION_TYPE Direction(void);
       void ProcessingNewOrder(long ticket);
       bool IsBlocked();
+      void NoticeModify(void);
+      void Event(Event* event);
    private:
       ///
       /// Класс, для совершения торговых операций.
@@ -151,13 +154,17 @@ class Position : public Transaction
       ///
       bool blocked;
       ///
+      /// Показывает, находится ли позиция в состоянии модификации.
+      ///
+      bool isModify;
+      ///
       /// Время начала блокировки.
       ///
       CTime blockedTime;
       ///
       /// Содержит список тикетов ордеров принадлежащих текущей позиции, которые находятся в процессе обработки.
       ///
-      CArrayLong processingOrders;
+      //CArrayLong processingOrders;
       ENUM_CHANGED_ORDER DetectChangedOrder(Order* order);
       void ChangedInitOrder();
       void DeleteAllOrders();
@@ -168,6 +175,8 @@ class Position : public Transaction
       void AddInitialOrder(Order* inOrder);
       POSITION_STATUS CheckStatus(void);
       void ResetBlocked(void);
+      void OnRequestNotice(EventRequestNotice* notice);
+      void OnRejected(TradeResult& result);
       Order* initOrder;
       Order* closingOrder;
       POSITION_STATUS status;
@@ -834,27 +843,13 @@ ENUM_DIRECTION_TYPE Position::Direction()
 }
 
 ///
-/// Обрабатывает еще не исполненные ордера, которые относятся к данной позиции,
-///
-void Position::ProcessingNewOrder(long ticket)
-{
-   Order* order = new Order(ticket);
-   if(order.Status() == ORDER_NULL || order.PositionId() != GetId())
-      return;
-   if(!order.InProcessing())return;
-   int index = processingOrders.Search(order.GetId());
-   if(index == -1)
-      processingOrders.InsertSort(order.GetId());
-   delete order;
-}
-
-///
 /// Сбрасывает блокировку позиции.
 ///
 void Position::ResetBlocked(void)
 {
    blocked = false;
    blockedTime.Tiks(0);
+   isModify = false;
 }
 
 ///
@@ -862,25 +857,58 @@ void Position::ResetBlocked(void)
 ///
 bool Position::IsBlocked(void)
 {
-   if(processingOrders.Total())
+   if(!isModify)
    {
-      ResetBlocked();
-      for(int i = 0; i < processingOrders.Total(); i++)
-      {
-         ulong ticket = processingOrders.At(i);
-         Order* order = new Order(ticket);
-         if(!order.InProcessing())
-            processingOrders.Delete(i);
-         delete order;
-      }
-   }
-   if(blocked)
-   {
+      if(!blocked)
+         return false;
       long elepseTime = TimeCurrent() - blockedTime.ToDatetime();
       if(elepseTime > 180)
          ResetBlocked();
    }
-   if(blocked || processingOrders.Total() > 0)
-      return true;
-   return false;
+   return isModify || blocked;
+}
+
+///
+/// Обрабатывает поступающие события.
+///
+void Position::Event(Event* event)
+{
+   switch(event.EventId())
+   {
+      case EVENT_REQUEST_NOTICE:
+         OnRequestNotice(event);
+         break;   
+   }
+}
+
+///
+/// Обрабатывает уведомления о изменении позиции
+///
+void Position::OnRequestNotice(EventRequestNotice* notice)
+{
+   TradeResult* result = notice.GetResult();
+   if(result.IsRejected())
+      OnRejected(result);
+}
+
+///
+/// Обрабатывает ситуацию, когда запрос был отклонен.
+///
+void Position::OnRejected(TradeResult& result)
+{
+   if(!result.IsRejected())return;
+   ResetBlocked();
+   switch(result.retcode)
+   {
+      case TRADE_RETCODE_NO_MONEY:
+         LogWriter("Position #" + (string)GetId() + ": Unmanaged hedge. Try to close parts.", MESSAGE_TYPE_INFO);
+   }
+}
+
+///
+/// Ордер изменяющий позицию находится в процессе модификации.
+///
+void Position::NoticeModify(void)
+{
+   isModify = true;
 }

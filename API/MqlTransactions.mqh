@@ -177,9 +177,9 @@ bool TradeResult::IsRejected(void)
       case TRADE_RETCODE_PLACED:
       case TRADE_RETCODE_DONE:
       case TRADE_RETCODE_DONE_PARTIAL:
-         return true;
-      default:
          return false;
+      default:
+         return true;
    }
    return false;
 }
