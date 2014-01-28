@@ -6,8 +6,8 @@
 class Position;
 class Deal;
 class Order;
-#ifndef HLIBRARY
-class PosLine;
+#ifdef HEDGE_PANEL
+   class PosLine;
 #endif
 
 ///

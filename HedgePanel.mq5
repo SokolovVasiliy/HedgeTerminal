@@ -9,6 +9,8 @@
 #property link      "https://login.mql5.com/ru/users/c-4"
 #property version   "1.100"
 
+#define HEDGE_PANEL
+
 #include  "Globals.mqh"
 
 ///

@@ -811,7 +811,7 @@ class ProtoNode : public CObject
             //delete event;
          }
          //Событие идет снизу-вверх.
-          if(event.Direction() == EVENT_FROM_DOWN)
+         if(event.Direction() == EVENT_FROM_DOWN)
          {
             if(parentNode != NULL)
                parentNode.Event(event);

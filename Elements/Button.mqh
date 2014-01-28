@@ -3,14 +3,14 @@
 ///
 ///  ласс " нопка".
 ///
-class Button : public TextNode
+class Button : public Label
 {
    public:
-      Button(string myName, ENUM_ELEMENT_TYPE elType, ProtoNode* parNode) : TextNode(OBJ_BUTTON, elType, myName, parNode)
+      Button(string myName, ENUM_ELEMENT_TYPE elType, ProtoNode* parNode) : Label(elType, myName, parNode)
       {
          SetColorsFromSettings();
       }
-      Button(string myName, ProtoNode* parNode) : TextNode(OBJ_BUTTON, ELEMENT_TYPE_BOTTON, myName, parNode)
+      Button(string myName, ProtoNode* parNode) : Label(ELEMENT_TYPE_BOTTON, myName, parNode)
       {
          SetColorsFromSettings();
       }

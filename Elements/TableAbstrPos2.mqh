@@ -3,7 +3,7 @@
 /// Абстрактный класс одной из строк таблицы. Строка может быть заголовком, позицией или сделкой.
 /// Ее тип должен быть определен в момент создания.
 ///
-class AbstractLine : public Line
+class AbstractLine : public TextNode
 {
    public:
       ///
@@ -245,9 +245,7 @@ class PosLine : public AbstractLine
          if(CheckPointer(m_pos) != POINTER_INVALID)
             pos = m_pos;
          BuilderLine();
-         #ifndef HLIBRARY
          pos.PositionLine(GetPointer(this));
-         #endif
       }
       ///
       /// Возвращает указатель на позицию, с которой ассоциирована данная строка.
@@ -267,16 +265,52 @@ class PosLine : public AbstractLine
    private:
       virtual void OnEvent(Event* event)
       {
+         switch(event.EventId())
+         {
+            case EVENT_CLOSE_POS:
+               if(event.Direction() == EVENT_FROM_DOWN)
+               {
+                  if(pos.Status() != POSITION_ACTIVE)return;
+                  string value = GetStringValue(COLUMN_EXIT_COMMENT);
+                  pos.AsynchClose(pos.VolumeExecuted(), value);
+               }
+               break;
+            case EVENT_END_EDIT_NODE:
+               OnClosePartPos(event);
+               break;
+         }
          //Закрываем текущую позицию.
-         if(event.Direction() == EVENT_FROM_DOWN && event.EventId() == EVENT_CLOSE_POS)
+         /*if(event.Direction() == EVENT_FROM_DOWN && event.EventId() == EVENT_CLOSE_POS)
          {
             if(pos.Status() != POSITION_ACTIVE)return;
             string value = GetStringValue(COLUMN_EXIT_COMMENT);
             pos.AsynchClose(pos.VolumeExecuted(), value);
          }
+         else if(event.Direction() == EVENT_FROM_DOWN && event.EventId() == EVENT_END_EDIT_NODE)
+            OnClosePartPos(event);   
          else
-            EventSend(event);
+            EventSend(event);*/
       }
+      
+      ///
+      /// 
+      ///
+      void OnClosePartPos(EventEndEditNode* event)
+      {
+         //printf("Закрываем часть позиции...");
+         double curVol = pos.VolumeExecuted();
+         double setVol = StringToDouble(event.Value());
+         EditNode* editNode = event.Node();
+         if(!pos.IsValidNewVolume(setVol))
+         {
+            editNode.Text(pos.VolumeToString(curVol));
+            return;
+         }
+         editNode.Text(pos.VolumeToString(setVol)+"...");
+         //string exitComment = GetStringValue(COLUMN_EXIT_COMMENT);
+         //pos.AsynchClose(curVol - setVol, exitComment);
+      }
+      
       ///
       /// 
       ///
@@ -315,7 +349,8 @@ class PosLine : public AbstractLine
       EditNode* GetDefaultEditEl(DefColumn* el)
       {
          EditNode* enode = GetDefaultEl(el);
-         enode.ReadOnly(false);
+         if(TableType() == TABLE_POSACTIVE)
+            enode.ReadOnly(false);
          return enode;
       }
       
