@@ -8,7 +8,7 @@
 #property copyright  "2013, , Vasiliy Sokolov, St.Petersburg, Russia."
 #property link      "https://login.mql5.com/ru/users/c-4"
 #property version   "1.100"
-
+#define HEDGE_PANEL
 #include  "Globals.mqh"
 
 ///
@@ -133,12 +133,12 @@ void OnChartEvent(const int id,
       HedgePanel.Event(key);
       delete key;
    }
-   /*if(id == CHARTEVENT_OBJECT_ENDEDIT)
+   if(id == CHARTEVENT_OBJECT_ENDEDIT)
    {
       EventEndEdit* endEdit = new EventEndEdit(sparam);
       HedgePanel.Event(endEdit);
       delete endEdit;
-   }*/
+   }
    ChartRedraw(MAIN_WINDOW);
 }
 

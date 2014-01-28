@@ -144,6 +144,18 @@ class EditNode : public TextNode
       /// \return Истина, если редактирование текста запрещено, ложь в противном случае.
       ///
       bool ReadOnly(){return readOnly;}
+      
+      virtual void OnEvent(Event* event)
+      {
+         switch(event.EventId())
+         {
+            case EVENT_END_EDIT:
+               OnEndEdit(event);
+               break;
+            default:
+               EventSend(event);
+         }
+      }
    protected:
       ///
       /// Обновляет свойства узла EditNode
@@ -154,6 +166,15 @@ class EditNode : public TextNode
          ReadOnly(readOnly);
       }
    private:
+      void OnEndEdit(EventEndEdit* event)
+      {
+         if(event.EditNode() != NameID())return;
+         string ntext = ObjectGetString(MAIN_WINDOW, NameID(), OBJPROP_TEXT);
+         Text(ntext);
+         EventEndEditNode* endEdit = new EventEndEditNode(GetPointer(this), Text());
+         EventSend(endEdit);
+         delete endEdit;
+      }
       virtual void OnVisible(EventVisible* event)
       {
          if(Visible())

@@ -1,4 +1,4 @@
-
+#include "Table.mqh"
 ///
 /// Абстрактный класс одной из строк таблицы. Строка может быть заголовком, позицией или сделкой.
 /// Ее тип должен быть определен в момент создания.
@@ -245,9 +245,7 @@ class PosLine : public AbstractLine
          if(CheckPointer(m_pos) != POINTER_INVALID)
             pos = m_pos;
          BuilderLine();
-         #ifndef HLIBRARY
          pos.PositionLine(GetPointer(this));
-         #endif
       }
       ///
       /// Возвращает указатель на позицию, с которой ассоциирована данная строка.
@@ -267,16 +265,66 @@ class PosLine : public AbstractLine
    private:
       virtual void OnEvent(Event* event)
       {
-         //Закрываем текущую позицию.
-         if(event.Direction() == EVENT_FROM_DOWN && event.EventId() == EVENT_CLOSE_POS)
+         switch(event.EventId())
          {
-            if(pos.Status() != POSITION_ACTIVE)return;
-            string value = GetStringValue(COLUMN_EXIT_COMMENT);
-            pos.AsynchClose(pos.VolumeExecuted(), value);
+            case EVENT_CLOSE_POS:
+               if(event.Direction() == EVENT_FROM_DOWN)
+               {
+                  if(pos.Status() != POSITION_ACTIVE)return;
+                  string value = GetStringValue(COLUMN_EXIT_COMMENT);
+                  pos.AsynchClose(pos.VolumeExecuted(), value);
+               }
+               break;
+            case EVENT_END_EDIT_NODE:
+               OnClosePartPos(event);
+               break;
+            case EVENT_BLOCK_POS:
+               OnBlockPos(event);
+               break;
+            default:
+               EventSend(event);
          }
-         else
-            EventSend(event);
       }
+      
+      ///
+      /// Обрабатывает приказ на закрытие части активной позиции.
+      ///
+      void OnClosePartPos(EventEndEditNode* event)
+      {
+         EditNode* ch_node = event.Node();
+         ProtoNode* node = GetCell(COLUMN_VOLUME);
+         if(ch_node != node)return;
+         
+         string myName = NameID();
+         double curVol = pos.VolumeExecuted();
+         double setVol = StringToDouble(event.Value());
+         EditNode* editNode = event.Node();
+         if(!pos.IsValidNewVolume(setVol))
+         {
+            editNode.Text(pos.VolumeToString(curVol));
+            return;
+         }
+         editNode.Text(pos.VolumeToString(setVol)+"...");
+         string exitComment = GetStringValue(COLUMN_EXIT_COMMENT);
+         pos.AsynchClose(curVol - setVol, exitComment);
+      }
+      
+      ///
+      /// Обрабатывает событие блокировки позиции.
+      ///
+      void OnBlockPos(EventBlockPosition* event)
+      {
+         if(pos != event.Position())return;
+         if(event.Status())
+         {
+            printf("Позиция заблокирована. " + (string)GetTickCount());
+         }
+         /*else
+         {
+            printf("Позиция разблокирована. " + (string)GetTickCount());
+         }*/
+      }
+      
       ///
       /// 
       ///
@@ -315,7 +363,8 @@ class PosLine : public AbstractLine
       EditNode* GetDefaultEditEl(DefColumn* el)
       {
          EditNode* enode = GetDefaultEl(el);
-         enode.ReadOnly(false);
+         if(TableType() == TABLE_POSACTIVE)
+            enode.ReadOnly(false);
          return enode;
       }
       

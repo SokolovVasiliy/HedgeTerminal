@@ -200,6 +200,7 @@ class TablePositions : public Table
             linePos.RefreshValue(COLUMN_PROFIT);
          }
       }
+      
       ///
       /// Обновляет все свойства позиции. Если позиции нет в таблице,
       /// однако она должна находится в ней, то позиция будет создана.

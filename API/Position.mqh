@@ -65,11 +65,9 @@ class Position : public Transaction
       Position(Order* inOrder, Order* outOrder);
       ~Position();
       
-      #ifndef HLIBRARY
+      #ifdef HEDGE_PANEL
          /// Возвращает указатель на графическое представление текущей позиции. 
          PosLine* PositionLine(){return positionLine;}
-      #endif
-      #ifndef HLIBRARY
          /// Устанавливает указатель на графическое представление текущей позиции.
          void PositionLine(CObject* pLine){positionLine = pLine;}
       #endif
@@ -97,6 +95,7 @@ class Position : public Transaction
       double VolumeSetup(void);
       double VolumeRejected(void);
       virtual double VolumeExecuted(void);
+      bool IsValidNewVolume(double setVol);
       
       string Symbol(void);
       
@@ -175,12 +174,14 @@ class Position : public Transaction
       void AddInitialOrder(Order* inOrder);
       POSITION_STATUS CheckStatus(void);
       void ResetBlocked(void);
+      void SetBlock(void);
       void OnRequestNotice(EventRequestNotice* notice);
       void OnRejected(TradeResult& result);
       Order* initOrder;
       Order* closingOrder;
       POSITION_STATUS status;
-      #ifndef HLIBRARY
+      void SendEventBlockStatus(bool status);
+      #ifdef HEDGE_PANEL
          PosLine* positionLine;
       #endif
       
@@ -588,7 +589,9 @@ void Position::DeleteAllOrders(void)
 }
 
 ///
-/// Закрывает текущую позицию асинхронно.
+/// Закрывает текущую позицию либо ее часть асинхронно.
+/// \param vol - объем, который необходимо закрыть.
+/// \param comment - комментарий, который необходимо присвоить закрывающей сделке.
 ///
 void Position::AsynchClose(double vol, string comment = NULL)
 {
@@ -605,10 +608,7 @@ void Position::AsynchClose(double vol, string comment = NULL)
    else if(Direction() == DIRECTION_SHORT)
       resTrans = trading.Buy(vol, Symbol(), 0.0, 0.0, 0.0, comment);
    if(resTrans)
-   {
-      blocked = true;
-      blockedTime.SetDateTime(TimeCurrent());
-   }
+      SetBlock();
    else
       printf(trading.ResultRetcodeDescription());
 }
@@ -850,6 +850,33 @@ void Position::ResetBlocked(void)
    blocked = false;
    blockedTime.Tiks(0);
    isModify = false;
+   SendEventBlockStatus(false);
+}
+
+///
+/// Блокирует позицию для любых изменений.
+///
+void Position::SetBlock(void)
+{
+   blocked = true;
+   blockedTime.SetDateTime(TimeCurrent()*1000);
+   SendEventBlockStatus(true);
+}
+
+///
+/// Отправляет событие уведомляющее графическое представление позиции о том,
+/// что позиция находится в стадии изменения.
+///
+void Position::SendEventBlockStatus(bool curStatus)
+{
+   #ifdef HEDGE_PANEL
+   if(positionLine != NULL)
+   {
+      EventBlockPosition* event = new EventBlockPosition(GetPointer(this), status);
+      positionLine.Event(event);
+      delete event;
+   }
+   #endif
 }
 
 ///
@@ -911,4 +938,31 @@ void Position::OnRejected(TradeResult& result)
 void Position::NoticeModify(void)
 {
    isModify = true;
+}
+
+///
+/// Возвращает истину, если объем текущей позиции может быть
+/// изменен на новый объем setVol.
+///
+bool Position::IsValidNewVolume(double setVol)
+{
+   double curVol = VolumeExecuted();
+   if(curVol == 0.0)
+   {
+      LogWriter("Position #" + (string)GetId() + " not active. The new volume not be set.", MESSAGE_TYPE_INFO);
+      return false;
+   }
+   if(setVol == 0.0)
+   {
+      LogWriter("The new volume should be greater than zero.", MESSAGE_TYPE_INFO);   
+      return false;
+   }
+   if(setVol > curVol)
+   {
+      LogWriter("The new volume should be less than the current volume.", MESSAGE_TYPE_INFO);
+      return false;
+   }
+   if(setVol == curVol)
+      return false;
+   return true;
 }

@@ -20,7 +20,7 @@ class EventExchange
       {
          if(api != NULL)
             api.Event(myEvent);
-         #ifndef HLIBRARY
+         #ifdef HEDGE_PANEL
          if(panel != NULL)
             panel.Event(myEvent);
          #endif
@@ -153,6 +153,11 @@ enum ENUM_EVENT
    ///
    EVENT_END_EDIT,
    ///
+   /// После завершения редактирования текста, класс EditNode генерирует
+   /// это событие.
+   ///
+   EVENT_END_EDIT_NODE,
+   ///
    /// Идентификатор события "Совершена новая сделка".
    ///
    EVENT_ADD_DEAL,
@@ -163,7 +168,11 @@ enum ENUM_EVENT
    ///
    /// Идентификатор события "Ответ торгового сервера".
    ///
-   EVENT_REQUEST_NOTICE
+   EVENT_REQUEST_NOTICE,
+   ///
+   /// Идентификатор события "Статус блокировки позиции изменен".
+   ///
+   EVENT_BLOCK_POS
 };
 
 
@@ -229,7 +238,7 @@ class Event
       {
          eventDirection = myDirection;
          eventId = myEventId;
-         #ifndef HLIBRARY
+         #ifdef HEDGE_PANEL
          nameNodeId = myNode.NameID();
          #endif
          node = myNode;
@@ -287,6 +296,29 @@ class EventRequestNotice : public Event
       TradeResult* result;
 };
 
+///
+/// Событие "Статус блокировки позиции изменен".
+///
+class EventBlockPosition : public Event
+{
+   public:
+      EventBlockPosition(Position* blockPos, bool status) : Event(EVENT_FROM_UP, EVENT_BLOCK_POS, "Position blocked")
+      {
+         pos = blockPos;
+         statusBlock = status;
+      }
+      ///
+      /// Возвращает указатель на позицию, которая была блокирована/разблокирована.
+      ///
+      Position* Position(){return pos;}
+      ///
+      /// Возвращает статус блокировки позиции.
+      ///
+      bool Status(){return statusBlock;}
+   private:
+      Position* pos;
+      bool statusBlock;
+};
 ///
 /// Событие EVENT_NODE_VISIBLE
 ///
@@ -541,29 +573,52 @@ class EventObjectClick : public Event
 };
 
 ///
-/// Это событие генерируется терминалом 
+/// Это событие генерируется терминалом в случаи окончания редактирования текстовой метки.
 ///
-/*class EventObjectClick : public Event
+class EventEndEdit : public Event
 {
    public:
-      EventObjectClick(string pushName): Event(EVENT_FROM_UP, EVENT_OBJ_CLICK, "TERMINAL WINDOW")
+      EventEndEdit(string editNameNode): Event(EVENT_FROM_UP, EVENT_END_EDIT, "TERMINAL WINDOW")
       {
-         pushObjName = pushName;
+         nameNode = editNameNode;
       }
+      
       ///
       /// Возвращает название объекта, по которому было произведено нажатие.
       ///
-      string PushObjName(){return pushObjName;}
+      string EditNode(){return nameNode;}
       virtual Event* Clone()
       {
-         return new EventObjectClick(pushObjName);
+         return new EventObjectClick(nameNode);
       }
    private:
       ///
       /// Хранит название узла, по которому было произведено нажатие.
       ///
-      string pushObjName;
-};*/
+      string nameNode;
+      ///
+      /// Хранит новое значение надписи узла.
+      ///
+      string value;
+};
+
+class EditNode;
+class EventEndEditNode : public Event
+{
+   public:
+      EventEndEditNode(EditNode* editNode, string curValue) : Event(EVENT_FROM_DOWN, EVENT_END_EDIT_NODE, editNode)
+      {
+         this.value = curValue;
+      }
+      ///
+      /// Возвращает значение EditNode после редактирования.
+      ///
+      string Value(){return value;}
+      
+   private:
+      string value;
+};
+
 
 
 ///
@@ -675,7 +730,7 @@ class EventCollapseTree : public Event
    public:
       EventCollapseTree(ENUM_EVENT_DIRECTION myDir, ProtoNode* myNode, bool isCollapse) : Event(EVENT_FROM_DOWN, EVENT_COLLAPSE_TREE, myNode)
       {
-         #ifndef HLIBRARY
+         #ifdef HEDGE_PANEL
          n_line = myNode.NLine();
          #endif
          status = isCollapse;
@@ -794,7 +849,7 @@ class EventMouseMove : public Event
       int mask;
 };
 
-#ifndef HLIBRARY
+#ifdef HEDGE_PANEL
 //class CheckBox;
 class EventCheckBoxChanged : public Event
 {
@@ -822,7 +877,7 @@ class EventCheckBoxChanged : public Event
       bool isChecked;
       ENUM_BUTTON_STATE state;
 };
-#ifndef
+#endif
 
 ///
 /// Это событие посылает графический объект после того, как был нажат
