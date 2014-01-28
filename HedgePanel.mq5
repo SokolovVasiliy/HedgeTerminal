@@ -133,12 +133,12 @@ void OnChartEvent(const int id,
       HedgePanel.Event(key);
       delete key;
    }
-   if(id == CHARTEVENT_OBJECT_ENDEDIT)
+   /*if(id == CHARTEVENT_OBJECT_ENDEDIT)
    {
       EventEndEdit* endEdit = new EventEndEdit(sparam);
       HedgePanel.Event(endEdit);
       delete endEdit;
-   }
+   }*/
    ChartRedraw(MAIN_WINDOW);
 }
 

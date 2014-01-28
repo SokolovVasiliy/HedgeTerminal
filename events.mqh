@@ -543,7 +543,7 @@ class EventObjectClick : public Event
 ///
 /// Это событие генерируется терминалом 
 ///
-class EventObjectClick : public Event
+/*class EventObjectClick : public Event
 {
    public:
       EventObjectClick(string pushName): Event(EVENT_FROM_UP, EVENT_OBJ_CLICK, "TERMINAL WINDOW")
@@ -563,7 +563,7 @@ class EventObjectClick : public Event
       /// Хранит название узла, по которому было произведено нажатие.
       ///
       string pushObjName;
-};
+};*/
 
 
 ///
