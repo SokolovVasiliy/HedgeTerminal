@@ -129,14 +129,6 @@ class EditNode : public TextNode
          //По-умолчанию редактирование текста запрещено.
          readOnly = true;
       }
-      /*virtual void OnEvent(Event* event)
-      {
-         switch(event.EventId())
-         {
-            case EVENT_END_EDIT:
-               OnEndEdit(event);
-         }
-      }*/
       ///
       /// Устанавливает, либо блокирует возможность редактирования текста в базовом OBJ_EDIT
       /// \param isReadOnly - истина, если редактирование текста запрещено, ложь в противном случае.
@@ -167,15 +159,6 @@ class EditNode : public TextNode
          if(Visible())
             RefreshPropertyEditNode();
          EventSend(event);
-      }
-      void OnEndEdit(EventEndEdit* event)
-      {
-         if(event.EditNode() != NameID())return;
-         string nText =  ObjectGetString(MAIN_WINDOW, NameID(), OBJPROP_TEXT);
-         Text(nText);
-         EventEndEditNode* endEdit = new EventEndEditNode(GetPointer(this), nText);
-         EventSend(endEdit);
-         delete endEdit;
       }
       bool readOnly;
 };

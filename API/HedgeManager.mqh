@@ -278,7 +278,7 @@ class HedgeManager
       ///
       void SendEventDelPos(Position* pos)
       {
-         #ifdef HEDGE_PANEL
+         #ifndef HLIBRARY
             EventDelPos* event = new EventDelPos(pos);
             EventExchange::PushEvent(event);
             delete event;
