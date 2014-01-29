@@ -238,6 +238,7 @@ enum ENUM_BUTTON_STATE
 
 //-------------------------------------------------------------------------------------------------------
 //
+#include "Math.mqh"
 #include "Log.mqh"
 #ifndef SETTINGS_MQH
    #include "Settings.mqh"
@@ -248,7 +249,7 @@ enum ENUM_BUTTON_STATE
 #include "API\MqlTransactions.mqh"
 #include "Events.mqh"
 #include "API\API.mqh"
-#ifndef HLIBRARY
+#ifdef HEDGE_PANEL
    #include "Elements\Node.mqh"
    #include "Elements\Elements.mqh"
 #endif

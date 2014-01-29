@@ -3,6 +3,9 @@
 #ifndef EVENTS_MQH
    #define EVENTS_MQH
 #endif
+#ifndef HEDGE_PANEL
+   class ProtoNode;
+#endif 
 
 class Event;
 class HedgeManager;
@@ -234,6 +237,7 @@ class Event
       /// \param myEventId - идентификатор событи€.
       /// \param myNode - значимый указатель на узел, сгенерировавший событие.
       ///
+      
       Event(ENUM_EVENT_DIRECTION myDirection, ENUM_EVENT myEventId, ProtoNode* myNode)
       {
          eventDirection = myDirection;
@@ -244,6 +248,7 @@ class Event
          node = myNode;
          tickCount = GetTickCount();
       }
+      
    private:
       ///
       /// Ќаправление событи€.
@@ -315,6 +320,11 @@ class EventBlockPosition : public Event
       /// ¬озвращает статус блокировки позиции.
       ///
       bool Status(){return statusBlock;}
+      virtual Event* Clone()
+      {
+         EventBlockPosition* ev = new EventBlockPosition(pos, statusBlock);
+         return ev;
+      }
    private:
       Position* pos;
       bool statusBlock;
@@ -601,7 +611,7 @@ class EventEndEdit : public Event
       ///
       string value;
 };
-
+#ifdef HEDGE_PANEL
 class EditNode;
 class EventEndEditNode : public Event
 {
@@ -618,7 +628,7 @@ class EventEndEditNode : public Event
    private:
       string value;
 };
-
+#endif
 
 
 ///

@@ -306,7 +306,9 @@ class PosLine : public AbstractLine
          }
          editNode.Text(pos.VolumeToString(setVol)+"...");
          string exitComment = GetStringValue(COLUMN_EXIT_COMMENT);
-         pos.AsynchClose(curVol - setVol, exitComment);
+         isBlocked = true;
+         double vol = curVol < setVol ? setVol : curVol - setVol;
+         pos.AsynchClose(vol, exitComment);
       }
       
       ///
@@ -316,15 +318,36 @@ class PosLine : public AbstractLine
       {
          if(pos != event.Position())return;
          if(event.Status())
-         {
-            printf("ѕозици€ заблокирована. " + (string)GetTickCount());
-         }
-         /*else
-         {
-            printf("ѕозици€ разблокирована. " + (string)GetTickCount());
-         }*/
+            BlockedCell();
+         else
+            UnBlockedCell();
+      }
+      ///
+      /// Ѕлокирует редактирование текста в €чейках, которые позвол€ют
+      /// его редактировать.
+      ///
+      void BlockedCell()
+      {
+         if(isBlocked)return;
+         printf("blocked cell... pos# " + (string)pos.EntryOrderId());
+         EditNode* cell = GetCell(COLUMN_VOLUME);
+         cell.ReadOnly(true);
+         isBlocked = true;
       }
       
+      ///
+      /// –азблокировывает редактирование текста в €чейках, которые позвол€ют
+      /// его редактировать.
+      ///
+      void UnBlockedCell()
+      {
+         if(!isBlocked)return;
+         EditNode* cell = GetCell(COLUMN_VOLUME);
+         double vol = pos.VolumeExecuted();
+         cell.Text(pos.VolumeToString(vol));
+         cell.ReadOnly(false);
+         isBlocked = false;
+      }
       ///
       /// 
       ///
@@ -499,6 +522,10 @@ class PosLine : public AbstractLine
       /// ”казатель на позицию, которую представл€ет данна€ строка.
       ///
       Position* pos;
+      ///
+      /// »стина, если €чейки дл€ редактировани€ заблокированы, ложь в противном случае. 
+      ///
+      bool isBlocked;
 };
 
 ///
@@ -669,4 +696,5 @@ class DealLine : public AbstractLine
       /// »стина, если текуща€ строка, представл€юща€ трейд последн€€ в списке трейдов.
       ///
       bool isLastLine;
+      
 };

@@ -1,11 +1,11 @@
-#define LESS -1;
+/*#define LESS -1;
 #define GREATE 1;
 #define EQUAL 0;
-#define HLIBRARY
-
+#define HLIBRARY*/
+//#include "Globals.mqh"
 #include "\API\Transaction.mqh"
 #include "\API\Order.mqh"
-#include "\API\NewPosition.mqh"
+#include "\API\Position.mqh"
 
 #define IN_DEAL_ID 1008050925
 #define  OUT_DEAL_ID 1008051235
@@ -25,7 +25,7 @@ void OnStart()
    for(int i = 0; i < list.inOrder.DealsTotal(); i++)
    {
       Deal* in_deal = list.inOrder.DealAt(i);
-      printf("in: " + (string)in_deal.ExecutedVolume());
+      printf("in: " + (string)in_deal.VolumeExecuted());
    }
    /*for(int i = 0; i < exch.histInOrder.DealsTotal(); i++)
    {
@@ -82,7 +82,7 @@ Order* GenRandomOrder()
 Deal* GetDeal(double vol)
 {
    Deal* deal = new Deal(IN_DEAL_ID);
-   deal.ExecutedVolume(vol);
+   deal.VolumeExecuted(vol);
    return deal;
 }
 

@@ -36,8 +36,9 @@ class HedgeManager
          HistoryPos = new CArrayObj();
          ActivePos.Sort(SORT_ORDER_ID);
          HistoryPos.Sort(SORT_ORDER_ID);
+         long tick = GetTickCount();
          OnRefresh();
-         printf("Recalc position complete.");
+         PrintPerfomanceParsing(tick);
       }
       
       ~HedgeManager()
@@ -143,6 +144,10 @@ class HedgeManager
             return;
          }
          Order* order = new Order(deal);
+         int dbg = 4;
+         ulong o_ticket = order.GetId();
+         if(order.GetId() == 1009323637)
+            dbg = 5;
          if(order.Status() == ORDER_NULL)
          {
             delete order;
@@ -205,14 +210,19 @@ class HedgeManager
       ///
       void IntegrateHistoryPos(Position* histPos)
       {
+         bool isMerge = false;
          int iHist = HistoryPos.Search(histPos);
          if(iHist != -1)
          {
             Position* pos = HistoryPos.At(iHist);
-            pos.Merge(histPos);
-            delete histPos;
+            if(pos.ExitOrderId() == histPos.ExitOrderId())
+            {
+               pos.Merge(histPos);
+               delete histPos;
+               isMerge = true;
+            }
          }
-         else
+         if(!isMerge)
          {
             HistoryPos.InsertSort(histPos);
             SendEventRefreshPos(histPos);
@@ -295,7 +305,22 @@ class HedgeManager
          if(HistoryDealsTotal() < 2)
             HistorySelect(0, TimeCurrent());
       }
-      
+      ///
+      /// Выводит строку высчитывающую производительность парсинга.
+      ///
+      void PrintPerfomanceParsing(long tick_begin)
+      {
+         long delta =  GetTickCount() - tick_begin;
+         double sec = delta/1000.0;
+         int isec = (int)MathFloor(sec);
+         int rest = delta%1000;
+         int dTotal = HistoryDealsTotal();
+         int oTotal = HistoryOrdersTotal();
+         string seconds = (string)isec + "." + (string)rest;
+         string line = "We are begin. Parsing of history deals (" + (string)dTotal +
+         ") and orders (" + (string)oTotal + ") completed for " + seconds + " sec.";
+         printf(line);
+      }
       ///
       /// Список активных позиций.
       ///

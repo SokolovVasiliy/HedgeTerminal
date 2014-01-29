@@ -1,3 +1,4 @@
+#include "..\Math.mqh"
 #include "Transaction.mqh"
 #include "Order.mqh"
 #include "..\Log.mqh"
@@ -306,7 +307,6 @@ InfoIntegration* Position::Integrate(Order* order)
       "can not be integrated in position #" + (string)GetId() +
       ". Position and order has not compatible types";
    }
-   
    return info;
 }
 
@@ -388,14 +388,16 @@ InfoIntegration* Position::AddClosingOrder(Order* outOrder)
       revers = true;
    }
    SplitOrder(list);
-   //Refresh();
    if(revers)
    {
+      initOrder = NULL;
+      Refresh();
       delete info.ActivePosition;
-      info.ActivePosition = new Position(list.outOrder);
+      info.ActivePosition = new Position(list.inOrder);
+      ulong magic = list.inOrder.Magic();
       Order* tmp = list.histInOrder;
-      list.inOrder = list.histOutOrder;
-      list.outOrder = tmp;   
+      list.histInOrder = list.histOutOrder;
+      list.histOutOrder = tmp;   
    }
    delete info.HistoryPosition;
    info.HistoryPosition = new Position(list.histInOrder, list.histOutOrder);
@@ -610,7 +612,10 @@ void Position::AsynchClose(double vol, string comment = NULL)
    if(resTrans)
       SetBlock();
    else
-      printf(trading.ResultRetcodeDescription());
+   {
+      printf("Rejected current operation by reason: " + trading.ResultRetcodeDescription());
+      ResetBlocked();
+   }
 }
 
 ///
@@ -872,7 +877,7 @@ void Position::SendEventBlockStatus(bool curStatus)
    #ifdef HEDGE_PANEL
    if(positionLine != NULL)
    {
-      EventBlockPosition* event = new EventBlockPosition(GetPointer(this), status);
+      EventBlockPosition* event = new EventBlockPosition(GetPointer(this), curStatus);
       positionLine.Event(event);
       delete event;
    }
@@ -947,22 +952,22 @@ void Position::NoticeModify(void)
 bool Position::IsValidNewVolume(double setVol)
 {
    double curVol = VolumeExecuted();
-   if(curVol == 0.0)
+   if(Math::DoubleEquals(curVol, 0.0))
    {
       LogWriter("Position #" + (string)GetId() + " not active. The new volume not be set.", MESSAGE_TYPE_INFO);
       return false;
    }
-   if(setVol == 0.0)
+   if(Math::DoubleEquals(setVol, 0.0) || setVol < 0.0)
    {
       LogWriter("The new volume should be greater than zero.", MESSAGE_TYPE_INFO);   
       return false;
    }
-   if(setVol > curVol)
+   if(Math::DoubleEquals(setVol, curVol))
+      return false;
+   /*if(setVol > curVol)
    {
       LogWriter("The new volume should be less than the current volume.", MESSAGE_TYPE_INFO);
       return false;
-   }
-   if(setVol == curVol)
-      return false;
+   }*/
    return true;
 }
