@@ -329,7 +329,7 @@ class PosLine : public AbstractLine
       void BlockedCell()
       {
          if(isBlocked)return;
-         printf("blocked cell... pos# " + (string)pos.EntryOrderId());
+         //printf("blocked cell... pos# " + (string)pos.EntryOrderId());
          EditNode* cell = GetCell(COLUMN_VOLUME);
          cell.ReadOnly(true);
          isBlocked = true;
@@ -454,7 +454,7 @@ class PosLine : public AbstractLine
          switch(cType)
          {
             case COLUMN_MAGIC:
-               value = (string)pos.Magic();
+               value = (string)pos.EntryMagic();
                break;
             case COLUMN_SYMBOL:
                value = pos.Symbol();

@@ -12,7 +12,8 @@ class Position;
 class InfoIntegration
 {
    public:
-      InfoIntegration();
+      /*InfoIntegration();
+      ~InfoIntegration();*/
       bool IsSuccess;
       string InfoMessage;
       Position* ActivePosition;
@@ -20,12 +21,18 @@ class InfoIntegration
 };
 
 
-InfoIntegration::InfoIntegration(void)
+/*InfoIntegration::InfoIntegration(void)
 {
-   ActivePosition = new Position();
-   HistoryPosition = new Position();
-   InfoMessage = "";
+   printf("create infoIntegr.");
+   //ActivePosition = new Position();
+   //HistoryPosition = new Position();
+   //InfoMessage = "";
 }
+
+InfoIntegration::~InfoIntegration(void)
+{
+   printf("delete infoIntegr.");
+}*/
 
 ///
 /// Статус позиции.
@@ -77,6 +84,7 @@ class Position : public Transaction
       
       ulong EntryMagic(void);
       ulong ExitMagic(void);
+      virtual ulong Magic(void);
       
       string EntryComment(void);
       string ExitComment(void);
@@ -168,7 +176,7 @@ class Position : public Transaction
       ENUM_CHANGED_ORDER DetectChangedOrder(Order* order);
       void ChangedInitOrder();
       void DeleteAllOrders();
-      static void SplitOrder(ExchangerList& list);
+      Position* OrderManager(Order* openOrder, Order* cloingOrder);
       bool CompatibleForInit(Order* order);
       bool CompatibleForClose(Order* order);
       InfoIntegration* AddClosingOrder(Order* outOrder);
@@ -199,7 +207,6 @@ Position::~Position()
 ///
 Position::Position() : Transaction(TRANS_POSITION)
 {
-   
    status = POSITION_NULL;
 }
 
@@ -210,7 +217,8 @@ Position::Position() : Transaction(TRANS_POSITION)
 Position::Position(Order* inOrder) : Transaction(TRANS_POSITION)
 {
    
-   Integrate(inOrder);
+   InfoIntegration* info = Integrate(inOrder);
+   delete info;
 }
 ///
 /// Создает историческу позицию. Объемы исходящего и входящего ордеров должны быть равны.
@@ -221,16 +229,17 @@ Position::Position(Order* inOrder, Order* outOrder) : Transaction(TRANS_POSITION
       return;
    if(inOrder.VolumeExecuted() != outOrder.VolumeExecuted())
       return;
-   ulong in_id = inOrder.PositionId();
+   ulong in_id = inOrder.GetId();
    ulong out_id = outOrder.PositionId();
-   if(inOrder.GetId() != HedgeManager::CanPositionId(outOrder.Magic()))
+   if(inOrder.GetId() != outOrder.PositionId())
       return;
    status = POSITION_HISTORY;
    initOrder = inOrder;
+   Refresh();
    initOrder.LinkWithPosition(GetPointer(this));
    closingOrder = outOrder;
-   closingOrder.LinkWithPosition(GetPointer(this));
    Refresh();
+   closingOrder.LinkWithPosition(GetPointer(this));
 }
 
 bool Position::Compatible(Position *pos)
@@ -341,66 +350,36 @@ bool Position::CompatibleForClose(Order *order)
 ///
 void Position::AddInitialOrder(Order *inOrder)
 {
-   //contextOrder = initOrder;
-   //Position* pos = AddOrder(inOrder);
    if(status == POSITION_NULL)
    {
       initOrder = inOrder;
       Refresh();
       inOrder.LinkWithPosition(GetPointer(this));
    }
-   else if(status == POSITION_ACTIVE)
+   else
    {
-      for(int i = 0; i < inOrder.DealsTotal(); i++)
-      {
-         Deal* deal = inOrder.DealAt(i);
-         Deal* mDeal = deal.Clone();
-         mDeal.LinqWithOrder(initOrder);
-         initOrder.AddDeal(mDeal);
-      }
-      delete inOrder;
+      string msg = "Order #" + (string)inOrder.GetId() + " can not be inserted as init order because init Order already exits.";
+      LogWriter(msg, MESSAGE_TYPE_WARNING);
    }
-   return;
 }
 
 ///
-/// Добавляет закрывающий ордер в активную позицию.
+/// Добавляте закрывающий ордер в актинвую позицию.
 ///
 InfoIntegration* Position::AddClosingOrder(Order* outOrder)
 {
    InfoIntegration* info = new InfoIntegration();
-   if(!CompatibleForClose(outOrder))
+   info.HistoryPosition = OrderManager(initOrder, outOrder);
+   if(outOrder.Status() != ORDER_NULL)
    {
-      info.InfoMessage = "Closing order has not compatible id with position id.";
-      return info;
-   }
-   ExchangerList list;
-   bool revers = false;
-   if(outOrder.VolumeExecuted() <= initOrder.VolumeExecuted())
-   {
-      list.inOrder = initOrder;
-      list.outOrder = outOrder;
+      //Position* nPos = new Position(outOrder);
+      info.ActivePosition = new Position(outOrder);
    }
    else
    {
-      list.outOrder = initOrder;
-      list.inOrder = outOrder;
-      revers = true;
+      delete outOrder;
+      outOrder = NULL;
    }
-   SplitOrder(list);
-   if(revers)
-   {
-      initOrder = NULL;
-      Refresh();
-      delete info.ActivePosition;
-      info.ActivePosition = new Position(list.inOrder);
-      ulong magic = list.inOrder.Magic();
-      Order* tmp = list.histInOrder;
-      list.histInOrder = list.histOutOrder;
-      list.histOutOrder = tmp;   
-   }
-   delete info.HistoryPosition;
-   info.HistoryPosition = new Position(list.histInOrder, list.histOutOrder);
    return info;
 }
 
@@ -454,64 +433,62 @@ POSITION_STATUS Position::Status()
    return status;
 }
 
-void Position::ExchangerOrder(ExchangerList& list)
-{
-   if(list.inOrder == NULL || list.outOrder == NULL)
-      return;
-   if(list.outOrder.VolumeExecuted() <= list.inOrder.VolumeExecuted())
-   {
-      SplitOrder(list);
-   }
-   else
-   {
-      ExchangerList exchList;
-      exchList.inOrder = list.outOrder;
-      exchList.outOrder = list.outOrder;
-      SplitOrder(exchList);
-      exchList.inOrder = list.outOrder;
-      exchList.outOrder = list.outOrder;
-   }
-}
 
 ///
-/// Изменяет структуру ордеров и создает новые.
+/// Преобразует инициирующий и закрывающий позицию ордера в новую
+/// историческую позицию. После преобразования входящий и исходящий
+/// ордера изменяют свое содержимое, как правило становясь нулевыми.
+/// Изменения inOrder отражают изменения активной позиции. В случае,
+/// если после преобразования outOrder содержит какой-либо объем,
+/// его необходимо преобразовать в активную позицию.
+/// \param inOrder - Входящий ордер активной позиции.
+/// \param outOrder - Исходящий, закрывающий активную позицию ордер.
+/// \return Историческая позиция которая была создана.
 ///
-void Position::SplitOrder(ExchangerList &list)
+Position* Position::OrderManager(Order* inOrder, Order* outOrder)
 {
-   //Объем, который нужно выполнить.
-   ulong in_id = list.inOrder.GetId();
-   ulong out_id = list.outOrder.GetId();
-   double volTotal = list.outOrder.VolumeExecuted();
-   if(list.inOrder.VolumeExecuted() < volTotal)
-      return;
-   
-   list.histOutOrder = list.outOrder;
-   list.histInOrder = new Order();
-   //Выполненный объем
-   double exVol = 0.0;
-   while(list.inOrder.DealsTotal())
+   //Точность (знаков после запятой), с которой будет округляться вычисления с объемами. 
+   int digits = 4;
+   //Создаем прототипы входящего и исходящего ордеров, которые будут образовывать
+   //историческую позицию.
+   Order* histInOrder = new Order();
+   Order* histOutOrder = new Order();
+   while(true)
    {
-      //Объем, который осталось выполнить.
-      double rVol = volTotal - exVol;
-      //Если весь объем выполнен - выходим.
-      if(rVol == 0.0)break;
-      Deal* deal = list.inOrder.DealAt(0);
-      double curVol = deal.VolumeExecuted();
-      if(deal.VolumeExecuted() > rVol)
-      {
-         Deal* hDeal = deal.Clone();
-         hDeal.VolumeExecuted(rVol);
-         list.histInOrder.AddDeal(hDeal);
-         deal.VolumeExecuted(deal.VolumeExecuted() - rVol);
-         exVol += rVol;
-      }
-      else if(deal.VolumeExecuted() <= rVol)
-      {
-         exVol += deal.VolumeExecuted();
-         list.histInOrder.AddDeal(deal.Clone());
-         list.inOrder.DeleteDealAt(0);
-      }
-   }   
+      //Трейды закончились, больше разбирать нечего.
+      if(!inOrder.DealsTotal() ||
+         !outOrder.DealsTotal())
+         break;
+      Deal* inDeal = inOrder.DealAt(0);
+      Deal* outDeal = outOrder.DealAt(0);
+      //Из двух сделок выбираем наименьший объем.
+      double inVol = NormalizeDouble(inDeal.VolumeExecuted(), digits);
+      double outVol = NormalizeDouble(outDeal.VolumeExecuted(), digits);
+      double vol = MathMin(inVol, outVol);
+      vol = NormalizeDouble(vol, digits);
+      //Делаем клоны этих двух сделок с объемом, который вычтем из активных.
+      Deal* histInDeal = new Deal(inDeal);
+      histInDeal.VolumeExecuted(vol);
+      Deal* histOutDeal = new Deal(outDeal);
+      histOutDeal.VolumeExecuted(vol);
+      //Размещаем получившиеся сделки в ордерах для исторической позиции.
+      histInOrder.AddDeal(histInDeal);
+      histOutOrder.AddDeal(histOutDeal);
+      //Уменьшаем каждую из переданных сделок на этот объем.
+      inDeal.VolumeExecuted(inVol-vol);
+      outDeal.VolumeExecuted(outVol-vol);
+      //Если у одной из сделок объема больше не осталось, - удаяляем ее.
+      if(inDeal.Status() == DEAL_NULL)
+         inOrder.DeleteDealAt(0);
+      if(outDeal.Status() == DEAL_NULL)
+         outOrder.DeleteDealAt(0);
+   }
+   //Создаем историческую позицию, которая получилась в результате
+   //преобразования двух ордеров.
+   //histInOrder.CompressDeals();
+   //histOutOrder.CompressDeals();
+   Position* histPos = new Position(histInOrder, histOutOrder);
+   return histPos;
 }
 
 int Position::Compare(const CObject* node, const int mode=0)
@@ -762,6 +739,10 @@ ulong Position::EntryMagic(void)
    return 0;
 }
 
+ulong Position::Magic()
+{
+   return EntryMagic();
+}
 ///
 /// Возвращает магический номер закрывающего ордера.
 ///

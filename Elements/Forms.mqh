@@ -100,6 +100,8 @@ class MainForm : public ProtoNode
             {
                //Проверяем возможность торговли
                bool is_allowed = TerminalInfoInteger(TERMINAL_TRADE_ALLOWED);
+               bool is_expert = MQLInfoInteger(MQL_TRADE_ALLOWED);
+               is_allowed = is_allowed && is_expert;
                if(is_allowed != allowed)
                {
                   allowed = is_allowed;

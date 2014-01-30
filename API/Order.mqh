@@ -43,7 +43,7 @@ class Order : public Transaction
       
       Order* Clone();
       int ContainsDeal(Deal* deal);
-      
+      void CompressDeals();
       void DeleteDealAt(int index);
       Deal* DealAt(int index);
       int DealsTotal();
@@ -194,7 +194,6 @@ Order::Order(Order *order) : Transaction(TRANS_ORDER)
    }
    comment = order.Comment();
    status = order.Status();
-   position = order.Position();
    priceSetup = order.PriceSetup();
    priceExecuted = order.EntryExecutedPrice();
    timeSetup = order.TimeSetup();
@@ -204,6 +203,8 @@ Order::Order(Order *order) : Transaction(TRANS_ORDER)
    type = order.OrderType();
    state = order.OrderState();
    magic = order.Magic();
+   //Копируются все значения, кроме ссылки на позицию.
+   //position = order.Position();
 }
 
 ///
@@ -227,7 +228,8 @@ void Order::Init(ulong orderId)
 
 
 ///
-/// Возвращает идентификатор позиции, к которой может принадлежать ордер.
+/// Возвращает идентификатор позиции, к которой МОЖЕТ принадлежать ордер.
+/// Возвращает 0 - если ордер может принадлежать любой позиции.
 ///
 ulong Order::PositionId()
 {
@@ -242,18 +244,16 @@ void Order::LinkWithPosition(Position* pos)
    if(CheckPointer(pos) == POINTER_INVALID)
       return;
    ulong posId = pos.GetId();
-   if(posId == 0 || pos.GetId() == GetId() || pos.GetId() == HedgeManager::CanPositionId(magic))
+   ulong id = GetId();
+   ulong myposId = PositionId();
+   if(pos.GetId() == GetId() || PositionId() == pos.GetId())
       position = pos;
    else
-      LogWriter("Link order failed: this order has a different id with position id.", MESSAGE_TYPE_WARNING);
-   /*if(pos.GetId() > 0 && pos.GetId() != PositionId())
    {
       LogWriter("Link order failed: this order has a different id with position id.", MESSAGE_TYPE_WARNING);
-      return;
+      int dbg = 5;
    }
-   position = pos;*/
 }
-
 ///
 /// Сделка, принадлежащая этому ордеру, вызывает эту функцию,
 /// когда ее состояние изменилось.
@@ -307,7 +307,7 @@ ENUM_ORDER_STATUS Order::RefreshStatus()
    }
    if(IsHistory())
    {
-      if(deals.Total() == 0)
+      if(deals.Total() == 0 || Math::DoubleEquals(VolumeExecuted(), 0.0))
          status = ORDER_NULL;
       else
          status = ORDER_HISTORY;   
@@ -322,8 +322,8 @@ ENUM_ORDER_STATUS Order::RefreshStatus()
 ///
 void Order::Refresh(void)
 {
-   RefreshStatus();
    RecalcValues();
+   RefreshStatus();
    if(status != ORDER_NULL && GetId() == 0 && deals.Total() > 0)
    {
       Deal* deal = deals.At(0);
@@ -354,6 +354,7 @@ void Order::AddDeal(Deal* deal)
    if(GetId() == 0)
       SetId(deal.OrderId());
    deal.LinqWithOrder(GetPointer(this));
+   /* compress mode. Смотри ф-ю CompressDeals();
    int index = ContainsDeal(deal);
    if(index != -1)
    {
@@ -361,7 +362,7 @@ void Order::AddDeal(Deal* deal)
       mdeal.VolumeExecuted(deal.VolumeExecuted());
       delete mdeal;
    }
-   else
+   else*/
       deals.Add(deal);
    Refresh();
 }
@@ -581,4 +582,29 @@ void Order::RecalcValues(void)
 void Order::RecalcPosId()
 {
    positionId = magic;
+}
+
+///
+/// Объеденяет сделки с одинаковыми id в одну сделку
+/// c общим объемом.
+///
+void Order::CompressDeals()
+{
+   for(int i = 0; i < deals.Total(); i++)
+   {
+      Deal* curDeal = deals.At(i);
+      //Все сделки "до" уникальны. Ищем только после.
+      for(int k = i+1; k < deals.Total();)
+      {
+         Deal* deal = deals.At(k);
+         if(deal.GetId() == curDeal.GetId())
+         {
+            double vol = curDeal.VolumeExecuted() + deal.VolumeExecuted();
+            curDeal.VolumeExecuted(vol);
+            deals.Delete(k);
+         }
+         else
+            k++;
+      }
+   }
 }

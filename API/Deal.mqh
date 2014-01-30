@@ -41,7 +41,7 @@ class Deal : public Transaction
       void LinqWithOrder(Order* parOrder);
       void Refresh();
       Order* Order(){return order;}
-      
+      virtual ulong Magic(){return magic;}
       virtual ENUM_DIRECTION_TYPE Direction(void);
    private:
       virtual bool IsHistory();
@@ -77,6 +77,10 @@ class Deal : public Transaction
       /// Содержит цену исполнения сделки.
       ///
       double priceExecuted;
+      ///
+      /// Идентификатор эксперта, которому принадлежит текущая сделка.
+      ///
+      ulong magic;
 };
 
 Deal::Deal(void) : Transaction(TRANS_DEAL)
@@ -101,7 +105,9 @@ Deal::Deal(Deal* deal) : Transaction(TRANS_DEAL)
    volumeExecuted = deal.VolumeExecuted();
    priceExecuted = deal.EntryExecutedPrice();
    type = deal.DealType();
-   order = deal.Order();
+   magic = deal.Magic();
+   //Копируются все значения кроме ссылки на ордер.
+   //order = deal.Order();
 }
 
 ///
@@ -139,6 +145,7 @@ void Deal::Init(ulong dealId)
    type = (ENUM_DEAL_TYPE)HistoryDealGetInteger(GetId(), DEAL_TYPE);
    symbol = HistoryDealGetString(dealId, DEAL_SYMBOL);
    comment = HistoryDealGetString(dealId, DEAL_COMMENT);
+   magic = HistoryDealGetInteger(dealId, DEAL_MAGIC);
    if(type == DEAL_TYPE_BUY || type == DEAL_TYPE_SELL)
    {
       status = DEAL_TRADE;
@@ -160,6 +167,8 @@ void Deal::Init(ulong dealId)
 ///
 void Deal::Refresh(void)
 {
+   if(Math::DoubleEquals(volumeExecuted, 0.0))
+      status = DEAL_NULL;
    if(order != NULL)
       order.DealChanged(GetPointer(this));
 }

@@ -54,10 +54,10 @@ class HedgeManager
       /// ¬озвращает идентификатор позиции которой может принадлежать транзакци€ с магическим номером magic_id.
       /// ‘актически позиции может не существовать.
       ///
-      static ulong CanPositionId(ulong magic_id)
+      /*static ulong CanPositionId(ulong magic_id)
       {
          return magic_id;
-      }
+      }*/
       
       ///
       /// ѕеренаправл€ет торговые событи€ на конкретные активные позиции,
@@ -144,10 +144,6 @@ class HedgeManager
             return;
          }
          Order* order = new Order(deal);
-         int dbg = 4;
-         ulong o_ticket = order.GetId();
-         if(order.GetId() == 1009323637)
-            dbg = 5;
          if(order.Status() == ORDER_NULL)
          {
             delete order;
@@ -174,17 +170,15 @@ class HedgeManager
          }
          
          //ћожно закрыть больше чем имеетс€, тогда остаток - активна€ позици€.
-         if(result.ActivePosition.Status() == POSITION_ACTIVE)
+         if(result.ActivePosition != NULL &&
+            result.ActivePosition.Status() == POSITION_ACTIVE)
          {
             ActivePos.InsertSort(result.ActivePosition);
             SendEventRefreshPos(result.ActivePosition);
          }
-         else
-            delete result.ActivePosition;
-         if(result.HistoryPosition.Status() == POSITION_HISTORY)
+         if(result.HistoryPosition != NULL &&
+            result.HistoryPosition.Status() == POSITION_HISTORY)
             IntegrateHistoryPos(result.HistoryPosition);
-         else
-            delete result.HistoryPosition;
          delete result;
       }
       
@@ -313,10 +307,15 @@ class HedgeManager
          long delta =  GetTickCount() - tick_begin;
          double sec = delta/1000.0;
          int isec = (int)MathFloor(sec);
-         int rest = delta%1000;
+         int rest = (int)delta%1000;
+         string srest = "";
+         if(rest < 100)
+            srest += "0";
+         if(srest < 10)
+            srest += "00";
          int dTotal = HistoryDealsTotal();
          int oTotal = HistoryOrdersTotal();
-         string seconds = (string)isec + "." + (string)rest;
+         string seconds = (string)isec + "." + srest;
          string line = "We are begin. Parsing of history deals (" + (string)dTotal +
          ") and orders (" + (string)oTotal + ") completed for " + seconds + " sec.";
          printf(line);
