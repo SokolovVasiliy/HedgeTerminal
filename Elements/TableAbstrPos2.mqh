@@ -454,7 +454,10 @@ class PosLine : public AbstractLine
          switch(cType)
          {
             case COLUMN_MAGIC:
-               value = (string)pos.EntryMagic();
+               if(!pos.Unmanagment())
+                  value = (string)pos.EntryMagic();
+               else
+                  value = "UNMANAGMENT";
                break;
             case COLUMN_SYMBOL:
                value = pos.Symbol();

@@ -66,6 +66,14 @@ class ProtoNode : public CObject
       /// \return Ширина графического узла в пунктах.
       ///
       long High(){return high;}
+      
+      ///
+      ///Перемещает объект на передний план.
+      ///
+      void Forward(bool isForward)
+      {
+         ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_BACK, !isForward); 
+      }
       ///
       /// Возвращает оптимальную ширину графического элемента.
       ///
@@ -420,7 +428,7 @@ class ProtoNode : public CObject
          if(parentNode != NULL)
          {
             //Номер неверен
-            bool isTrue;
+            bool isTrue = true;
             if(n_line >= parentNode.ChildsTotal())
                isTrue = false;
             if(isTrue)

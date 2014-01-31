@@ -6,7 +6,7 @@
 class Position;
 class Deal;
 class Order;
-#ifndef HLIBRARY
+#ifdef HEDGE_PANEL
 class PosLine;
 #endif
 

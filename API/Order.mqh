@@ -548,6 +548,7 @@ void Order::RecalcValues(void)
    }
    if(volumeExecuted > 0)
       priceExecuted /= volumeExecuted;
+   volumeExecuted = NormalizeDouble(volumeExecuted, 4);
    //calc setup price and comment.
    if(IsPending())
    {

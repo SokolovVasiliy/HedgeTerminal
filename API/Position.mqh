@@ -126,13 +126,16 @@ class Position : public Transaction
       virtual int Compare(const CObject* node, const int mode=0);
       void OrderChanged(Order* order);
       void Refresh();
-      void AsynchClose(double vol, string comment = NULL);
+      bool AsynchClose(double vol, string comment = NULL);
       virtual string TypeAsString(void);
       virtual ENUM_DIRECTION_TYPE Direction(void);
       void ProcessingNewOrder(long ticket);
       bool IsBlocked();
       void NoticeModify(void);
       void Event(Event* event);
+      void SendEventChangedPos(ENUM_POSITION_CHANGED_TYPE type);
+      void Unmanagment(bool isUnmng);
+      bool Unmanagment(void);
    private:
       ///
       /// Класс, для совершения торговых операций.
@@ -169,6 +172,10 @@ class Position : public Transaction
       /// Время начала блокировки.
       ///
       CTime blockedTime;
+      ///
+      /// Содержит статус, показывающий, является ли эта позиция управляемой.
+      ///
+      bool unmanagment;
       ///
       /// Содержит список тикетов ордеров принадлежащих текущей позиции, которые находятся в процессе обработки.
       ///
@@ -216,7 +223,6 @@ Position::Position() : Transaction(TRANS_POSITION)
 ///
 Position::Position(Order* inOrder) : Transaction(TRANS_POSITION)
 {
-   
    InfoIntegration* info = Integrate(inOrder);
    delete info;
 }
@@ -276,6 +282,7 @@ bool Position::Merge(Position *pos)
       initOrder.AddDeal(ndeal);
       order.DeleteDealAt(0);
    }
+   Refresh();
    order = pos.ExitOrder();
    if(order == NULL)
       return true;
@@ -285,6 +292,7 @@ bool Position::Merge(Position *pos)
       closingOrder.AddDeal(ndeal);
       order.DeleteDealAt(0);
    }
+   Refresh();
    return true;
 }
 
@@ -356,10 +364,16 @@ void Position::AddInitialOrder(Order *inOrder)
       Refresh();
       inOrder.LinkWithPosition(GetPointer(this));
    }
+   //Т.к. ордера заведомо одинаковы, то это означает что пришел новый трейд
+   //инициирующего ордера и этот трейд надо включить в первоначальный ордер.
    else
    {
-      string msg = "Order #" + (string)inOrder.GetId() + " can not be inserted as init order because init Order already exits.";
-      LogWriter(msg, MESSAGE_TYPE_WARNING);
+      for(int i = 0; i < inOrder.DealsTotal(); i++)
+      {
+         Deal* deal = inOrder.DealAt(i);
+         initOrder.AddDeal(deal.Clone());
+      }
+      delete inOrder;
    }
 }
 
@@ -372,8 +386,8 @@ InfoIntegration* Position::AddClosingOrder(Order* outOrder)
    info.HistoryPosition = OrderManager(initOrder, outOrder);
    if(outOrder.Status() != ORDER_NULL)
    {
-      //Position* nPos = new Position(outOrder);
       info.ActivePosition = new Position(outOrder);
+      info.ActivePosition.Unmanagment(true);
    }
    else
    {
@@ -408,6 +422,7 @@ void Position::Refresh(void)
       SetId(initOrder.GetId());
    else
       SetId(0);
+   SendEventChangedPos(POSITION_REFRESH);
 }
 
 ///
@@ -488,6 +503,9 @@ Position* Position::OrderManager(Order* inOrder, Order* outOrder)
    //histInOrder.CompressDeals();
    //histOutOrder.CompressDeals();
    Position* histPos = new Position(histInOrder, histOutOrder);
+   //Неуправляемая позиция продолжает быть неуправляемой в историческом состоянии.
+   if(unmanagment)
+      histPos.Unmanagment(true);
    return histPos;
 }
 
@@ -572,15 +590,18 @@ void Position::DeleteAllOrders(void)
 /// \param vol - объем, который необходимо закрыть.
 /// \param comment - комментарий, который необходимо присвоить закрывающей сделке.
 ///
-void Position::AsynchClose(double vol, string comment = NULL)
+bool Position::AsynchClose(double vol, string comment = NULL)
 {
    if(IsBlocked())
    {
       printf("Position is blocked. Try letter");
-      return;
+      return false;
    }
    trading.SetAsyncMode(true);
    trading.SetExpertMagicNumber(initOrder.GetMagicForClose());
+   #ifndef DEBUG
+      trading.LogLevel(0);
+   #endif
    bool resTrans = false;
    if(Direction() == DIRECTION_LONG)
       resTrans = trading.Sell(vol, Symbol(), 0.0, 0.0, 0.0, comment);
@@ -593,6 +614,7 @@ void Position::AsynchClose(double vol, string comment = NULL)
       printf("Rejected current operation by reason: " + trading.ResultRetcodeDescription());
       ResetBlocked();
    }
+   return resTrans;
 }
 
 ///
@@ -951,4 +973,36 @@ bool Position::IsValidNewVolume(double setVol)
       return false;
    }*/
    return true;
+}
+
+///
+/// Уведомляет графическое представление позиции на панели о том,
+/// что состояние позиции изменилось.
+///
+void Position::SendEventChangedPos(ENUM_POSITION_CHANGED_TYPE type)
+{
+   //Только для визуальной панели.
+   #ifdef HEDGE_PANEL
+      if(type != POSITION_SHOW && positionLine == NULL)
+         return;
+      EventPositionChanged* event = new EventPositionChanged(GetPointer(this), type);
+      EventExchange::PushEvent(event);
+      delete event;
+   #endif
+}
+
+///
+/// Устанавливает статус неуправляемой позиции.
+///
+void Position::Unmanagment(bool isUnmng)
+{
+   unmanagment = isUnmng;
+}
+
+///
+/// Возвращает статус управляемости позиции.
+///
+bool Position::Unmanagment()
+{
+   return unmanagment;
 }

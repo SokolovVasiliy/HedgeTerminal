@@ -492,29 +492,6 @@ class EventNodeCommand : public Event
       long yDist;
 };
 
-///
-/// Событие "Состояние позиций изменилось".
-///
-/*class EventChangeStatePos : public Event
-{
-   public:
-      EventChangeStatePos(ENUM_EVENT_DIRECTION myDir, string nodeId, CArrayObj* myPos):
-      Event(myDir, EVENT_CHANGE_POS, nodeId)
-      {
-         pos = myPos;
-      }
-      virtual Event* Clone()
-      {
-         return new EventChangeStatePos(Direction(), NameNodeId(), pos);
-      }
-      CArrayObj* GetPositions(){return pos;}
-   private:
-      ///
-      /// Список изменившихся позиций
-      ///
-      CArrayObj* pos;
-};*/
-
 
 ///
 /// Событие, генерируемое с заданой периодичностью. Создается в функции OnTimer()
@@ -679,9 +656,46 @@ class EventDelPos : public Event
       Position* m_pos;
 };
 
+///
+/// Определяет тип изменения позиции
+///
+enum ENUM_POSITION_CHANGED_TYPE
+{
+   ///
+   ///Указывает, что текущую позицию необходимо скрыть.
+   ///
+   POSITION_HIDE,
+   ///
+   /// Указывает что переданную позицию необходимо отобразить.
+   ///
+   POSITION_SHOW,
+   ///
+   /// Указывает, что необходимо обновить отображение переданной позиции.
+   ///
+   POSITION_REFRESH
+};
 
 ///
-/// Это событие посылает команду закрыть позицию.
+/// Это событие дает команду о том, что нужно делать с изменившейся позицией.
+///
+class EventPositionChanged : public Event
+{
+   public:
+      EventPositionChanged(Position* pos, ENUM_POSITION_CHANGED_TYPE type) :
+      Event(EVENT_FROM_UP, EVENT_CHANGE_POS, "Hedge API")
+      {
+         myPos = pos;
+         chType = type;
+      }
+      ENUM_POSITION_CHANGED_TYPE ChangedType(){return chType;}
+      Position* Position(){return myPos;}
+   private:
+      ENUM_POSITION_CHANGED_TYPE chType;
+      Position* myPos;
+};
+
+///
+/// Это событие посылает команду закрыть позицию (Генерируется кнопкой close).
 ///
 class EventClosePos : public Event
 {
@@ -734,6 +748,8 @@ class EventClosePos : public Event
       ///
       string comment;
 };
+
+
 
 class EventCollapseTree : public Event
 {

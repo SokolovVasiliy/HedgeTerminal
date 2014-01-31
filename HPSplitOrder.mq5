@@ -1,7 +1,4 @@
-/*#define LESS -1;
-#define GREATE 1;
-#define EQUAL 0;
-#define HLIBRARY*/
+
 //#include "Globals.mqh"
 #include "\API\Transaction.mqh"
 #include "\API\Order.mqh"

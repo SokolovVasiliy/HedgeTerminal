@@ -149,6 +149,8 @@ class HedgeManager
             delete order;
             return;
          }
+         ulong magic = order.Magic();
+         ulong oid = order.GetId();
          Position* actPos = FindActivePosById(order.PositionId());
          if(actPos == NULL)
             actPos = new Position();
@@ -156,7 +158,7 @@ class HedgeManager
          int iActive = ActivePos.Search(actPos);
          if(actPos.Status() == POSITION_NULL)
          {
-            SendEventDelPos(actPos);
+            actPos.SendEventChangedPos(POSITION_HIDE);
             if(iActive != -1)
                ActivePos.Delete(iActive);
             else
@@ -164,9 +166,13 @@ class HedgeManager
          }
          else
          {
-            SendEventRefreshPos(actPos);
             if(iActive == -1)
+            {
+               actPos.SendEventChangedPos(POSITION_SHOW);   
                ActivePos.InsertSort(actPos);
+            }
+            else
+               actPos.SendEventChangedPos(POSITION_REFRESH);
          }
          
          //ћожно закрыть больше чем имеетс€, тогда остаток - активна€ позици€.
@@ -174,7 +180,7 @@ class HedgeManager
             result.ActivePosition.Status() == POSITION_ACTIVE)
          {
             ActivePos.InsertSort(result.ActivePosition);
-            SendEventRefreshPos(result.ActivePosition);
+            result.ActivePosition.SendEventChangedPos(POSITION_SHOW);
          }
          if(result.HistoryPosition != NULL &&
             result.HistoryPosition.Status() == POSITION_HISTORY)
@@ -219,7 +225,7 @@ class HedgeManager
          if(!isMerge)
          {
             HistoryPos.InsertSort(histPos);
-            SendEventRefreshPos(histPos);
+            histPos.SendEventChangedPos(POSITION_SHOW);
          }
       }
       ///
@@ -264,32 +270,6 @@ class HedgeManager
          }
          return trades;
       }
-      ///
-      /// ќтправл€ет событие "обновление позиции".
-      ///
-      void SendEventRefreshPos(Position* pos)
-      {
-         //¬ библиотеке HedgeAPI панели нет, а значит нет и передваемых ей событий.
-         #ifndef HLIBRARY
-            EventRefreshPos* event = new EventRefreshPos(pos);
-            EventExchange::PushEvent(event);
-            delete event;
-         #endif
-      }
-      
-      ///
-      /// ќтправл€ет событие удаление из списка позиций.
-      ///
-      void SendEventDelPos(Position* pos)
-      {
-         #ifndef HLIBRARY
-            EventDelPos* event = new EventDelPos(pos);
-            EventExchange::PushEvent(event);
-            delete event;
-         #endif
-      }
-      
-      
       
       ///
       /// «агружает историю ордеров, если она не загружена.
@@ -311,8 +291,9 @@ class HedgeManager
          string srest = "";
          if(rest < 100)
             srest += "0";
-         if(srest < 10)
+         if(rest < 10)
             srest += "00";
+         srest += rest;
          int dTotal = HistoryDealsTotal();
          int oTotal = HistoryOrdersTotal();
          string seconds = (string)isec + "." + srest;
@@ -323,11 +304,11 @@ class HedgeManager
       ///
       /// —писок активных позиций.
       ///
-      static CArrayObj* ActivePos;
+      CArrayObj* ActivePos;
       ///
       /// —писок исторических, закрытых позиций.
       ///
-      static CArrayObj* HistoryPos;
+      CArrayObj* HistoryPos;
       ///
       ///  оличество сделок, которое поступило в течении заданного периода.
       ///

@@ -8,7 +8,6 @@
 #property link      "http://www.mql5.com"
 #property version   "1.00"
 
-//#define DEBUG
 #define HLIBRARY
 #include "..\Globals.mqh"
 
@@ -16,33 +15,6 @@
 HedgeManager hedge;
 
 
-///
-/// Modify active and pending hedge position.
-/// \param index - index of position in list active and pending hedge position.
-/// \param price - new price entry for pending hedge position.
-/// \param stoploss - new level stop-loss for active and pending hedge position.
-/// \param takeprofit - new level take-profit for active and pending hedge position.
-/// \param expiration - time expiration for pending hedge position.
-/// \param isAsync - true if the modification of position in asynchronously mode, otherwise false.
-/// \return True if the modification is successful, otherwise false.
-///
-/*bool HedgePositionModify(int index, double price, double stoploss, double takeprofit, datetime expiration, bool isAsync=false)
-{
-   return true;
-}*/
-
-///
-/// Close active hedge position.
-/// \param index - index of active position in list active and pending positions which must be closed.
-/// \param lots - volume which must be closed.
-/// \param slipage - max slippage in points of symbol.
-/// \param isAsync - true if the closing of position in asynchronously mode, otherwise false.
-/// \return True if the closing is successful, otherwise false.
-///
-/*bool HedgePositionClose(int index, double lots, double price, int slippage, bool isAsync=false)
-{
-   return true;
-}*/
 
 ///
 /// Curent position selected HedgePositionSelect function.
@@ -54,6 +26,10 @@ int EntryOrderDealsTotal(){return 0;}
 int ExitOrderDealsTotal(){return 0;}
 
 int lastError;
+///
+/// Type of last hedge error.
+///
+ENUM_HEDGE_ERR hedgeErr;
 ///
 /// Return code last error.
 ///
@@ -84,7 +60,49 @@ int HedgeHistoryPositionTotal() export
 }
 
 ///
-/// Select active, pending or history position.
+/// Closing of selected active position.
+/// \param volume - The volume that you want to close.
+/// \param comment - closing comment.
+/// \param asynchMode - A flag indicating the asynchronous mode of closing.
+/// True if you are want using asynchronous mode, false otherwise.
+/// \return True if operation complete successfully, false otherwise.
+///
+bool HedgePositionClose(double volume, string comment, bool asynchMode=false)
+{
+   bool res = true;
+   if(CheckPointer(CurrentPosition) != POINTER_INVALID)
+   {
+      hedgeErr = HEDGE_ERR_POS_NOTSELECT;
+      res = false;
+   }
+   if(CurrentPosition.Status() == POSITION_NULL ||
+      CurrentPosition.Status() == POSITION_HISTORY)
+   {
+      hedgeErr = HEDGE_ERR_POS_NOTCOMPATIBLE;
+      res = false;
+   }
+   double posVol = CurrentPosition.VolumeExecuted();
+   bool isRejected = Math::DoubleEquals(posVol, volume) ||
+                   Math::DoubleEquals(volume, 0.0)||
+                   volume < 0.0 ||
+                   volume > posVol;
+   if(isRejected)
+   {
+      hedgeErr = HEDGE_ERR_WRONG_VOLUME;
+      res = false;
+   }
+   if(res)
+   {
+      if(asynchMode)
+         res = CurrentPosition.AsynchClose(volume, comment);
+      else
+         res = CurrentPosition.AsynchClose(volume, comment);
+   }
+   return res;
+}
+
+///
+/// Select active or history position.
 /// \return True if selected was successful, false otherwise.
 ///
 bool HedgePositionSelect(int index, ENUM_MODE_SELECT select = SELECT_BY_POS, ENUM_MODE_TRADES pool=MODE_ACTIVE)export
@@ -96,13 +114,14 @@ bool HedgePositionSelect(int index, ENUM_MODE_SELECT select = SELECT_BY_POS, ENU
       {
          if(index >= hedge.ActivePosTotal())
          {
-            lastError = ERR_INTERNAL_ERROR;
+            hedgeErr = HEDGE_ERR_POS_NOTFIND;
             return false;
          }
          CurrentPosition = hedge.ActivePosAt(index);
          if(CheckPointer(CurrentPosition) == POINTER_INVALID)
          {
-            lastError = ERR_INTERNAL_ERROR;
+            hedgeErr = HEDGE_ERR_POS_NOTCOMPATIBLE;
+            CurrentPosition = NULL;
             return false;
          }
          return true;
@@ -112,10 +131,22 @@ bool HedgePositionSelect(int index, ENUM_MODE_SELECT select = SELECT_BY_POS, ENU
    return false;
 }
 
+///
+/// Select order in selected position
+///
+///
+bool HedgeOrderSelect()
+{
+   return true;
+}
+
 ulong HedgePositionGetInteger(ENUM_HEDGE_POSITION_PROP_INTEGER property) export
 {
    if(CheckPointer(CurrentPosition) == POINTER_INVALID)
+   {
+      hedgeErr = HEDGE_ERR_POS_NOTFIND;
       return 0;
+   }
    switch(property)
    {
       case HEDGE_POSITION_MAGIC:
@@ -192,6 +223,8 @@ CObject* EntryDeals() export
    CObject* deals = new CObject();
    return deals;
 }
+
+
 
 bool HedgeOrderSend(HedgeTradeRequest& hRequest, MqlTradeResult& result) export
 {

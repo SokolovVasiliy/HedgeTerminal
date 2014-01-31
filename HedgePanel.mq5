@@ -8,7 +8,10 @@
 #property copyright  "2013, , Vasiliy Sokolov, St.Petersburg, Russia."
 #property link      "https://login.mql5.com/ru/users/c-4"
 #property version   "1.100"
+
 #define HEDGE_PANEL
+//#define DEBUG
+//#define RELEASE
 #include  "Globals.mqh"
 
 ///
@@ -18,7 +21,6 @@ input int RefreshRate = 200;
 
 HedgeManager* api;
 MainForm* HedgePanel;
-
 
 ///
 /// Инициализирующая функция.
@@ -37,7 +39,7 @@ void OnInit(void)
    EventExchange::Add(api);
    
    //EventRedraw* redraw = new EventRedraw(EVENT_FROM_UP, "TERMINAL WINDOW");
-   //HedgePanel.Event(redraw);   
+   //HedgePanel.Event(redraw);
    //delete redraw;
    ChartSetInteger(0, CHART_EVENT_MOUSE_MOVE, true);
    //OnTimer();

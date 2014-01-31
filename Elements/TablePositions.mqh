@@ -47,6 +47,9 @@ class TablePositions : public Table
             case EVENT_DEL_POS:
                OnDelPosition(event);
                break;
+            case EVENT_CHANGE_POS:
+               OnChangedPos(event);
+               break;
             default:
                EventSend(event);
                break;
@@ -173,13 +176,7 @@ class TablePositions : public Table
          }
       }
       
-      ///
-      /// Обрабатываем комманду на закрытие позиции.
-      ///
-      void OnClosePos(EventClosePos* event)
-      {
-         ;
-      }
+      
       ///
       /// Обновляет цены открытых позиций.
       ///
@@ -230,6 +227,80 @@ class TablePositions : public Table
                   tbox.OnPush();
                }
             }
+         }
+         EventRefresh* er = new EventRefresh(EVENT_FROM_DOWN, NameID());
+         EventSend(er);
+         delete er;
+      }
+      ///
+      /// Создает позицию в таблице позиций.
+      ///
+      void CreatePosition(Position* pos)
+      {
+         if(!IsItForMe(pos))return;
+         PosLine* nline = new PosLine(workArea, TableType(), pos);
+         workArea.Add(nline);
+      }
+      
+      ///
+      /// Обновляет значения позиции.
+      ///
+      void RefreshPosition(Position* pos)
+      {
+         if(!IsItForMe(pos))return;
+         PosLine* posLine = pos.PositionLine();
+         if(CheckPointer(posLine) == POINTER_INVALID)
+            return;
+         posLine.RefreshAll();
+         //Обновляем список всех сделок, если он раскрыт.
+         ProtoNode* node = posLine.GetCell(COLUMN_COLLAPSE);
+         if(node != NULL && node.TypeElement() == ELEMENT_TYPE_TREE_BORDER)
+         {
+            TreeViewBoxBorder* tbox = node;
+            if(tbox.State() == BOX_TREE_RESTORE)
+            {
+               tbox.OnPush();
+               tbox.OnPush();
+            }
+         }
+      }
+      
+      ///
+      /// Удаляет визуальное представление позиции из таблицы.
+      ///
+      void DelPosition(Position* pos)
+      {
+         if(!IsItForMe(pos))return;
+         ENUM_TABLE_TYPE type = TableType();
+         PosLine* posLine = pos.PositionLine();
+         if(CheckPointer(posLine) == POINTER_INVALID)
+            return;
+         ProtoNode* node = posLine.GetCell(COLUMN_COLLAPSE);
+         if(node != NULL && node.TypeElement() == ELEMENT_TYPE_TREE_BORDER)
+         {
+            TreeViewBoxBorder* tbox = node;
+            if(tbox.State() == BOX_TREE_RESTORE)
+               tbox.OnPush();
+         }
+         workArea.Delete(posLine.NLine());
+      }
+      ///
+      /// Обновляет все свойства позиции. Если позиции нет в таблице,
+      /// однако она должна находится в ней, то позиция будет создана.
+      ///
+      void OnChangedPos(EventPositionChanged* event)
+      {
+         switch(event.ChangedType())
+         {
+            case POSITION_SHOW:
+               CreatePosition(event.Position());
+               break;
+            case POSITION_REFRESH:
+               RefreshPosition(event.Position());
+               break;
+            case POSITION_HIDE:
+               DelPosition(event.Position());
+               break;
          }
          EventRefresh* er = new EventRefresh(EVENT_FROM_DOWN, NameID());
          EventSend(er);

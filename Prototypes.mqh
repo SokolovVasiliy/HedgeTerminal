@@ -138,6 +138,34 @@ enum ENUM_HEDGE_REQUEST_ACTIONS
    HEDGE_ACTION_CLOSE
 };
 
+enum ENUM_HEDGE_ORDER_TYPE
+{
+   HEDGE_ORDER_INIT,
+   HEDGE_ORDER_CLOSED
+};
+
+///
+/// Type of error genered of HedgePanel.
+///
+enum ENUM_HEDGE_ERR
+{
+   ///
+   /// Request position not find.
+   ///
+   HEDGE_ERR_POS_NOTFIND,
+   ///
+   /// Position not select.
+   ///
+   HEDGE_ERR_POS_NOTSELECT,
+   ///
+   /// Selected position not compatible with current operation.
+   ///
+   HEDGE_ERR_POS_NOTCOMPATIBLE,
+   ///
+   /// Wrong setting of volume.
+   ///
+   HEDGE_ERR_WRONG_VOLUME
+};
 ///
 /// The Trade Request Structure used by HedgeOrderSend function.
 /// This structure is analog of MqlTradeRequest structure and using
@@ -161,6 +189,7 @@ struct HedgeTradeRequest
    datetime expiration;
    string comment;
 };
+
 
 #import "\API\HedgePanelAPI.ex5"
    int HedgePositionTotal(void);

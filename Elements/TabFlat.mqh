@@ -71,6 +71,10 @@ class TabFlat : public Label
       {
          AlocationTab();
       }
+      /*virtual void OnVisible(EventVisible* event)
+      {
+         AlocationTab();
+      }*/
       ///
       /// ѕозиционирует табул€тор
       ///
@@ -99,6 +103,7 @@ class TabFlat : public Label
                btn.FontColor(clrGray);
             }
          }
+         
          //«аглушка создаетс€ и перемещаетс€ в самом конце, чтобы быть поверх всех кнопок.
          if(iActive < total)
          {
@@ -113,6 +118,7 @@ class TabFlat : public Label
             btn.FontColor(clrBlack);
             command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), btn.XLocalDistance(), btn.YLocalDistance(), btnWidth, 1);
             activeStub.Event(command);
+            //activeStub.Forward(true);
             delete command;
          }
       }
