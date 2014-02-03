@@ -520,21 +520,6 @@ class EventRefresh : public Event
 };
 
 ///
-/// —одержит уведомление, о изменении позиции;
-///
-class EventRefreshPos : public Event
-{
-   public:
-      EventRefreshPos(Position* pos) : Event(EVENT_FROM_UP, EVENT_REFRESH_POS, "API")
-      {
-         m_pos = pos;
-      }
-      Position* Position(){return m_pos;}
-   private:
-      Position* m_pos;
-};
-
-///
 /// Ёто событие генерируетс€ терминалом 
 ///
 class EventObjectClick : public Event
@@ -601,60 +586,10 @@ class EventEndEditNode : public Event
       /// ¬озвращает значение EditNode после редактировани€.
       ///
       string Value(){return value;}
-      
    private:
       string value;
 };
 #endif
-
-
-///
-/// —обытие "Ќова€ позици€ создана".
-///
-class EventCreatePos : public Event
-{
-   public:
-      EventCreatePos(ENUM_EVENT_DIRECTION myDir, string nodeId, Position* myPos):
-      Event(myDir, EVENT_CREATE_NEWPOS, nodeId)
-      {
-         pos = myPos;
-      }
-      virtual Event* Clone()
-      {
-         return new EventCreatePos(Direction(), NameNodeId(), pos);
-      }
-      Position* GetPosition(){return pos;}
-   private:
-      ///
-      /// —писок изменившихс€ позиций
-      ///
-      Position* pos;
-};
-
-///
-/// Ёто событие указывает на позицию, котора€ должна быть удалена из
-/// списка активных позиций.
-///
-class EventDelPos : public Event
-{
-   public:
-      EventDelPos(Position* pos) : Event(EVENT_FROM_UP, EVENT_DEL_POS, "Hedge API")
-      {
-         if(CheckPointer(pos) == POINTER_INVALID)return;
-         m_pos = pos;
-      }
-      ///
-      /// ¬озвращает указатель на позицию, котора€ должна быть удалена.
-      ///
-      Position* Position(){return m_pos;}
-      virtual Event* Clone()
-      {
-         return new EventDelPos(m_pos);
-      }
-   private:
-      ulong positionId;
-      Position* m_pos;
-};
 
 ///
 /// ќпредел€ет тип изменени€ позиции

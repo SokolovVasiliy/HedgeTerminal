@@ -3,7 +3,8 @@
 #include "Order.mqh"
 #include "..\Log.mqh"
 #include "..\Events.mqh"
-
+#include <Trade\SymbolInfo.mqh>
+ 
 class Position;
 
 ///
@@ -64,6 +65,7 @@ struct ExchangerList
       Order* histInOrder;
       Order* histOutOrder;
 };
+
 
 class Position : public Transaction
 {
@@ -127,6 +129,7 @@ class Position : public Transaction
       void OrderChanged(Order* order);
       void Refresh();
       bool AsynchClose(double vol, string comment = NULL);
+      //bool OrderSend();
       virtual string TypeAsString(void);
       virtual ENUM_DIRECTION_TYPE Direction(void);
       void ProcessingNewOrder(long ticket);
@@ -136,6 +139,9 @@ class Position : public Transaction
       void SendEventChangedPos(ENUM_POSITION_CHANGED_TYPE type);
       void Unmanagment(bool isUnmng);
       bool Unmanagment(void);
+      bool StopLossModify(double newLevel, string comment, bool asynchMode = true);
+      bool CheckValidLevelSL(double newLevel);
+      bool VirtualStopLoss(){return isVirtualStopLoss;}
    private:
       ///
       /// Класс, для совершения торговых операций.
@@ -188,19 +194,39 @@ class Position : public Transaction
       bool CompatibleForClose(Order* order);
       InfoIntegration* AddClosingOrder(Order* outOrder);
       void AddInitialOrder(Order* inOrder);
+      void AddStopLossOrder(Order* order);
       POSITION_STATUS CheckStatus(void);
       void ResetBlocked(void);
       void SetBlock(void);
       void OnRequestNotice(EventRequestNotice* notice);
       void OnRejected(TradeResult& result);
+      
+      ///
+      /// Инициирующий позицию ордер.
+      ///
       Order* initOrder;
+      ///
+      /// Закрывающий ордер позицию.
+      ///
       Order* closingOrder;
+      ///
+      /// Стоп-лосс ордер, который связан с текущей позицией.
+      ///
+      Order* slOrder;
+      ///
+      /// Виртуальный уровень стоп-лосс ордера.
+      ///
+      double slLevel;
+      ///
+      /// Флаг, указывающий, является ли текущий стоп-лосс ордер виртуальным.
+      ///
+      bool isVirtualStopLoss;
       POSITION_STATUS status;
       void SendEventBlockStatus(bool status);
       #ifdef HEDGE_PANEL
          PosLine* positionLine;
       #endif
-      
+      CSymbolInfo infoSymbol;
 };
 ///
 /// Деинициализирует позицию.
@@ -306,6 +332,10 @@ bool Position::Merge(Position *pos)
 InfoIntegration* Position::Integrate(Order* order)
 {
    InfoIntegration* info = NULL;
+   if(order.IsStopLoss() && order.PositionId() == GetId())
+   {
+      AddStopLossOrder(order);
+   }
    if(CompatibleForInit(order))
    {
       AddInitialOrder(order);
@@ -351,6 +381,28 @@ bool Position::CompatibleForClose(Order *order)
    if(order.PositionId() == GetId())
       return true;
    return false;
+}
+
+///
+/// Добавляет стоп-лосс ордер к текущей позиции
+///
+void Position::AddStopLossOrder(Order *order)
+{
+   if(slOrder != NULL)
+   {
+      StopLossModify(order.PriceSetup(), order.Comment(), true);
+      trading.OrderDelete(order.GetId());
+      delete order;
+   }
+   else if(!CheckValidLevelSL(order.PriceSetup()))
+   {
+      trading.OrderDelete(order.GetId());
+      delete order;
+      LogWriter("Position #" + (string)GetId() +
+      " delete pending stop-loss order, because it has not compatible price level.", MESSAGE_TYPE_ERROR);
+   }
+   else
+      slOrder = order;
 }
 
 ///
@@ -598,7 +650,7 @@ bool Position::AsynchClose(double vol, string comment = NULL)
       return false;
    }
    trading.SetAsyncMode(true);
-   trading.SetExpertMagicNumber(initOrder.GetMagicForClose());
+   trading.SetExpertMagicNumber(initOrder.GetMagic(MAGIC_TYPE_MARKET));
    #ifndef DEBUG
       trading.LogLevel(0);
    #endif
@@ -780,7 +832,9 @@ ulong Position::ExitMagic(void)
 ///
 double Position::StopLossLevel(void)
 {
-   return 0.0;
+   if(slOrder != NULL)
+      return slOrder.PriceSetup();
+   return slLevel;
 }
 
 ///
@@ -1005,4 +1059,104 @@ void Position::Unmanagment(bool isUnmng)
 bool Position::Unmanagment()
 {
    return unmanagment;
+}
+
+///
+/// Модифицирует текущий уровень стоп-лосса.
+///
+bool Position::StopLossModify(double newLevel, string comment, bool asynchMode = true)
+{
+   bool res = false;
+   trading.SetAsyncMode(asynchMode);
+   SetBlock();
+   //Неправильные уровни необрабатываем.
+   if(!CheckValidLevelSL(newLevel))
+   {
+      ResetBlocked();
+      return false;
+   }
+   //Приказ на удаление Stop-Loss ордера.
+   if(Math::DoubleEquals(newLevel, 0.0))
+   {
+      if(slOrder != NULL)
+         res = trading.OrderDelete(slOrder.GetId());
+      else
+      {
+         slLevel = 0.0;
+         ResetBlocked();
+         return true;
+      }
+   }
+   //Виртуальный ордер обрабатываем моментально.
+   if(isVirtualStopLoss)
+   {
+      slLevel = newLevel;
+      ResetBlocked();
+      return true;
+   }
+   if(slOrder == NULL)
+   {
+      trading.SetExpertMagicNumber(initOrder.GetMagic(MAGIC_TYPE_SL));
+      if(direction == DIRECTION_LONG)
+         res = trading.SellStop(VolumeExecuted(), newLevel, comment);
+      else if(direction == DIRECTION_SHORT)
+         res = trading.BuyStop(VolumeExecuted(), newLevel, comment);
+   }
+   else
+      res = trading.OrderModify(slOrder.GetId(), newLevel, 0.0, 0.0, ORDER_TIME_GTC, 0, 0);
+   if(!res)
+   {
+      LogWriter("Failed to set or modify stop-loss order. Reason: " +
+                 trading.ResultRetcodeDescription(), MESSAGE_TYPE_ERROR);
+      ResetBlocked();
+      return false;
+   }
+   return res;
+}
+
+///
+/// Проверяет на правильность новый уровень стоп-лосса.
+///
+bool Position::CheckValidLevelSL(double newLevel)
+{
+   infoSymbol.Name(symbol);
+   if(newLevel < 0.0)
+   {
+      string msg = "Position #" + (string)GetId() + ": New stop-loss level must be bigger null.";
+      LogWriter(msg, MESSAGE_TYPE_ERROR);
+      return false;
+   }
+   if(Math::DoubleEquals(newLevel, 0.0))
+      return true;
+   if(direction == DIRECTION_LONG)
+   {
+      if(infoSymbol.Last() < newLevel)
+      {
+         string msg = "Position #" + (string)GetId() + ": New stop-loss must be less current price.";
+         LogWriter(msg, MESSAGE_TYPE_ERROR);
+         return false;
+      }
+      /*if(newLevel >= (infoSymbol.Last() - infoSymbol.FreezeLevel()))
+      {
+         string msg = "Position #" + (string)GetId() + ": New stop-loss must be less level of freeze.";
+         LogWriter(msg, MESSAGE_TYPE_ERROR);
+         return false;
+      }*/
+   }
+   if(direction == DIRECTION_SHORT)
+   {
+      if(infoSymbol.Last() > newLevel)
+      {
+         string msg = "Position #" + (string)GetId() + ": New stop-loss must be bigger current price.";
+         LogWriter(msg, MESSAGE_TYPE_ERROR);
+         return false;
+      }
+      /*if(newLevel <= (infoSymbol.Last() + infoSymbol.FreezeLevel()))
+      {
+         string msg = "Position #" + (string)GetId() + ": New stop-loss must be bigger level of freeze.";
+         LogWriter(msg, MESSAGE_TYPE_ERROR);
+         return false;
+      }*/
+   }
+   return true;
 }

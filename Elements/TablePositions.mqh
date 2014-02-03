@@ -32,9 +32,6 @@ class TablePositions : public Table
                if(TableType() == TABLE_POSACTIVE)
                   RefreshPrices();
                break;
-            case EVENT_REFRESH_POS:
-               OnRefreshPos(event);
-               break;
             case EVENT_CHECK_BOX_CHANGED:
                OnCheckBoxChanged(event);
                break;
@@ -43,9 +40,6 @@ class TablePositions : public Table
                break;
             case EVENT_NODE_CLICK:
                OnNodeClick(event);
-               break;
-            case EVENT_DEL_POS:
-               OnDelPosition(event);
                break;
             case EVENT_CHANGE_POS:
                OnChangedPos(event);
@@ -197,41 +191,7 @@ class TablePositions : public Table
             linePos.RefreshValue(COLUMN_PROFIT);
          }
       }
-      
-      ///
-      /// ќбновл€ет все свойства позиции. ≈сли позиции нет в таблице,
-      /// однако она должна находитс€ в ней, то позици€ будет создана.
-      ///
-      void OnRefreshPos(EventRefreshPos* event)
-      {
-         Position* pos = event.Position();
-         if(!IsItForMe(pos))return;
-         PosLine* posLine = pos.PositionLine();
-         if(CheckPointer(posLine) == POINTER_INVALID)
-         {
-            PosLine* nline = new PosLine(workArea, TableType(), pos);
-            workArea.Add(nline);
-         }
-         else
-         {
-            //ќбновл€ем все характеристики позиции.
-            posLine.RefreshAll();
-            //ќбновл€ем список всех сделок, если он раскрыт.
-            ProtoNode* node = posLine.GetCell(COLUMN_COLLAPSE);
-            if(node != NULL && node.TypeElement() == ELEMENT_TYPE_TREE_BORDER)
-            {
-               TreeViewBoxBorder* tbox = node;
-               if(tbox.State() == BOX_TREE_RESTORE)
-               {
-                  tbox.OnPush();
-                  tbox.OnPush();
-               }
-            }
-         }
-         EventRefresh* er = new EventRefresh(EVENT_FROM_DOWN, NameID());
-         EventSend(er);
-         delete er;
-      }
+
       ///
       /// —оздает позицию в таблице позиций.
       ///
@@ -306,26 +266,7 @@ class TablePositions : public Table
          EventSend(er);
          delete er;
       }
-      ///
-      /// ”дал€ет позицию из списка позиций.
-      ///
-      void OnDelPosition(EventDelPos* event)
-      {
-         Position* delPos = event.Position();
-         if(!IsItForMe(delPos))return;
-         PosLine* posLine = delPos.PositionLine();
-         if(CheckPointer(posLine) == POINTER_INVALID)return;
-         ProtoNode* node = posLine.GetCell(COLUMN_COLLAPSE);
-         if(node != NULL && node.TypeElement() == ELEMENT_TYPE_TREE_BORDER)
-         {
-            TreeViewBoxBorder* tbox = node;
-            if(tbox.State() == BOX_TREE_RESTORE)
-            {
-               tbox.OnPush();
-            }
-         }
-         workArea.Delete(posLine.NLine());
-      }
+      
       
       ///
       /// ƒобавл€ет визуализацию сделок дл€ позиции

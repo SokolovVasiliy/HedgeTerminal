@@ -90,6 +90,38 @@ class HedgeManager
             AddNewDeal(ticket);
          }
          CheckModifyOrders();
+         CollectNewSLAndTPOrders();
+      }
+      
+      void CollectNewSLAndTPOrders()
+      {
+         if(ordersPendingNow != OrdersTotal() || recalcModify)
+         {
+            ordersPendingNow = 0;
+            for(; ordersPendingNow < OrdersTotal(); ordersPendingNow++)
+            {
+               ulong ticket = OrderGetTicket(ordersPendingNow);
+               OrderSelect(ticket);
+               ENUM_ORDER_STATE state = (ENUM_ORDER_STATE)OrderGetInteger(ORDER_STATE);
+               if(IsOrderModify(state))
+               {
+                  recalcModify = true;
+                  continue;
+               }
+               Order* order = new Order(ticket);
+               Position* ActPos = FindActivePosById(order.PositionId());
+               if(ActPos == NULL)
+               {
+                  delete order;
+                  continue;
+               }
+               if(order.IsStopLoss() || order.IsTakeProfit())
+                  ActPos.Integrate(order);
+               else
+                  delete order;
+            }
+            ordersPendingNow = OrdersTotal();
+         }
       }
       ///
       /// Ќаходит среди активных ордеров измен€ющие свой статус и
@@ -99,9 +131,10 @@ class HedgeManager
       {
          if(ordersCountNow != OrdersTotal())
          {
-            for(int i = 0; i < OrdersTotal(); i++)
+            ordersCountNow = 0;
+            for(; ordersCountNow < OrdersTotal(); ordersCountNow++)
             {
-               ulong ticket = OrderGetTicket(i);
+               ulong ticket = OrderGetTicket(ordersCountNow);
                OrderSelect(ticket);
                ENUM_ORDER_STATE state = (ENUM_ORDER_STATE)OrderGetInteger(ORDER_STATE);
                if(!IsOrderModify(state))continue;
@@ -132,6 +165,7 @@ class HedgeManager
          }
          return false;
       }
+      
       ///
       /// »нтегрирует новую сделку в систему позиций.
       ///
@@ -293,7 +327,7 @@ class HedgeManager
             srest += "0";
          if(rest < 10)
             srest += "00";
-         srest += rest;
+         srest += (string)rest;
          int dTotal = HistoryDealsTotal();
          int oTotal = HistoryOrdersTotal();
          string seconds = (string)isec + "." + srest;
@@ -317,6 +351,14 @@ class HedgeManager
       /// “екущее количество обработанных активных ордеров.
       ///
       int ordersCountNow;
+      ///
+      /// “екущее количество отложенных ордеров.
+      ///
+      int ordersPendingNow;
+      ///
+      /// »стина, если требуетс€ пересчитывать ордера.
+      ///
+      bool recalcModify;
       ///
       /// ¬рем€, с которого происходит загрузка иситории.
       ///

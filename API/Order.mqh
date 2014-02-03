@@ -1,5 +1,25 @@
 #include "Transaction.mqh"
 #include "..\Log.mqh"
+
+///
+/// Тип генерируемого маджика
+///
+enum ENUM_MAGIC_TYPE
+{
+   ///
+   /// Обычное закрытие по рынку.
+   ///
+   MAGIC_TYPE_MARKET,
+   ///
+   /// Ордер является Stop-Loss ордером позиции.
+   ///
+   MAGIC_TYPE_SL,
+   ///
+   /// Ордер является Take-Profit ордером позиции.
+   ///
+   MAGIC_TYPE_TP
+};
+
 ///
 /// Статус ордера.
 ///
@@ -52,7 +72,7 @@ class Order : public Transaction
       double PriceSetup();
       double EntryExecutedPrice(void);
       
-      ulong GetMagicForClose();
+      ulong GetMagic(ENUM_MAGIC_TYPE type);
       
       void Init(ulong orderId);
       bool IsPending();
@@ -77,7 +97,11 @@ class Order : public Transaction
       
       virtual ENUM_DIRECTION_TYPE Direction(void);
       bool InProcessing();
+      bool IsStopLoss();
+      bool IsTakeProfit();
    private:
+      ulong GetStopMask(void);
+      ulong GetTakeMask(void);
       virtual bool IsHistory();
       ENUM_ORDER_STATUS RefreshStatus(void);
       void RecalcValues(void);
@@ -138,6 +162,10 @@ class Order : public Transaction
       /// Магический номер эксперта, выставившего ордер.
       ///
       ulong magic;
+      ///
+      /// Истина, если основные параметры исторического ордера уже получены.
+      ///
+      bool isCalc;
 };
 
 /*PUBLIC MEMBERS*/
@@ -203,6 +231,8 @@ Order::Order(Order *order) : Transaction(TRANS_ORDER)
    type = order.OrderType();
    state = order.OrderState();
    magic = order.Magic();
+   if(priceExecuted > 0)
+      isCalc = true;
    //Копируются все значения, кроме ссылки на позицию.
    //position = order.Position();
 }
@@ -433,8 +463,17 @@ bool Order::InProcessing()
 ///
 /// Получает магик для закрытия данного ордера.
 ///
-ulong Order::GetMagicForClose(void)
+ulong Order::GetMagic(ENUM_MAGIC_TYPE magicType = MAGIC_TYPE_MARKET)
 {
+   switch(magicType)
+   {
+      case MAGIC_TYPE_MARKET:
+         return GetId();
+      case MAGIC_TYPE_SL:
+         return GetStopMask() | GetId();
+      case MAGIC_TYPE_TP:
+         return GetTakeMask() | GetId();
+   }
    return GetId();
 }
 
@@ -562,7 +601,7 @@ void Order::RecalcValues(void)
       state = (ENUM_ORDER_STATE)OrderGetInteger(ORDER_STATE);
       magic = OrderGetInteger(ORDER_MAGIC);
    }
-   else if(IsHistory())
+   else if(!isCalc && IsHistory())
    {
       priceSetup = HistoryOrderGetDouble(GetId(), ORDER_PRICE_OPEN);
       volumeSetup = HistoryOrderGetDouble(GetId(), ORDER_VOLUME_INITIAL);
@@ -572,6 +611,7 @@ void Order::RecalcValues(void)
       type = (ENUM_ORDER_TYPE)HistoryOrderGetInteger(GetId(), ORDER_TYPE);
       state = (ENUM_ORDER_STATE)HistoryOrderGetInteger(GetId(), ORDER_STATE);
       magic = HistoryOrderGetInteger(GetId(), ORDER_MAGIC);
+      isCalc = true;
    }
    RecalcPosId();
 }
@@ -608,4 +648,38 @@ void Order::CompressDeals()
             k++;
       }
    }
+}
+
+///
+/// Возвращает маску идентификатора StopLoss ордера.
+///
+ulong Order::GetStopMask(void)
+{
+   ulong x = 1;
+   return x << 62;
+}
+
+///
+/// Возвращает маску идентификатора StopLoss ордера.
+///
+ulong Order::GetTakeMask(void)
+{
+   ulong x = 1;
+   return x << 61;
+}
+
+///
+/// Возвращает истину, если текущий ордер является стоп-лосс ордером.
+///
+bool Order::IsStopLoss(void)
+{
+   return (magic & GetStopMask()) == GetStopMask();
+}
+
+///
+/// Возвращает истину, если текущий ордер является тейк-профит ордером.
+///
+bool Order::IsTakeProfit(void)
+{
+   return (magic & GetTakeMask()) == GetTakeMask();
 }

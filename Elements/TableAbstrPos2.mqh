@@ -276,7 +276,7 @@ class PosLine : public AbstractLine
                }
                break;
             case EVENT_END_EDIT_NODE:
-               OnClosePartPos(event);
+               IndefyEndEditNode(event);
                break;
             case EVENT_BLOCK_POS:
                OnBlockPos(event);
@@ -285,20 +285,51 @@ class PosLine : public AbstractLine
                EventSend(event);
          }
       }
-      
+      ///
+      /// »дентифицирует в каком именно узле произошло изменение,
+      /// и в зависимости от этого, вызывает соответствующий алгоритм обработки.
+      ///
+      void IndefyEndEditNode(EventEndEditNode* event)
+      {
+         EditNode* ch_node = event.Node();
+         int index = ch_node.NLine();
+         
+         ENUM_COLUMN_TYPE clType;
+         for(int i = 0; i < 10; i++)
+         {
+            switch(i)
+            {
+               case 0:
+                  clType = COLUMN_VOLUME;
+                  break;
+               case 1:
+                  clType = COLUMN_SL;
+                  break;
+               default:
+                  return;
+            }
+            ProtoNode* node = GetCell(clType);
+            if(ch_node == node)
+            {
+               switch(clType)
+               {
+                  case COLUMN_VOLUME:  
+                     OnClosePartPos(event.Node());
+                     break;
+                  case COLUMN_SL:
+                     OnStopLossModify(event.Node());
+                     break;
+               }
+            }
+         }
+      }
       ///
       /// ќбрабатывает приказ на закрытие части активной позиции.
       ///
-      void OnClosePartPos(EventEndEditNode* event)
+      void OnClosePartPos(EditNode* editNode)
       {
-         EditNode* ch_node = event.Node();
-         ProtoNode* node = GetCell(COLUMN_VOLUME);
-         if(ch_node != node)return;
-         
-         string myName = NameID();
+         double setVol = StringToDouble(editNode.Text());
          double curVol = pos.VolumeExecuted();
-         double setVol = StringToDouble(event.Value());
-         EditNode* editNode = event.Node();
          if(!pos.IsValidNewVolume(setVol))
          {
             editNode.Text(pos.VolumeToString(curVol));
@@ -306,9 +337,17 @@ class PosLine : public AbstractLine
          }
          editNode.Text(pos.VolumeToString(setVol)+"...");
          string exitComment = GetStringValue(COLUMN_EXIT_COMMENT);
-         isBlocked = true;
          double vol = curVol < setVol ? setVol : curVol - setVol;
          pos.AsynchClose(vol, exitComment);
+      }
+      
+      ///
+      /// ќтрпавл€ет приказ на создание/модификацию уровн€ стоп-лосс.
+      ///
+      void OnStopLossModify(EditNode* editNode)
+      {
+         double setVol = StringToDouble(editNode.Text());
+         pos.StopLossModify(setVol, pos.ExitComment(), true);
       }
       
       ///
@@ -318,9 +357,15 @@ class PosLine : public AbstractLine
       {
          if(pos != event.Position())return;
          if(event.Status())
+         {
             BlockedCell();
+            //BorderColor(clrRed);
+         }
          else
+         {
             UnBlockedCell();
+            //BorderColor(Settings.ColorTheme.GetSystemColor2());
+         }
       }
       ///
       /// Ѕлокирует редактирование текста в €чейках, которые позвол€ют
@@ -331,6 +376,8 @@ class PosLine : public AbstractLine
          if(isBlocked)return;
          //printf("blocked cell... pos# " + (string)pos.EntryOrderId());
          EditNode* cell = GetCell(COLUMN_VOLUME);
+         cell.ReadOnly(true);
+         cell = GetCell(COLUMN_SL);
          cell.ReadOnly(true);
          isBlocked = true;
       }
@@ -345,6 +392,11 @@ class PosLine : public AbstractLine
          EditNode* cell = GetCell(COLUMN_VOLUME);
          double vol = pos.VolumeExecuted();
          cell.Text(pos.VolumeToString(vol));
+         cell.ReadOnly(false);
+         
+         cell = GetCell(COLUMN_SL);
+         double sl = pos.StopLossLevel();
+         cell.Text(pos.PriceToString(sl));
          cell.ReadOnly(false);
          isBlocked = false;
       }
@@ -368,6 +420,7 @@ class PosLine : public AbstractLine
                comby = GetProfitEl(el);
                break;
             case COLUMN_VOLUME:
+            case COLUMN_SL:
                comby.element = GetDefaultEditEl(el);
                comby.value = comby.element;
                break;
