@@ -204,6 +204,12 @@ Order::Order(TradeRequest& request) : Transaction(TRANS_ORDER)
    symbol = request.symbol;
    type = request.type;
    comment = request.comment;
+   //Пытаемся получить маджиг из аткивных ордеров
+   if(magic == 0)
+   {
+      OrderSelect(GetId());
+      magic = OrderGetInteger(ORDER_MAGIC);
+   }
    RecalcPosId();
 }
 
@@ -337,7 +343,7 @@ ENUM_ORDER_STATUS Order::RefreshStatus()
    }
    if(IsHistory())
    {
-      if(deals.Total() == 0 || Math::DoubleEquals(VolumeExecuted(), 0.0))
+      if(TimeSetup() == 0)
          status = ORDER_NULL;
       else
          status = ORDER_HISTORY;   
@@ -622,7 +628,10 @@ void Order::RecalcValues(void)
 ///
 void Order::RecalcPosId()
 {
-   positionId = magic;
+   // 6 старших битов оставляем для служебной информации.
+   // остальное - для идентификатора номера.
+   ulong mask = 0x03FFFFFFFFFFFFFF;
+   positionId = magic & mask;
 }
 
 ///

@@ -346,8 +346,8 @@ class PosLine : public AbstractLine
       ///
       void OnStopLossModify(EditNode* editNode)
       {
-         double setVol = StringToDouble(editNode.Text());
-         pos.StopLossModify(setVol, pos.ExitComment(), true);
+         double setPrice = StringToDouble(editNode.Text());
+         pos.StopLossModify(setPrice, pos.ExitComment(), true);
       }
       
       ///
@@ -373,13 +373,10 @@ class PosLine : public AbstractLine
       ///
       void BlockedCell()
       {
-         if(isBlocked)return;
-         //printf("blocked cell... pos# " + (string)pos.EntryOrderId());
          EditNode* cell = GetCell(COLUMN_VOLUME);
          cell.ReadOnly(true);
          cell = GetCell(COLUMN_SL);
          cell.ReadOnly(true);
-         isBlocked = true;
       }
       
       ///
@@ -388,17 +385,15 @@ class PosLine : public AbstractLine
       ///
       void UnBlockedCell()
       {
-         if(!isBlocked)return;
          EditNode* cell = GetCell(COLUMN_VOLUME);
          double vol = pos.VolumeExecuted();
          cell.Text(pos.VolumeToString(vol));
          cell.ReadOnly(false);
          
          cell = GetCell(COLUMN_SL);
-         double sl = pos.StopLossLevel();
-         cell.Text(pos.PriceToString(sl));
+         //double sl = pos.StopLossLevel();
+         //cell.Text(pos.PriceToString(sl));
          cell.ReadOnly(false);
-         isBlocked = false;
       }
       ///
       /// 
@@ -546,7 +541,7 @@ class PosLine : public AbstractLine
                break;
             case COLUMN_SL:
                value = pos.PriceToString(pos.StopLossLevel());
-               break;
+               break;   
             case COLUMN_TP:
                value = pos.PriceToString(pos.TakeProfitLevel());
                break;
@@ -578,10 +573,6 @@ class PosLine : public AbstractLine
       /// ”казатель на позицию, которую представл€ет данна€ строка.
       ///
       Position* pos;
-      ///
-      /// »стина, если €чейки дл€ редактировани€ заблокированы, ложь в противном случае. 
-      ///
-      bool isBlocked;
 };
 
 ///

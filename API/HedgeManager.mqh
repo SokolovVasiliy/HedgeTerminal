@@ -89,8 +89,44 @@ class HedgeManager
             ulong ticket = HistoryDealGetTicket(dealsCountNow);
             AddNewDeal(ticket);
          }
+         TrackingPendingCancel();
          CheckModifyOrders();
          CollectNewSLAndTPOrders();
+      }
+      
+      ///
+      /// Отслеживает отмененные ордера.
+      ///
+      void TrackingPendingCancel()
+      {
+         //При первом вызове отмененные ордера не отслеживаем,
+         //т.к. первый вызов это разбор истории.
+         /*if(!tracking)
+         {
+            tracking = true;
+            historyOrdersCount = HistoryOrdersTotal();
+            return;
+         }*/
+         for(; historyOrdersCount < HistoryOrdersTotal(); historyOrdersCount++)
+         {
+            ulong ticket = HistoryOrderGetTicket(historyOrdersCount);
+            ENUM_ORDER_STATE state = HistoryOrderGetInteger(ticket, ORDER_STATE);
+            if(state != ORDER_STATE_CANCELED)
+               continue;
+            Order* order = new Order(ticket);
+            //Был отменен стоп-лосс или тейк профит?
+            if(order.IsStopLoss() || order.IsTakeProfit())
+            {
+               ENUM_ORDER_STATUS st = order.Status();
+               Position* ActPos = FindActivePosById(order.PositionId());
+               if(ActPos == NULL)
+               {
+                  delete order;
+                  continue;
+               }
+               ActPos.Integrate(order);
+            }
+         }
       }
       
       void CollectNewSLAndTPOrders()
@@ -103,11 +139,11 @@ class HedgeManager
                ulong ticket = OrderGetTicket(ordersPendingNow);
                OrderSelect(ticket);
                ENUM_ORDER_STATE state = (ENUM_ORDER_STATE)OrderGetInteger(ORDER_STATE);
-               if(IsOrderModify(state))
+               /*if(IsOrderModify(state))
                {
                   recalcModify = true;
                   continue;
-               }
+               }*/
                Order* order = new Order(ticket);
                Position* ActPos = FindActivePosById(order.PositionId());
                if(ActPos == NULL)
@@ -363,4 +399,12 @@ class HedgeManager
       /// Время, с которого происходит загрузка иситории.
       ///
       datetime timeBegin;
+      ///
+      /// Истина, если включено отслеживание ордеров.
+      ///
+      bool tracking;
+      ///
+      /// Количество исторических ордеров.
+      ///
+      int historyOrdersCount;
 };

@@ -124,6 +124,7 @@ class Position : public Transaction
       bool Merge(Position* pos);
       Order* EntryOrder(){return initOrder;}
       Order* ExitOrder(){return closingOrder;}
+      Order* StopOrder(){return slOrder;}
       bool Compatible(Position* pos);
       virtual int Compare(const CObject* node, const int mode=0);
       void OrderChanged(Order* order);
@@ -166,6 +167,34 @@ class Position : public Transaction
          ///
          CHANGED_ORDER_CLOSED
       };
+      
+      ///
+      /// Содержит идентификаторы заданий, которые надо выполнить.
+      ///
+      enum ENUM_TASKS
+      {
+         ///
+         /// Закрыть текущую позицию.
+         ///
+         TASK_CLOSE_POSITION,
+         ///
+         /// Удалить Stop-Loss.
+         ///
+         TASK_DELETE_STOP_LOSS,
+         ///
+         /// Модифицировать уровень Stop-Loss
+         ///
+         TASK_MODIFY_STOP_LOSS,
+         ///
+         /// Удалить Stop-Loss.
+         ///
+         TASK_DELETE_TAKE_PROFIT,
+         ///
+         /// Модифицировать уровень Stop-Loss
+         ///
+         TASK_MODIFY_TAKE_PROFIT,
+      };
+      
       ///
       /// Флаг блокировки, истина, если позиция находится в процессе изменения.
       ///
@@ -187,6 +216,8 @@ class Position : public Transaction
       ///
       //CArrayLong processingOrders;
       ENUM_CHANGED_ORDER DetectChangedOrder(Order* order);
+      void SetTask(ENUM_TASKS task);
+      void DeleteTask(ENUM_TASKS task);
       void ChangedInitOrder();
       void DeleteAllOrders();
       Position* OrderManager(Order* openOrder, Order* cloingOrder);
@@ -194,7 +225,7 @@ class Position : public Transaction
       bool CompatibleForClose(Order* order);
       InfoIntegration* AddClosingOrder(Order* outOrder);
       void AddInitialOrder(Order* inOrder);
-      void AddStopLossOrder(Order* order);
+      void AddNewStopLossOrder(Order* order);
       POSITION_STATUS CheckStatus(void);
       void ResetBlocked(void);
       void SetBlock(void);
@@ -227,6 +258,10 @@ class Position : public Transaction
          PosLine* positionLine;
       #endif
       CSymbolInfo infoSymbol;
+      ///
+      /// Список заданий.
+      ///
+      //CArrayInt tasks;
 };
 ///
 /// Деинициализирует позицию.
@@ -334,7 +369,8 @@ InfoIntegration* Position::Integrate(Order* order)
    InfoIntegration* info = NULL;
    if(order.IsStopLoss() && order.PositionId() == GetId())
    {
-      AddStopLossOrder(order);
+      AddNewStopLossOrder(order);
+      return info;
    }
    if(CompatibleForInit(order))
    {
@@ -378,31 +414,20 @@ bool Position::CompatibleForClose(Order *order)
    //Закрыть можно только активную позицию.
    if(status != POSITION_ACTIVE)
       return false;
-   if(order.PositionId() == GetId())
+   if(order.PositionId() == GetId() &&
+      order.Status() == ORDER_HISTORY)
       return true;
    return false;
 }
 
-///
-/// Добавляет стоп-лосс ордер к текущей позиции
-///
-void Position::AddStopLossOrder(Order *order)
+void Position::AddNewStopLossOrder(Order *order)
 {
    if(slOrder != NULL)
-   {
-      StopLossModify(order.PriceSetup(), order.Comment(), true);
-      trading.OrderDelete(order.GetId());
-      delete order;
-   }
-   else if(!CheckValidLevelSL(order.PriceSetup()))
-   {
-      trading.OrderDelete(order.GetId());
-      delete order;
-      LogWriter("Position #" + (string)GetId() +
-      " delete pending stop-loss order, because it has not compatible price level.", MESSAGE_TYPE_ERROR);
-   }
-   else
-      slOrder = order;
+      delete slOrder;
+   slOrder = order;
+   slOrder.LinkWithPosition(GetPointer(this));
+   ENUM_ORDER_STATUS st = slOrder.Status();
+   ResetBlocked();
 }
 
 ///
@@ -644,6 +669,8 @@ void Position::DeleteAllOrders(void)
 ///
 bool Position::AsynchClose(double vol, string comment = NULL)
 {
+   infoSymbol.Name(Symbol());
+   vol = NormalizeDouble(vol, infoSymbol.Digits());
    if(IsBlocked())
    {
       printf("Position is blocked. Try letter");
@@ -660,7 +687,10 @@ bool Position::AsynchClose(double vol, string comment = NULL)
    else if(Direction() == DIRECTION_SHORT)
       resTrans = trading.Buy(vol, Symbol(), 0.0, 0.0, 0.0, comment);
    if(resTrans)
+   {
       SetBlock();
+      //SetTask();
+   }
    else
    {
       printf("Rejected current operation by reason: " + trading.ResultRetcodeDescription());
@@ -832,7 +862,7 @@ ulong Position::ExitMagic(void)
 ///
 double Position::StopLossLevel(void)
 {
-   if(slOrder != NULL)
+   if(slOrder != NULL && slOrder.Status() != ORDER_HISTORY)
       return slOrder.PriceSetup();
    return slLevel;
 }
@@ -913,6 +943,7 @@ void Position::ResetBlocked(void)
    blockedTime.Tiks(0);
    isModify = false;
    SendEventBlockStatus(false);
+   SendEventChangedPos(POSITION_REFRESH);
 }
 
 ///
@@ -978,6 +1009,16 @@ void Position::OnRequestNotice(EventRequestNotice* notice)
    TradeResult* result = notice.GetResult();
    if(result.IsRejected())
       OnRejected(result);
+   TradeTransaction* trans = notice.GetTransaction();
+   
+   TradeRequest* request = notice.GetRequest();
+   if(trans.type == TRADE_TRANSACTION_ORDER_UPDATE)
+   {
+      printf("Изменение ордера.");
+      if(slOrder != NULL)
+         slOrder.Refresh();
+      ResetBlocked();
+   }
 }
 
 ///
@@ -1000,6 +1041,14 @@ void Position::OnRejected(TradeResult& result)
 void Position::NoticeModify(void)
 {
    isModify = true;
+}
+
+///
+/// Устанавливает новое задание в список заданий.
+///
+void Position::SetTask(ENUM_TASKS task)
+{
+   //tasks.Add(()task);
 }
 
 ///
@@ -1066,6 +1115,8 @@ bool Position::Unmanagment()
 ///
 bool Position::StopLossModify(double newLevel, string comment, bool asynchMode = true)
 {
+   infoSymbol.Name(Symbol());
+   newLevel = NormalizeDouble(newLevel, infoSymbol.Digits());
    bool res = false;
    trading.SetAsyncMode(asynchMode);
    SetBlock();
@@ -1094,13 +1145,15 @@ bool Position::StopLossModify(double newLevel, string comment, bool asynchMode =
       ResetBlocked();
       return true;
    }
-   if(slOrder == NULL)
+   if(slOrder == NULL || slOrder.Status() == ORDER_HISTORY)
    {
+      double vol = VolumeExecuted();
+      ulong magic = initOrder.GetMagic(MAGIC_TYPE_SL);
       trading.SetExpertMagicNumber(initOrder.GetMagic(MAGIC_TYPE_SL));
-      if(direction == DIRECTION_LONG)
-         res = trading.SellStop(VolumeExecuted(), newLevel, comment);
-      else if(direction == DIRECTION_SHORT)
-         res = trading.BuyStop(VolumeExecuted(), newLevel, comment);
+      if(Direction() == DIRECTION_LONG)
+         res = trading.SellStop(VolumeExecuted(), newLevel, Symbol(), 0.0, 0.0, ORDER_TIME_GTC, 0, comment);
+      else if(Direction() == DIRECTION_SHORT)
+         res = trading.BuyStop(VolumeExecuted(), newLevel, Symbol(), 0.0, 0.0, ORDER_TIME_GTC, 0, comment);
    }
    else
       res = trading.OrderModify(slOrder.GetId(), newLevel, 0.0, 0.0, ORDER_TIME_GTC, 0, 0);
@@ -1109,6 +1162,7 @@ bool Position::StopLossModify(double newLevel, string comment, bool asynchMode =
       LogWriter("Failed to set or modify stop-loss order. Reason: " +
                  trading.ResultRetcodeDescription(), MESSAGE_TYPE_ERROR);
       ResetBlocked();
+      
       return false;
    }
    return res;
@@ -1119,7 +1173,8 @@ bool Position::StopLossModify(double newLevel, string comment, bool asynchMode =
 ///
 bool Position::CheckValidLevelSL(double newLevel)
 {
-   infoSymbol.Name(symbol);
+   infoSymbol.Name(Symbol());
+   infoSymbol.RefreshRates();
    if(newLevel < 0.0)
    {
       string msg = "Position #" + (string)GetId() + ": New stop-loss level must be bigger null.";
@@ -1128,8 +1183,9 @@ bool Position::CheckValidLevelSL(double newLevel)
    }
    if(Math::DoubleEquals(newLevel, 0.0))
       return true;
-   if(direction == DIRECTION_LONG)
+   if(Direction() == DIRECTION_LONG)
    {
+      double last = infoSymbol.Last();
       if(infoSymbol.Last() < newLevel)
       {
          string msg = "Position #" + (string)GetId() + ": New stop-loss must be less current price.";
@@ -1143,8 +1199,9 @@ bool Position::CheckValidLevelSL(double newLevel)
          return false;
       }*/
    }
-   if(direction == DIRECTION_SHORT)
+   if(Direction() == DIRECTION_SHORT)
    {
+      double last = infoSymbol.Last();
       if(infoSymbol.Last() > newLevel)
       {
          string msg = "Position #" + (string)GetId() + ": New stop-loss must be bigger current price.";
