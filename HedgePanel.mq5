@@ -44,6 +44,7 @@ void OnInit(void)
    ChartSetInteger(0, CHART_EVENT_MOUSE_MOVE, true);
    //OnTimer();
 }
+
 void OnDeinit(const int reason)
 {
    int size = sizeof(HedgePanel);

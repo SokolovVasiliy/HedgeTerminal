@@ -269,11 +269,7 @@ class PosLine : public AbstractLine
          {
             case EVENT_CLOSE_POS:
                if(event.Direction() == EVENT_FROM_DOWN)
-               {
-                  if(pos.Status() != POSITION_ACTIVE)return;
-                  string value = GetStringValue(COLUMN_EXIT_COMMENT);
-                  pos.AsynchClose(pos.VolumeExecuted(), value);
-               }
+                  OnClosePos();
                break;
             case EVENT_END_EDIT_NODE:
                IndefyEndEditNode(event);
@@ -323,6 +319,20 @@ class PosLine : public AbstractLine
             }
          }
       }
+      
+      ///
+      /// ѕолностью закрывает позицию.
+      ///
+      void OnClosePos()
+      {
+         if(pos.Status() != POSITION_ACTIVE)return;
+         string value = GetStringValue(COLUMN_EXIT_COMMENT);
+         //‘ормируем задание на закрытие позиции.
+         Task* closePos = new TaskClosePos(pos);
+         pos.AddTask(closePos);
+         //pos.AsynchClose(pos.VolumeExecuted(), value);
+      }
+      
       ///
       /// ќбрабатывает приказ на закрытие части активной позиции.
       ///

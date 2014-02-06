@@ -66,6 +66,7 @@ struct ExchangerList
       Order* histOutOrder;
 };
 
+class Task;
 
 class Position : public Transaction
 {
@@ -143,6 +144,7 @@ class Position : public Transaction
       bool StopLossModify(double newLevel, string comment, bool asynchMode = true);
       bool CheckValidLevelSL(double newLevel);
       bool VirtualStopLoss(){return isVirtualStopLoss;}
+      void AddTask(Task* task);
    private:
       ///
       /// Класс, для совершения торговых операций.
@@ -168,32 +170,7 @@ class Position : public Transaction
          CHANGED_ORDER_CLOSED
       };
       
-      ///
-      /// Содержит идентификаторы заданий, которые надо выполнить.
-      ///
-      enum ENUM_TASKS
-      {
-         ///
-         /// Закрыть текущую позицию.
-         ///
-         TASK_CLOSE_POSITION,
-         ///
-         /// Удалить Stop-Loss.
-         ///
-         TASK_DELETE_STOP_LOSS,
-         ///
-         /// Модифицировать уровень Stop-Loss
-         ///
-         TASK_MODIFY_STOP_LOSS,
-         ///
-         /// Удалить Stop-Loss.
-         ///
-         TASK_DELETE_TAKE_PROFIT,
-         ///
-         /// Модифицировать уровень Stop-Loss
-         ///
-         TASK_MODIFY_TAKE_PROFIT,
-      };
+      
       
       ///
       /// Флаг блокировки, истина, если позиция находится в процессе изменения.
@@ -216,8 +193,6 @@ class Position : public Transaction
       ///
       //CArrayLong processingOrders;
       ENUM_CHANGED_ORDER DetectChangedOrder(Order* order);
-      void SetTask(ENUM_TASKS task);
-      void DeleteTask(ENUM_TASKS task);
       void ChangedInitOrder();
       void DeleteAllOrders();
       Position* OrderManager(Order* openOrder, Order* cloingOrder);
@@ -231,7 +206,7 @@ class Position : public Transaction
       void SetBlock(void);
       void OnRequestNotice(EventRequestNotice* notice);
       void OnRejected(TradeResult& result);
-      
+      void ExecutingTask(void);
       ///
       /// Инициирующий позицию ордер.
       ///
@@ -261,7 +236,7 @@ class Position : public Transaction
       ///
       /// Список заданий.
       ///
-      //CArrayInt tasks;
+      CArrayObj tasks;
 };
 ///
 /// Деинициализирует позицию.
@@ -390,6 +365,8 @@ InfoIntegration* Position::Integrate(Order* order)
       "can not be integrated in position #" + (string)GetId() +
       ". Position and order has not compatible types";
    }
+   //Выполнить задания.
+   ExecutingTask();
    return info;
 }
 
@@ -659,6 +636,11 @@ void Position::DeleteAllOrders(void)
    {
       delete closingOrder;
       closingOrder = NULL;
+   }
+   if(slOrder != NULL)
+   {
+      delete slOrder;
+      slOrder = NULL;
    }
 }
 
@@ -1043,13 +1025,6 @@ void Position::NoticeModify(void)
    isModify = true;
 }
 
-///
-/// Устанавливает новое задание в список заданий.
-///
-void Position::SetTask(ENUM_TASKS task)
-{
-   //tasks.Add(()task);
-}
 
 ///
 /// Возвращает истину, если объем текущей позиции может быть
@@ -1113,7 +1088,7 @@ bool Position::Unmanagment()
 ///
 /// Модифицирует текущий уровень стоп-лосса.
 ///
-bool Position::StopLossModify(double newLevel, string comment, bool asynchMode = true)
+bool Position::StopLossModify(double newLevel, string comment=NULL, bool asynchMode = true)
 {
    infoSymbol.Name(Symbol());
    newLevel = NormalizeDouble(newLevel, infoSymbol.Digits());
@@ -1216,4 +1191,37 @@ bool Position::CheckValidLevelSL(double newLevel)
       }*/
    }
    return true;
+}
+
+///
+/// Добавляет новое задание в очередь заданий.
+/// Добавленное задание будет существовать в списке заданий,
+/// пока не будет выполенно или отменено позицией.
+///
+void Position::AddTask(Task *task)
+{
+   tasks.Add(task);
+   //Если текущее задание можно выполнить - выполняем его.
+   if(!IsBlocked())
+      task.Execute();
+}
+
+///
+/// Выполняет задания из списка заданий.
+///
+void Position::ExecutingTask(void)
+{
+   for(int i = 0; i < tasks.Total();)
+   {
+      Task* task = tasks.At(i);
+      task.Execute();
+      //Если задание выполненно - удаляем его.
+      if(task.Status() == TASK_COMPLETED_SUCCESS ||
+         task.Status() == TASK_COMPLETED_FAILED)
+      {
+         tasks.Delete(i);
+      }
+      else
+         i++;
+   }
 }

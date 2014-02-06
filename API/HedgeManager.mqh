@@ -110,7 +110,7 @@ class HedgeManager
          for(; historyOrdersCount < HistoryOrdersTotal(); historyOrdersCount++)
          {
             ulong ticket = HistoryOrderGetTicket(historyOrdersCount);
-            ENUM_ORDER_STATE state = HistoryOrderGetInteger(ticket, ORDER_STATE);
+            ENUM_ORDER_STATE state = (ENUM_ORDER_STATE)HistoryOrderGetInteger(ticket, ORDER_STATE);
             if(state != ORDER_STATE_CANCELED)
                continue;
             Order* order = new Order(ticket);
