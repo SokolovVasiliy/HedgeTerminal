@@ -84,8 +84,11 @@ class HedgeManager
          //timeBegin = t_now;
          int total = HistoryDealsTotal();
          //Перебираем все доступные трейды и формируем на их основе прототипы будущих позиций типа COrder
+         int dbg = 5;
          for(; dealsCountNow < total; dealsCountNow++)
          {  
+            if(dealsCountNow == 3)
+               dbg = 6;
             ulong ticket = HistoryDealGetTicket(dealsCountNow);
             AddNewDeal(ticket);
          }

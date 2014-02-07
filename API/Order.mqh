@@ -166,6 +166,13 @@ class Order : public Transaction
       /// Истина, если основные параметры исторического ордера уже получены.
       ///
       bool isCalc;
+      /*Если у ордера была исполненная сделка, такой ордер считается активированным.
+      В случаи когда у активированного ордера сбрасывается объем (все сделки удаляются)
+      его статус становиться ORDER_NULL*/
+      ///
+      /// Истина, если ордер имел какой-либо исполненный объем.
+      ///
+      bool activated;
 };
 
 /*PUBLIC MEMBERS*/
@@ -224,7 +231,7 @@ Order::Order(Order *order) : Transaction(TRANS_ORDER)
       Deal* deal = order.DealAt(i);
       Deal* ndeal = deal.Clone();
       ndeal.LinqWithOrder(GetPointer(this));
-      deals.Add(ndeal);
+      AddDeal(ndeal);
    }
    comment = order.Comment();
    status = order.Status();
@@ -345,6 +352,8 @@ ENUM_ORDER_STATUS Order::RefreshStatus()
    {
       if(TimeSetup() == 0)
          status = ORDER_NULL;
+      else if(activated && DealsTotal() == 0)
+         status = ORDER_NULL;
       else
          status = ORDER_HISTORY;   
    }
@@ -401,6 +410,8 @@ void Order::AddDeal(Deal* deal)
    else*/
       deals.Add(deal);
    Refresh();
+   if(!activated && VolumeExecuted() > 0)
+      activated = true;
 }
 
 ///

@@ -328,9 +328,9 @@ class PosLine : public AbstractLine
          if(pos.Status() != POSITION_ACTIVE)return;
          string value = GetStringValue(COLUMN_EXIT_COMMENT);
          //Формируем задание на закрытие позиции.
-         Task* closePos = new TaskClosePos(pos);
-         pos.AddTask(closePos);
-         //pos.AsynchClose(pos.VolumeExecuted(), value);
+         //Task* closePos = new TaskClosePos(pos);
+         //pos.AddTask(closePos);
+         pos.AsynchClose(pos.VolumeExecuted(), value);
       }
       
       ///

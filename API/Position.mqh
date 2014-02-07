@@ -366,7 +366,7 @@ InfoIntegration* Position::Integrate(Order* order)
       ". Position and order has not compatible types";
    }
    //Выполнить задания.
-   ExecutingTask();
+   //ExecutingTask();
    return info;
 }
 
@@ -437,7 +437,13 @@ void Position::AddInitialOrder(Order *inOrder)
 InfoIntegration* Position::AddClosingOrder(Order* outOrder)
 {
    InfoIntegration* info = new InfoIntegration();
+   double initVol = initOrder.VolumeExecuted();
+   double outVol = outOrder.VolumeExecuted();
+   ulong iT = initOrder.GetId();
+   ulong oT = outOrder.GetId();
    info.HistoryPosition = OrderManager(initOrder, outOrder);
+   outVol = outOrder.VolumeExecuted();
+   int dT = outOrder.DealsTotal();
    if(outOrder.Status() != ORDER_NULL)
    {
       info.ActivePosition = new Position(outOrder);
