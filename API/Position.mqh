@@ -131,7 +131,6 @@ class Position : public Transaction
       void OrderChanged(Order* order);
       void Refresh();
       bool AsynchClose(double vol, string comment = NULL);
-      //bool OrderSend();
       virtual string TypeAsString(void);
       virtual ENUM_DIRECTION_TYPE Direction(void);
       void ProcessingNewOrder(long ticket);
@@ -234,9 +233,13 @@ class Position : public Transaction
       #endif
       CSymbolInfo infoSymbol;
       ///
-      /// Список заданий.
+      /// Текущее задание которое необходимо выполнить.
       ///
-      CArrayObj tasks;
+      Task* task;
+      ///
+      /// Флаг указывающий, что текущее задание имеет ограничение по времени.
+      ///
+      bool usingTimeOut;
 };
 ///
 /// Деинициализирует позицию.
@@ -342,7 +345,7 @@ bool Position::Merge(Position *pos)
 InfoIntegration* Position::Integrate(Order* order)
 {
    InfoIntegration* info = NULL;
-   if(order.IsStopLoss() && order.PositionId() == GetId())
+   if(order.IsStopLoss() && order.PositionId() == GetId() && order.IsPending())
    {
       AddNewStopLossOrder(order);
       return info;
@@ -997,6 +1000,7 @@ void Position::OnRequestNotice(EventRequestNotice* notice)
    TradeResult* result = notice.GetResult();
    if(result.IsRejected())
       OnRejected(result);
+   usingTimeOut = false;
    TradeTransaction* trans = notice.GetTransaction();
    
    TradeRequest* request = notice.GetRequest();
@@ -1021,6 +1025,7 @@ void Position::OnRejected(TradeResult& result)
       case TRADE_RETCODE_NO_MONEY:
          LogWriter("Position #" + (string)GetId() + ": Unmanaged hedge. Try to close parts.", MESSAGE_TYPE_INFO);
    }
+   //ExecutingTask();
 }
 
 ///
@@ -1204,30 +1209,36 @@ bool Position::CheckValidLevelSL(double newLevel)
 /// Добавленное задание будет существовать в списке заданий,
 /// пока не будет выполенно или отменено позицией.
 ///
-void Position::AddTask(Task *task)
+void Position::AddTask(Task *ctask)
 {
-   tasks.Add(task);
-   //Если текущее задание можно выполнить - выполняем его.
-   if(!IsBlocked())
-      task.Execute();
+   if(IsBlocked())
+   {
+      LogWriter("Position #" + (string)GetId() + " is blocked. Try letter.", MESSAGE_TYPE_ERROR);
+      delete ctask;
+      ctask = NULL;
+   }
+   if(CheckPointer(task) != POINTER_INVALID)
+      delete task;
+   task = ctask;
+   task.Execute();
 }
+
 
 ///
 /// Выполняет задания из списка заданий.
 ///
 void Position::ExecutingTask(void)
 {
-   for(int i = 0; i < tasks.Total();)
+   if(task == NULL)return;
+   //Отработанную задачу удаляем.
+   if(task.Status() != TASK_COMPLETED_FAILED ||
+      task.Status() != TASK_COMPLETED_SUCCESS)
    {
-      Task* task = tasks.At(i);
-      task.Execute();
-      //Если задание выполненно - удаляем его.
-      if(task.Status() == TASK_COMPLETED_SUCCESS ||
-         task.Status() == TASK_COMPLETED_FAILED)
-      {
-         tasks.Delete(i);
-      }
-      else
-         i++;
+      delete task;
+      task = NULL;
+      return;
    }
+   //Либо продолжаем выполнять.
+   usingTimeOut = true;
+   task.Execute();
 }

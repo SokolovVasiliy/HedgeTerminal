@@ -13,9 +13,3 @@ class Math
          return(fabs(a-b)<=16*DBL_EPSILON*fmax(fabs(a),fabs(b)));
       }
 };
-
-
-bool DoubleEquals(double a, double b)
-{
-   return(fabs(a-b)<=16*DBL_EPSILON*fmax(fabs(a),fabs(b)));
-}

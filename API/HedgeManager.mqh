@@ -65,6 +65,8 @@ class HedgeManager
       ///
       void OnRequestNotice(EventRequestNotice* event)
       {
+         TradeTransaction* trans = event.GetTransaction();
+         if(trans.type != TRADE_TRANSACTION_REQUEST)return;
          TradeRequest* request = event.GetRequest();
          Order* order = new Order(request);
          Position* ActPos = FindActivePosById(order.PositionId());
@@ -129,6 +131,7 @@ class HedgeManager
                }
                ActPos.Integrate(order);
             }
+            delete order;
          }
       }
       
@@ -247,7 +250,7 @@ class HedgeManager
             else
                actPos.SendEventChangedPos(POSITION_REFRESH);
          }
-         
+         //printf(ticket);
          //Можно закрыть больше чем имеется, тогда остаток - активная позиция.
          if(result.ActivePosition != NULL &&
             result.ActivePosition.Status() == POSITION_ACTIVE)

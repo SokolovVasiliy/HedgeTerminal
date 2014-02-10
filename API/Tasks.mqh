@@ -97,26 +97,36 @@ class PrimitiveOP : public CObject
       ///
       bool Execute()
       {
+         attempsMade++;
+         timeBegin.SetDateTime(TimeCurrent());
          return Script();
       }
       ///
       /// Возвращает истину, если состояние объекта соответствует цели действия.
       /// Например, если требуется удалить стоп-лосс ордер у позиции, а позиция уже
-      /// не имеет стоп-лосс ордер IsSuccess вернет истину.
+      /// не имеет стоп-лосс ордер, IsSuccess вернет истину.
       ///
       virtual bool IsSuccess()
       {
          return true;
       }
+      ///
+      /// Возвращает идентификатор операции.
+      ///
+      ENUM_OPERATION_TYPE OperationType(){return opType;}
+      ///
+      /// Возвращает время начала выполнения операции в милисекундах.
+      ///
+      long TimeBegin(){return timeBegin.Tiks();}
    protected:
-      PrimitiveOP()
+      PrimitiveOP(ENUM_OPERATION_TYPE type)
       {
          attempsAll = 1;
       }
       ///
       /// Задает операцию с заданным количеством попыток.
       ///
-      PrimitiveOP(int attemps)
+      PrimitiveOP(ENUM_OPERATION_TYPE type, int attemps)
       {
          attempsAll = attemps;
       }
@@ -129,6 +139,11 @@ class PrimitiveOP : public CObject
          return true;
       }
    private:
+      CTime timeBegin;
+      ///
+      /// Содержит идентификатор операции.
+      ///
+      ENUM_OPERATION_TYPE opType;
       ///
       /// Содержит количество совершенных попыток.
       ///
@@ -148,7 +163,7 @@ class ClosePosition : public PrimitiveOP
       ///
       /// Определяет закрытие всей позиции.
       ///
-      ClosePosition(Position* cpos, string comm)
+      ClosePosition(Position* cpos, string comm) : PrimitiveOP(OPERATION_POSITION_CLOSE)
       {
          pos = cpos;
          comment = comm;
@@ -157,11 +172,20 @@ class ClosePosition : public PrimitiveOP
       ///
       /// Определяет закрытие части позиции с объемом vol
       ///
-      ClosePosition(Position* cpos, double vol, string comm)
+      ClosePosition(Position* cpos, double vol, string comm) : PrimitiveOP(OPERATION_POSITION_CLOSE)
       {
          pos = cpos;
          comment = comm;
          volume = vol;
+      }
+      ///
+      /// Истина, если текущая позиция не активна.
+      ///
+      virtual bool IsSuccess()
+      {
+         if(pos.Status() != POSITION_ACTIVE)
+            return true;
+         return false;
       }
    private:
       Position* pos;
@@ -182,11 +206,19 @@ class ClosePosition : public PrimitiveOP
 class ModifyStopLoss : public PrimitiveOP
 {
    public:
-      ModifyStopLoss(Position* cpos, double slLevel, string comm)
+      ModifyStopLoss(Position* cpos, double slLevel, string comm) : PrimitiveOP(OPERATION_SL_MODIFY)
       {
          pos = cpos;
          comment = comm;
          stopLevel = slLevel;
+      }
+      ///
+      /// Истина, если текущий уровень стоп-лосса совпадает с установленным уровнем.
+      ///
+      virtual bool IsSuccess()
+      {
+         if(Math::DoubleEquals(pos.StopLossLevel(), stopLevel))return true;
+         return false;
       }
    private:
       ///
@@ -205,7 +237,7 @@ class ModifyStopLoss : public PrimitiveOP
 ///
 /// Задачи.
 ///
-class Task : CObject
+class Task : public CObject
 {
    public:
       ///
@@ -215,7 +247,7 @@ class Task : CObject
       ///
       /// Возвращает текущий статус задания.
       ///
-      ENUM_TASK_STATUS Status(){return taskStatus;}
+      virtual ENUM_TASK_STATUS Status(){return taskStatus;}
       ///
       /// Информационное сообщение.
       ///
@@ -245,7 +277,7 @@ class Task : CObject
       ///
       /// Истина, если текущее задание возможно выполнить, ложь в противном случае.
       ///
-      bool checkValidExecute(void)
+      /*bool checkValidExecute(void)
       {
          //Задание нельзя применить к нулевой позиции.
          if(position.Status() == POSITION_NULL)
@@ -258,26 +290,26 @@ class Task : CObject
             taskStatus == TASK_COMPLETED_FAILED)
             return false;
          return true;
-      }
+      }*/
       ///
       /// Истина, если позиция использует стоп-лосс ордер.
       ///
-      bool UsingStopLoss(void)
+      /*bool UsingStopLoss(void)
       {
          Order* slOrder = position.StopOrder();
          if(slOrder != NULL && slOrder.IsPending())
             return true;
          return false;
-      }
+      }*/
       ///
       /// Истина, если позиция использует тейк-профит ордер.
       ///
-      bool UsingTakeProfit(void)
+      /*bool UsingTakeProfit(void)
       {
          //Сейчас тейк-профит ордера не реализованы, поэтому
          //позиция их никогда не использует.
          return false;
-      }
+      }*/
    private:
       ///
       /// Текущая позиция.
@@ -296,22 +328,21 @@ class TaskClosePos : public Task
    public:
       TaskClosePos(Position* pos, string exitComment) : Task(pos, TASK_CLOSE_POSITION)
       {
-         //closePos = new ClosePosition(pos, exitComment);
-         //modifyStop = new ModifyStopLoss(pos, 0.0, "");
          position = pos;
+         //Удаляем стоп-лосс ордер.
          listOperations.Add(new ModifyStopLoss(pos, 0.0, ""));
+         //Закрываем позицию.
          listOperations.Add(new ClosePosition(pos, exitComment));
+         oldStopLoss = pos.StopLossLevel();
       }
+      
       virtual void Execute()
       {
+         if(taskStatus != TASK_COMPLETED_FAILED)
+            taskStatus = TASK_EXECUTING;
          while(listOperations.Total())
          {
             PrimitiveOP* op = listOperations.At(0);
-            if(op.IsPerform())
-            {
-               op.Execute();
-               return;
-            }
             //Условия задания выполненны? - 
             //Переходим к следущему заданию.
             if(op.IsSuccess())
@@ -320,44 +351,25 @@ class TaskClosePos : public Task
                listOperations.Delete(0);
                continue;   
             }
-            // В противном случае завершаем задание неудачей.
-            // Причина неудачи в последнем задании.
-            taskStatus = TASK_COMPLETED_FAILED;
+            else if(op.IsPerform())
+            {
+               op.Execute();
+               return;
+            }
+            else
+            {
+               //Сбой выполнения.
+               //Устанавливаем сценарий восстановления.
+               //Устанавливаем флаг сбоя.
+               //taskStatus = TASK_COMPLETED_FAILED;
+               message = "operation " + EnumToString(op.OperationType()) + " failed.";
+               SetRestoreOP();
+               continue;
+            }
          }
+         if(taskStatus != TASK_COMPLETED_FAILED)
+            taskStatus = TASK_COMPLETED_SUCCESS;
          //Заданий нет? - все задания выполнены удачно.
-         
-         if(UsingStopLoss())
-         {
-            if(modifyStop.IsPerform())
-            {
-               if(!DoubleEquals(oldStopLoss, position.StopLossLevel()))
-                  oldStopLoss = position.StopLossLevel();
-               modifyStop.Execute();
-            }
-            else
-            {
-               taskStatus = TASK_COMPLETED_FAILED;
-               message = "Failed to modify stop loss. Task canceled.";
-            }
-            return;
-         }
-         //Если дошли до сюда - стоп-лосса уже нет.
-         if(position.Status() == POSITION_ACTIVE)
-         {
-            if(closePos.IsPerform())
-               closePos.Execute();
-            // По каким-то причинам, закрытие позиции завершилось неудачей.
-            // Восстанавливаем стоп-лосс у этой позиции и завершаем задачу.
-            else
-            {
-               RestoreStop();
-               taskStatus = TASK_COMPLETED_FAILED;
-               message = "Failed to close position. Restore Stop and task canceled.";
-            }
-            return;
-         }
-         //Если дошли до сюда - активной позиции уже нет и задание успешно выполненно.
-         taskStatus = TASK_COMPLETED_SUCCESS;
          message = "Task completed successfully.";
       }
    private:
@@ -366,46 +378,37 @@ class TaskClosePos : public Task
       /// (Уровень первончальаного стоп-лосса должен быть предусмотрительно
       /// записан перед его удаленим в переменную oldStopLoss).
       ///
-      void RestoreStop()
+      void SetRestoreOP()
       {
-         //Если информации о старом стопе нет - то и нечего восстанавливать.
-         if(DoubleEquals(0.0, 0.0) ||
-            oldStopLoss < 0.0)
+         taskStatus = TASK_COMPLETED_FAILED;
+         listOperations.Clear();
+         //Если позиция не активна - восстанавливать уже нечего.
+         if(position.Status() != POSITION_ACTIVE || isRestore)
             return;
-         if(position.CheckValidLevelSL(oldStopLoss))
-         {
-            if(restoreStop == NULL)
-               restoreStop = new ModifyStopLoss(position, oldStopLoss, "");
-            restoreStop.Execute();
-         }
+         isRestore = true;
+         //Если уровни совпадают - выходим.
+         if(Math::DoubleEquals(position.StopLossLevel(), oldStopLoss))
+            return;
+         //Иначе формируем задание на установку стоп-лосса.
+         listOperations.Add(new ModifyStopLoss(position, oldStopLoss, ""));
       }
-      /*Примитивыне процедуры с которыми будем работать*/
       ///
-      /// Процедура закрытия позиции.
-      ///
-      ClosePosition* closePos;
-      ///
-      /// Процедура модификации стоп-лосса.
-      ///
-      ModifyStopLoss* modifyStop;
-      ///
-      /// Процедура восстановления стоп-лосса.
-      ///
-      ModifyStopLoss* restoreStop;
-      ///
-      /// Позиция, к которой будет применено задание.
+      /// Позиция.
       ///
       Position* position;
       ///
-      /// Запоминаем уровень старого стоп-лосса, на случай, если
-      /// его придется восстановить, если цикл операций по удалению
-      /// позиции окажется неудачным.
+      /// Уровень первоначального стоп-лосса.
       ///
       double oldStopLoss;
       ///
       /// Список операций.
       ///
       CArrayObj listOperations;
+      ///
+      /// Флаг указывающий на то, что функция восстановления уже вызывалась, и повторно пытаться восстановить 
+      /// состояние уже не нужно.
+      ///
+      bool isRestore;
 };
 
 ///
@@ -457,16 +460,16 @@ class TaskClosePartPos : public Task
       virtual void Execute()
       {
          //Выполняем задание, только в том случае, если его возможно выполнить.
-         if(!checkValidExecute())return;
-         taskStatus = TASK_EXECUTING;
+         //if(!checkValidExecute())return;
+         //taskStatus = TASK_EXECUTING;
          Position* pos = TaskPosition();
          //Удаляем стоп-лосс ордер, если он есть.
-         if(UsingStopLoss())
+         /*if(UsingStopLoss())
          {
             stopLevel = pos.StopLossLevel();
             pos.StopLossModify(0.0);
             return;
-         }
+         }*/
          //2. Закрываем часть объема текущей позиции.
          if(pos.Status() != POSITION_HISTORY)
          {
@@ -476,7 +479,7 @@ class TaskClosePartPos : public Task
          //Ставим новый стоп-лосс, на прежнем уровне, с объемом, равным текущей позиции.
          //(К сожалению изменить объем у отложенного ордера нельзя).
          pos.StopLossModify(stopLevel);
-         taskStatus = TASK_COMPLETED_SUCCESS;
+         //taskStatus = TASK_COMPLETED_SUCCESS;
       }
    private:
       ///
