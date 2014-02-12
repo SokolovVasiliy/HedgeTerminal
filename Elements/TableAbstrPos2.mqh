@@ -331,6 +331,8 @@ class PosLine : public AbstractLine
          //Task* closePos = new TaskClosePos(pos);
          //pos.AddTask(closePos);
          //pos.AsynchClose(pos.VolumeExecuted(), value);
+         //ѕровер€ем, можем ли мы закрыть позицию.
+         //...
          TaskClosePos* closePos = new TaskClosePos(pos, value);
          pos.AddTask(closePos);
       }
@@ -359,7 +361,9 @@ class PosLine : public AbstractLine
       void OnStopLossModify(EditNode* editNode)
       {
          double setPrice = StringToDouble(editNode.Text());
-         pos.StopLossModify(setPrice, pos.ExitComment(), true);
+         //pos.StopLossModify(setPrice, pos.ExitComment(), true);
+         TaskModifyOrSetStopLoss* sl = new TaskModifyOrSetStopLoss(pos, setPrice, pos.ExitComment());
+         pos.AddTask(sl);
       }
       
       ///
@@ -371,6 +375,7 @@ class PosLine : public AbstractLine
          if(event.Status())
          {
             BlockedCell();
+            //SetBlockedColor();
             //BorderColor(clrRed);
          }
          else

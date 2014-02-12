@@ -91,7 +91,8 @@ void  OnTradeTransaction(
    
    EventRequestNotice* event_request = new EventRequestNotice(trans, request, result);
    printf(EnumToString(trans.order_state) + "   " + EnumToString(trans.type) + " " +
-   (string)result.retcode + " magic: " + (string)request.magic + " order: " + (string)request.order);
+   (string)result.retcode + " magic: " + (string)request.magic + " order: " + (string)request.order +
+   " res order: " + trans.order);
    api.Event(event_request);
    delete event_request;
 }

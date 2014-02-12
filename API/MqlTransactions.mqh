@@ -10,6 +10,7 @@ class TradeTransaction
       TradeTransaction(void);
       TradeTransaction(MqlTradeTransaction& trans);
       TradeTransaction(const MqlTradeTransaction& trans);
+      bool IsUpdate(void);
       void CopyFrom(MqlTradeTransaction& trans);
       void CopyFrom(const MqlTradeTransaction& trans);
       ulong deal;
@@ -57,6 +58,17 @@ void TradeTransaction::CopyFrom(const MqlTradeTransaction &trans)
    price_sl = trans.price_sl;
    price_tp = trans.price_tp;
    volume = trans.volume;
+}
+
+///
+/// Истина, если транзакция уведомляет о изменении отложенного ордера.
+///
+bool TradeTransaction::IsUpdate(void)
+{
+   if(type == TRADE_TRANSACTION_ORDER_UPDATE)
+      return true;
+   else
+      return false;
 }
 
 ///
@@ -174,6 +186,7 @@ bool TradeResult::IsRejected(void)
 {
    switch(retcode)
    {
+      case 0:
       case TRADE_RETCODE_PLACED:
       case TRADE_RETCODE_DONE:
       case TRADE_RETCODE_DONE_PARTIAL:

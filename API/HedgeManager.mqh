@@ -66,13 +66,27 @@ class HedgeManager
       void OnRequestNotice(EventRequestNotice* event)
       {
          TradeTransaction* trans = event.GetTransaction();
-         if(trans.type != TRADE_TRANSACTION_REQUEST)return;
-         TradeRequest* request = event.GetRequest();
-         Order* order = new Order(request);
-         Position* ActPos = FindActivePosById(order.PositionId());
-         delete order;
-         if(ActPos != NULL)
-            ActPos.Event(event);
+         //Посылаем ответ позиции.
+         if(trans.type == TRADE_TRANSACTION_REQUEST)
+         {
+            TradeRequest* request = event.GetRequest();
+            Order* order = new Order(request);
+            Position* ActPos = FindActivePosById(order.PositionId());
+            delete order;
+            if(ActPos != NULL)
+               ActPos.Event(event);
+         }
+         //Отложенный ордер изменился? - Возможно он связан с позицией.
+         if(trans.type == TRADE_TRANSACTION_ORDER_UPDATE)
+         {
+            if(!OrderSelect(trans.order))
+               return;
+            Order* order = new Order(trans.order);
+            Position* ActPos = FindActivePosById(order.PositionId());
+            delete order;
+            if(ActPos != NULL)
+               ActPos.Event(event);
+         }
       }
       ///
       /// Следит за поступлением новых трейдов и ордеров.
@@ -89,7 +103,7 @@ class HedgeManager
          int dbg = 5;
          for(; dealsCountNow < total; dealsCountNow++)
          {  
-            if(dealsCountNow == 3)
+            if(dealsCountNow == 63)
                dbg = 6;
             ulong ticket = HistoryDealGetTicket(dealsCountNow);
             AddNewDeal(ticket);
@@ -129,7 +143,8 @@ class HedgeManager
                   delete order;
                   continue;
                }
-               ActPos.Integrate(order);
+               InfoIntegration* ii = ActPos.Integrate(order);
+               
             }
             delete order;
          }

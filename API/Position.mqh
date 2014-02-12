@@ -144,6 +144,7 @@ class Position : public Transaction
       bool CheckValidLevelSL(double newLevel);
       bool VirtualStopLoss(){return isVirtualStopLoss;}
       void AddTask(Task* task);
+      Order* FindOrderById(ulong id);
    private:
       ///
       /// Класс, для совершения торговых операций.
@@ -163,6 +164,10 @@ class Position : public Transaction
          /// Этот ордер инициализурет позицию. 
          ///
          CHANGED_ORDER_INIT,
+         ///
+         /// Ордер защитной остановки.
+         ///
+         CHANGED_ORDER_SL,
          ///
          /// Этот ордер закрывает позицию.
          ///
@@ -205,7 +210,9 @@ class Position : public Transaction
       void SetBlock(void);
       void OnRequestNotice(EventRequestNotice* notice);
       void OnRejected(TradeResult& result);
+      void OnUpdate(ulong OrderId);
       void ExecutingTask(void);
+      void TaskCollector(void);
       ///
       /// Инициирующий позицию ордер.
       ///
@@ -247,6 +254,8 @@ class Position : public Transaction
 Position::~Position()
 {
    DeleteAllOrders();
+   if(task != NULL)
+      delete task;
 }
 ///
 /// Создает неактивную позицию со статусом POSITION_NULL.
@@ -354,12 +363,10 @@ InfoIntegration* Position::Integrate(Order* order)
    {
       AddInitialOrder(order);
       info = new InfoIntegration();
-      ResetBlocked();
    }
    else if(CompatibleForClose(order))
    {
       info = AddClosingOrder(order);
-      ResetBlocked();
    }
    else
    {
@@ -368,8 +375,9 @@ InfoIntegration* Position::Integrate(Order* order)
       "can not be integrated in position #" + (string)GetId() +
       ". Position and order has not compatible types";
    }
-   //Выполнить задания.
-   //ExecutingTask();
+   ResetBlocked();
+   //Запрос обработан, продолжаем выполнять задания.
+   ExecutingTask();
    return info;
 }
 
@@ -600,6 +608,8 @@ ENUM_CHANGED_ORDER Position::DetectChangedOrder(Order *order)
       return CHANGED_ORDER_NDEF;
    if(initOrder.GetId() == order.GetId())
       return CHANGED_ORDER_INIT;
+   if(UsingStopLoss() && slOrder.GetId() == order.GetId())
+      return CHANGED_ORDER_SL;
    if(status == POSITION_HISTORY &&
       closingOrder.GetId() == order.GetId())
       return CHANGED_ORDER_CLOSED;      
@@ -619,6 +629,7 @@ void Position::OrderChanged(Order* order)
       case CHANGED_ORDER_CLOSED:
          break;
     }
+    Refresh();
 }
 
 ///
@@ -627,8 +638,7 @@ void Position::OrderChanged(Order* order)
 void Position::ChangedInitOrder()
 {
    if(initOrder.Status() == ORDER_EXECUTING)
-      blocked = true;
-   Refresh();
+      SetBlock();
 }
 
 ///
@@ -885,14 +895,7 @@ void Position::TakeProfitLevel(double level)
 ///
 bool Position::UsingStopLoss(void)
 {
-   return false;
-}
-
-///
-/// Включает (useStopLoss=true) или отключает (useStopLoss=false) использования стоп-лосса.
-///
-void Position::UsingStopLoss(bool useStopLoss)
-{
+   return CheckPointer(slOrder) != POINTER_INVALID;
 }
 
 ///
@@ -988,7 +991,7 @@ void Position::Event(Event* event)
    {
       case EVENT_REQUEST_NOTICE:
          OnRequestNotice(event);
-         break;   
+         break;
    }
 }
 
@@ -997,20 +1000,13 @@ void Position::Event(Event* event)
 ///
 void Position::OnRequestNotice(EventRequestNotice* notice)
 {
+   
    TradeResult* result = notice.GetResult();
+   TradeTransaction* trans = notice.GetTransaction();
    if(result.IsRejected())
       OnRejected(result);
-   usingTimeOut = false;
-   TradeTransaction* trans = notice.GetTransaction();
-   
-   TradeRequest* request = notice.GetRequest();
-   if(trans.type == TRADE_TRANSACTION_ORDER_UPDATE)
-   {
-      printf("Изменение ордера.");
-      if(slOrder != NULL)
-         slOrder.Refresh();
-      ResetBlocked();
-   }
+   else if(trans.IsUpdate())
+      OnUpdate(trans.order);
 }
 
 ///
@@ -1025,7 +1021,21 @@ void Position::OnRejected(TradeResult& result)
       case TRADE_RETCODE_NO_MONEY:
          LogWriter("Position #" + (string)GetId() + ": Unmanaged hedge. Try to close parts.", MESSAGE_TYPE_INFO);
    }
-   //ExecutingTask();
+   ExecutingTask();
+}
+
+///
+/// Обновляет изменившейся ордер.
+/// \param OrderId - идентификатор ордера, который изменился.
+///
+void Position::OnUpdate(ulong OrderId)
+{
+   Order* changeOrder = FindOrderById(OrderId);
+   if(changeOrder != NULL)
+   {
+      changeOrder.Refresh();
+      ResetBlocked();
+   }
 }
 
 ///
@@ -1134,6 +1144,7 @@ bool Position::StopLossModify(double newLevel, string comment=NULL, bool asynchM
    if(slOrder == NULL || slOrder.Status() == ORDER_HISTORY)
    {
       double vol = VolumeExecuted();
+      //if(!CheckVolume(vol))
       ulong magic = initOrder.GetMagic(MAGIC_TYPE_SL);
       trading.SetExpertMagicNumber(initOrder.GetMagic(MAGIC_TYPE_SL));
       if(Direction() == DIRECTION_LONG)
@@ -1163,7 +1174,7 @@ bool Position::CheckValidLevelSL(double newLevel)
    infoSymbol.RefreshRates();
    if(newLevel < 0.0)
    {
-      string msg = "Position #" + (string)GetId() + ": New stop-loss level must be bigger null.";
+      string msg = "Position #" + (string)GetId() + ": New Stop-Loss level must be bigger null.";
       LogWriter(msg, MESSAGE_TYPE_ERROR);
       return false;
    }
@@ -1217,12 +1228,33 @@ void Position::AddTask(Task *ctask)
       delete ctask;
       ctask = NULL;
    }
+   //Старую задачу удаляем.
    if(CheckPointer(task) != POINTER_INVALID)
       delete task;
    task = ctask;
    task.Execute();
+   Refresh();
 }
 
+///
+/// Сборщик отработанных заданий.
+///
+void Position::TaskCollector(void)
+{
+   if(task == NULL)return;
+   ENUM_TASK_STATUS status = task.Status();
+   //Удаляем завершенные задачипо их завершению.
+   if(status == TASK_COMPLETED_SUCCESS ||
+      status == TASK_COMPLETED_FAILED)
+      delete task;
+   else if(task.TimeLastExecution() > 180000)
+   {
+      delete task;
+      ResetBlocked();
+   }
+   else if(task.TimeLastExecution() == 0)
+      task.Execute();
+}
 
 ///
 /// Выполняет задания из списка заданий.
@@ -1241,4 +1273,22 @@ void Position::ExecutingTask(void)
    //Либо продолжаем выполнять.
    usingTimeOut = true;
    task.Execute();
+}
+
+///
+/// Пытается найти один из ордеров позиции, чей идентификатор
+/// равен указанному. Возвращает найденый ордер, либо NULL
+/// в случае неудачи.
+///
+Order* Position::FindOrderById(ulong id)
+{
+   bool uSl = UsingStopLoss();
+   ulong sId;
+   if(uSl)
+      sId = slOrder.GetId();
+   if(Status() == POSITION_NULL)return NULL;
+   if(initOrder.GetId() == id)return initOrder;
+   if(UsingStopLoss() && slOrder.GetId() == id)return slOrder;
+   //if(UsingTakeProfit() && tpOrder.GetId() == id)return tpOrder;
+   return NULL;
 }
