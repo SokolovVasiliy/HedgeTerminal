@@ -3,6 +3,7 @@
 #include "Order.mqh"
 #include "..\Log.mqh"
 #include "..\Events.mqh"
+#include "Tasks.mqh"
 #include <Trade\SymbolInfo.mqh>
  
 class Position;
@@ -66,8 +67,6 @@ struct ExchangerList
       Order* histOutOrder;
 };
 
-class Task;
-
 class Position : public Transaction
 {
    public:
@@ -116,8 +115,6 @@ class Position : public Transaction
       void StopLossLevel(double level);
       void TakeProfitLevel(double level);
       bool UsingStopLoss(void);
-      void UsingStopLoss(bool useStopLoss);
-      
       InfoIntegration* Integrate(Order* order);
       static bool CheckOrderType(Order* checkOrder);
       POSITION_STATUS Status();
@@ -133,7 +130,6 @@ class Position : public Transaction
       bool AsynchClose(double vol, string comment = NULL);
       virtual string TypeAsString(void);
       virtual ENUM_DIRECTION_TYPE Direction(void);
-      void ProcessingNewOrder(long ticket);
       bool IsBlocked();
       void NoticeModify(void);
       void Event(Event* event);
@@ -198,6 +194,7 @@ class Position : public Transaction
       //CArrayLong processingOrders;
       ENUM_CHANGED_ORDER DetectChangedOrder(Order* order);
       void ChangedInitOrder();
+      void AddCanceledOrder(Order* order);
       void DeleteAllOrders();
       Position* OrderManager(Order* openOrder, Order* cloingOrder);
       bool CompatibleForInit(Order* order);
@@ -283,8 +280,6 @@ Position::Position(Order* inOrder, Order* outOrder) : Transaction(TRANS_POSITION
       return;
    if(inOrder.VolumeExecuted() != outOrder.VolumeExecuted())
       return;
-   ulong in_id = inOrder.GetId();
-   ulong out_id = outOrder.PositionId();
    if(inOrder.GetId() != outOrder.PositionId())
       return;
    status = POSITION_HISTORY;
@@ -354,7 +349,7 @@ bool Position::Merge(Position *pos)
 InfoIntegration* Position::Integrate(Order* order)
 {
    InfoIntegration* info = NULL;
-   if(order.IsStopLoss() && order.PositionId() == GetId() && order.IsPending())
+   if(order.IsStopLoss() && order.PositionId() == GetId() && (order.IsPending() || order.IsCanceled()))
    {
       AddNewStopLossOrder(order);
       return info;
@@ -410,6 +405,21 @@ bool Position::CompatibleForClose(Order *order)
 
 void Position::AddNewStopLossOrder(Order *order)
 {
+   // Если ордер был отменен клиентом - запоминаем его стоп, в случаи текущей цены
+   // лучше этого стопа.
+   /*if(order.IsCanceled())
+   {
+      AddCanceledOrder(order);
+      return;
+   }*/
+   //Если отложенный ордер еще существует, а позиция историческая -
+   //необходимо удалить отложенный ордер.
+   if(order.IsPending() && status == POSITION_HISTORY)
+   {
+      AddTask(new TaskModifyOrSetStopLoss(GetPointer(this), 0.0, "canceled by wrong magic"));
+      delete order;
+      return;
+   }
    if(slOrder != NULL)
       delete slOrder;
    slOrder = order;
@@ -417,6 +427,36 @@ void Position::AddNewStopLossOrder(Order *order)
    ENUM_ORDER_STATUS st = slOrder.Status();
    ResetBlocked();
 }
+
+///
+/// Добавляет отмененный стоп-тейк профит ордер в позицию если это возможно.
+///
+/*void Position::AddCanceledOrder(Order* order)
+{
+   
+   if(Status() == POSITION_NULL)
+   {
+      delete order;
+      return;
+   }
+   if(slOrder != NULL)
+      delete slOrder;
+   slOrder = order;
+   bool goodStop = false;
+   if(order.Direction() == DIRECTION_LONG)
+      goodStop = order.PriceSetup() < ExitExecutedPrice();
+   else
+      goodStop = order.PriceSetup() > ExitExecutedPrice();
+   if(goodStop)
+   {
+      if(slOrder != NULL)
+         delete slOrder;
+      slOrder = order;
+   }
+   else
+      delete order;
+   
+}*/
 
 ///
 /// Добавляет инициирующий ордер в позицию.
@@ -577,6 +617,9 @@ Position* Position::OrderManager(Order* inOrder, Order* outOrder)
    //Неуправляемая позиция продолжает быть неуправляемой в историческом состоянии.
    if(unmanagment)
       histPos.Unmanagment(true);
+   //Проверяем, нет ли к этому моменту отмененного стопа
+   if(UsingStopLoss() && slOrder.IsCanceled())
+      histPos.Integrate(new Order(slOrder));
    return histPos;
 }
 
@@ -863,7 +906,7 @@ ulong Position::ExitMagic(void)
 ///
 double Position::StopLossLevel(void)
 {
-   if(slOrder != NULL && slOrder.Status() != ORDER_HISTORY)
+   if(slOrder != NULL/* && slOrder.Status() != ORDER_HISTORY*/)
       return slOrder.PriceSetup();
    return slLevel;
 }

@@ -60,6 +60,7 @@ class Order : public Transaction
       string Comment();
       long TimeSetup();
       long TimeExecuted();
+      long TimeCanceled();
       
       Order* Clone();
       int ContainsDeal(Deal* deal);
@@ -75,7 +76,8 @@ class Order : public Transaction
       ulong GetMagic(ENUM_MAGIC_TYPE type);
       
       void Init(ulong orderId);
-      bool IsPending();
+      bool IsPending(void);
+      bool IsCanceled(void);
       
       void LinkWithPosition(Position* pos); 
       
@@ -130,6 +132,10 @@ class Order : public Transaction
       /// Содержит время исполнения ордера.
       ///
       CTime timeExecuted;
+      ///
+      /// Время снятия или истичения ордера.
+      ///
+      CTime timeCanceled;
       ///
       /// Содержит цену установки ордера.
       ///
@@ -512,6 +518,15 @@ long Order::TimeSetup()
 }
 
 ///
+/// Возвращает время истечения или снятия ордера. Для отложенных
+/// и уже исполненных ордеров возвращает 0.
+///
+long Order::TimeCanceled(void)
+{
+   return timeCanceled.Tiks();
+}
+
+///
 /// Возвращает точное время исполнения ордера, в виде
 /// количества тиков прошедших с 01.01.1970 года.
 ///
@@ -617,18 +632,22 @@ void Order::RecalcValues(void)
       type = (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE);
       state = (ENUM_ORDER_STATE)OrderGetInteger(ORDER_STATE);
       magic = OrderGetInteger(ORDER_MAGIC);
+      
    }
-   else if(!isCalc && IsHistory())
+   else if((!isCalc && IsHistory()) || IsCanceled())
    {
-      priceSetup = HistoryOrderGetDouble(GetId(), ORDER_PRICE_OPEN);
-      volumeSetup = HistoryOrderGetDouble(GetId(), ORDER_VOLUME_INITIAL);
-      timeSetup = HistoryOrderGetInteger(GetId(), ORDER_TIME_SETUP_MSC);
-      comment = HistoryOrderGetString(GetId(), ORDER_COMMENT);
-      symbol = HistoryOrderGetString(GetId(), ORDER_SYMBOL);
-      type = (ENUM_ORDER_TYPE)HistoryOrderGetInteger(GetId(), ORDER_TYPE);
-      state = (ENUM_ORDER_STATE)HistoryOrderGetInteger(GetId(), ORDER_STATE);
-      magic = HistoryOrderGetInteger(GetId(), ORDER_MAGIC);
+      ulong id = GetId();
+      priceSetup = HistoryOrderGetDouble(id, ORDER_PRICE_OPEN);
+      volumeSetup = HistoryOrderGetDouble(id, ORDER_VOLUME_INITIAL);
+      timeSetup = HistoryOrderGetInteger(id, ORDER_TIME_SETUP_MSC);
+      comment = HistoryOrderGetString(id, ORDER_COMMENT);
+      symbol = HistoryOrderGetString(id, ORDER_SYMBOL);
+      type = (ENUM_ORDER_TYPE)HistoryOrderGetInteger(id, ORDER_TYPE);
+      state = (ENUM_ORDER_STATE)HistoryOrderGetInteger(id, ORDER_STATE);
+      magic = HistoryOrderGetInteger(id, ORDER_MAGIC);
       isCalc = true;
+      if(IsCanceled())
+         timeCanceled.Tiks(HistoryOrderGetInteger(id, ORDER_TIME_DONE_MSC));
    }
    RecalcPosId();
 }
@@ -702,4 +721,14 @@ bool Order::IsStopLoss(void)
 bool Order::IsTakeProfit(void)
 {
    return (magic & GetTakeMask()) == GetTakeMask();
+}
+
+///
+/// Истина, если ордер был отклонен клиентом.
+///
+bool Order::IsCanceled(void)
+{
+   if(state == ORDER_STATE_CANCELED)
+      return true;
+   return false;
 }

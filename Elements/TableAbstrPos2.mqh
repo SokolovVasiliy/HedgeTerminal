@@ -1,4 +1,6 @@
 #include "Table.mqh"
+#include "..\Math.mqh"
+#include "TextNode.mqh"
 ///
 /// јбстрактный класс одной из строк таблицы. —трока может быть заголовком, позицией или сделкой.
 /// ≈е тип должен быть определен в момент создани€.
@@ -394,6 +396,7 @@ class PosLine : public AbstractLine
          cell.ReadOnly(true);
          cell = GetCell(COLUMN_SL);
          cell.ReadOnly(true);
+         SetBlockedColor();
       }
       
       ///
@@ -410,7 +413,16 @@ class PosLine : public AbstractLine
          cell = GetCell(COLUMN_SL);
          //double sl = pos.StopLossLevel();
          //cell.Text(pos.PriceToString(sl));
-         cell.ReadOnly(false);
+         if(pos.Status() == POSITION_ACTIVE)
+            cell.ReadOnly(false);
+         
+      }
+      ///
+      ///
+      ///
+      void SetBlockedColor()
+      {
+         //textNodes[0].Text("");
       }
       ///
       /// 
@@ -557,11 +569,23 @@ class PosLine : public AbstractLine
                value = pos.PriceToString(pos.EntryExecutedPrice());
                break;
             case COLUMN_SL:
-               value = pos.PriceToString(pos.StopLossLevel());
-               break;   
-            case COLUMN_TP:
-               value = pos.PriceToString(pos.TakeProfitLevel());
+            {
+               double sl = pos.StopLossLevel();
+               if(Math::DoubleEquals(sl, 0.0))
+                  value = "-.";
+               else
+                  value = pos.PriceToString(sl);
                break;
+            }
+            case COLUMN_TP:
+            {
+               double tp = pos.TakeProfitLevel();
+               if(Math::DoubleEquals(tp, 0.0))
+                  value = "";
+               else
+                  value = pos.PriceToString(tp);
+               break;
+            }
             case COLUMN_TRAL:
                if(pos.UsingStopLoss())
                   value = CharToString(254);

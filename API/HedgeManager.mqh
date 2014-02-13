@@ -38,6 +38,9 @@ class HedgeManager
          HistoryPos.Sort(SORT_ORDER_ID);
          long tick = GetTickCount();
          OnRefresh();
+         isInit = true;
+         ShowActivePos();
+         
          PrintPerfomanceParsing(tick);
       }
       
@@ -103,7 +106,7 @@ class HedgeManager
          int dbg = 5;
          for(; dealsCountNow < total; dealsCountNow++)
          {  
-            if(dealsCountNow == 63)
+            if(dealsCountNow == 2)
                dbg = 6;
             ulong ticket = HistoryDealGetTicket(dealsCountNow);
             AddNewDeal(ticket);
@@ -130,23 +133,30 @@ class HedgeManager
          {
             ulong ticket = HistoryOrderGetTicket(historyOrdersCount);
             ENUM_ORDER_STATE state = (ENUM_ORDER_STATE)HistoryOrderGetInteger(ticket, ORDER_STATE);
+            //Ордер был отменен?
             if(state != ORDER_STATE_CANCELED)
                continue;
             Order* order = new Order(ticket);
-            //Был отменен стоп-лосс или тейк профит?
+            //Возможно это стоп-лосс или тейк профит?
             if(order.IsStopLoss() || order.IsTakeProfit())
             {
                ENUM_ORDER_STATUS st = order.Status();
-               Position* ActPos = FindActivePosById(order.PositionId());
+               //Отмененый стоп у активных позиций не актуален.
+               //Отмененный стоп у исторической позиции надо запомнить.
+               ulong id = order.PositionId();
+               int total = HistoryPos.Total();
+               Position* ActPos = FindHistPosById(order.PositionId());
                if(ActPos == NULL)
                {
                   delete order;
                   continue;
                }
                InfoIntegration* ii = ActPos.Integrate(order);
-               
+               if(ii != NULL)
+                  LogWriter("Error: integrate canceled order wrong.", MESSAGE_TYPE_ERROR);
             }
-            delete order;
+            else
+               delete order;
          }
       }
       
@@ -222,6 +232,17 @@ class HedgeManager
          }
          return false;
       }
+      ///
+      /// Вызывается сразу после инициализации и отображает активные сделки.
+      ///
+      void ShowActivePos()
+      {
+         for(int i = 0; i < ActivePos.Total(); i++)
+         {
+            Position* pos = ActivePos.At(i);
+            pos.SendEventChangedPos(POSITION_SHOW);
+         }
+      }
       
       ///
       /// Интегрирует новую сделку в систему позиций.
@@ -249,7 +270,8 @@ class HedgeManager
          int iActive = ActivePos.Search(actPos);
          if(actPos.Status() == POSITION_NULL)
          {
-            actPos.SendEventChangedPos(POSITION_HIDE);
+            if(isInit)
+               actPos.SendEventChangedPos(POSITION_HIDE);
             if(iActive != -1)
                ActivePos.Delete(iActive);
             else
@@ -259,19 +281,20 @@ class HedgeManager
          {
             if(iActive == -1)
             {
-               actPos.SendEventChangedPos(POSITION_SHOW);   
+               if(isInit)
+                  actPos.SendEventChangedPos(POSITION_SHOW);
                ActivePos.InsertSort(actPos);
             }
-            else
+            else if(isInit)
                actPos.SendEventChangedPos(POSITION_REFRESH);
          }
-         //printf(ticket);
          //Можно закрыть больше чем имеется, тогда остаток - активная позиция.
          if(result.ActivePosition != NULL &&
             result.ActivePosition.Status() == POSITION_ACTIVE)
          {
             ActivePos.InsertSort(result.ActivePosition);
-            result.ActivePosition.SendEventChangedPos(POSITION_SHOW);
+            if(isInit)
+               result.ActivePosition.SendEventChangedPos(POSITION_SHOW);
          }
          if(result.HistoryPosition != NULL &&
             result.HistoryPosition.Status() == POSITION_HISTORY)
@@ -292,6 +315,23 @@ class HedgeManager
             delete inOrder;
             if(iActive != -1)
                return ActivePos.At(iActive);
+         }
+         return NULL;
+      }
+      
+      ///
+      /// Находит историческую позицию в списке активных позиций, чей
+      /// id равен posId.
+      ///
+      Position* FindHistPosById(ulong posId)
+      {
+         if(posId != 0)
+         {
+            Order* inOrder = new Order(posId);
+            int iActive = HistoryPos.Search(inOrder);
+            delete inOrder;
+            if(iActive != -1)
+               return HistoryPos.At(iActive);
          }
          return NULL;
       }
@@ -428,4 +468,8 @@ class HedgeManager
       /// Количество исторических ордеров.
       ///
       int historyOrdersCount;
+      ///
+      /// Истина, если инициализация выполнена и осуществлен переход работы в режим реального времени.
+      ///
+      bool isInit;
 };
