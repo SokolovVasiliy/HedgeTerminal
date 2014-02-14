@@ -239,6 +239,7 @@ class Task : public CObject
       ///
       void Execute(void)
       {
+         timeBegin = GetTickCount();
          lastExecution.SetDateTime(TimeCurrent());
          if(taskStatus != TASK_COMPLETED_SUCCESS ||
             TASK_COMPLETED_FAILED)
@@ -246,6 +247,8 @@ class Task : public CObject
             taskStatus = TASK_EXECUTING;
             Script();
          }
+         else
+            timeEnd = TimeCurrent();
       }
       ///
       /// Возвращает текущий статус задания.
@@ -265,6 +268,16 @@ class Task : public CObject
       long TimeLastExecution()
       {
          return lastExecution.Tiks();
+      }
+      
+      ///
+      /// Возвращает количество милисекунд, прошедших с начала выполнения задачи.
+      ///
+      long TimeExecutionTotal()
+      {
+         if(timeEnd == 0)
+            return GetTickCount() - timeBegin;
+         return timeEnd - timeBegin;
       }
    protected:
       ///
@@ -298,6 +311,14 @@ class Task : public CObject
       /// Содержит время последнего вызова функции Execute()
       ///
       CTime lastExecution;
+      ///
+      /// Время начала выполнения операции с момента загрузки терминала
+      ///
+      long timeBegin;
+      ///
+      /// Время завершения задачи, если задача выполнена, с момента загрузки терминала.
+      ///
+      long timeEnd;
 };
 
 ///

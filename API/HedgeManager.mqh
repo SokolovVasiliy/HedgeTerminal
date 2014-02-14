@@ -70,7 +70,7 @@ class HedgeManager
       {
          TradeTransaction* trans = event.GetTransaction();
          //Посылаем ответ позиции.
-         if(trans.type == TRADE_TRANSACTION_REQUEST)
+         if(trans.IsRequest())
          {
             TradeRequest* request = event.GetRequest();
             Order* order = new Order(request);
@@ -80,10 +80,10 @@ class HedgeManager
                ActPos.Event(event);
          }
          //Отложенный ордер изменился? - Возможно он связан с позицией.
-         if(trans.type == TRADE_TRANSACTION_ORDER_UPDATE)
+         if(trans.IsUpdate() || trans.IsDelete())
          {
-            if(!OrderSelect(trans.order))
-               return;
+            /*if(!OrderSelect(trans.order))
+               return;*/
             Order* order = new Order(trans.order);
             Position* ActPos = FindActivePosById(order.PositionId());
             delete order;
@@ -132,6 +132,9 @@ class HedgeManager
          for(; historyOrdersCount < HistoryOrdersTotal(); historyOrdersCount++)
          {
             ulong ticket = HistoryOrderGetTicket(historyOrdersCount);
+            int dbg = 3;
+            if(ticket == 1009521957)
+               dbg = 4;
             ENUM_ORDER_STATE state = (ENUM_ORDER_STATE)HistoryOrderGetInteger(ticket, ORDER_STATE);
             //Ордер был отменен?
             if(state != ORDER_STATE_CANCELED)
@@ -145,15 +148,21 @@ class HedgeManager
                //Отмененный стоп у исторической позиции надо запомнить.
                ulong id = order.PositionId();
                int total = HistoryPos.Total();
-               Position* ActPos = FindHistPosById(order.PositionId());
-               if(ActPos == NULL)
+               Position* ActPos;
+               ActPos = FindActivePosById(order.PositionId());
+               if(ActPos != NULL)
                {
-                  delete order;
+                  ActPos.Integrate(order);
                   continue;
                }
-               InfoIntegration* ii = ActPos.Integrate(order);
-               if(ii != NULL)
-                  LogWriter("Error: integrate canceled order wrong.", MESSAGE_TYPE_ERROR);
+               ActPos = FindHistPosById(order.PositionId());
+               if(ActPos != NULL)
+               {
+                  ActPos.Integrate(order);
+                  continue;
+               }
+               delete order;
+               continue;
             }
             else
                delete order;
@@ -328,7 +337,7 @@ class HedgeManager
          if(posId != 0)
          {
             Order* inOrder = new Order(posId);
-            int iActive = HistoryPos.Search(inOrder);
+            int iActive = HistoryPos.SearchLast(inOrder);
             delete inOrder;
             if(iActive != -1)
                return HistoryPos.At(iActive);
@@ -342,7 +351,7 @@ class HedgeManager
       void IntegrateHistoryPos(Position* histPos)
       {
          bool isMerge = false;
-         int iHist = HistoryPos.Search(histPos);
+         int iHist = HistoryPos.SearchLast(histPos);
          if(iHist != -1)
          {
             Position* pos = HistoryPos.At(iHist);

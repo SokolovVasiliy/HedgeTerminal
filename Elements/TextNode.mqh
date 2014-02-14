@@ -45,7 +45,7 @@ class TextNode : public ProtoNode
             ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_FONTSIZE, fontsize);
       }
       color FontColor(){return fontColor;}
-      void FontColor(color clrFont)
+      virtual void FontColor(color clrFont)
       {
          fontColor = clrFont;
          if(Visible())

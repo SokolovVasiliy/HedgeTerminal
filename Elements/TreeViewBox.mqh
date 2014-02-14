@@ -186,7 +186,12 @@ class TreeViewBoxBorder : public Label
             }
          }
       }
+      virtual void FontColor(color clrFont)
+      {
+         brdGeneral.FontColor(clrFont);  
+      }
    private:      
+      
       virtual void OnCommand(EventNodeCommand* event)
       {
          // Позиционируем плюсик в рамки
@@ -223,6 +228,12 @@ class TreeViewBoxBorder : public Label
                Align(ALIGN_LEFT);
                FontSize(8);
                Text("+");
+            }
+            
+            virtual void FontColor(color clrFont)
+            {
+               TextNode::FontColor(clrFont);
+               TextNode::BorderColor(clrFont);
             }
          private:
             //Передаем нажатие кнопки вышестоящему элементу

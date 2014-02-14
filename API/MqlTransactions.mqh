@@ -11,6 +11,8 @@ class TradeTransaction
       TradeTransaction(MqlTradeTransaction& trans);
       TradeTransaction(const MqlTradeTransaction& trans);
       bool IsUpdate(void);
+      bool IsDelete(void);
+      bool IsRequest(void);
       void CopyFrom(MqlTradeTransaction& trans);
       void CopyFrom(const MqlTradeTransaction& trans);
       ulong deal;
@@ -67,8 +69,27 @@ bool TradeTransaction::IsUpdate(void)
 {
    if(type == TRADE_TRANSACTION_ORDER_UPDATE)
       return true;
-   else
-      return false;
+   return false;
+}
+
+///
+/// Истина, если транзакция уведомляет о изменении отложенного ордера.
+///
+bool TradeTransaction::IsDelete(void)
+{
+   if(type == TRADE_TRANSACTION_ORDER_DELETE)
+      return true;
+   return false;
+}
+
+///
+/// Истина, если транзакция уведомляет о изменении отложенного ордера.
+///
+bool TradeTransaction::IsRequest(void)
+{
+   if(type == TRADE_TRANSACTION_REQUEST)
+      return true;
+   return false;
 }
 
 ///

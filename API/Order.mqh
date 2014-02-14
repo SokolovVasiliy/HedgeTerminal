@@ -101,6 +101,7 @@ class Order : public Transaction
       bool InProcessing();
       bool IsStopLoss();
       bool IsTakeProfit();
+      bool IsExecuted();
    private:
       ulong GetStopMask(void);
       ulong GetTakeMask(void);
@@ -464,6 +465,16 @@ bool Order::IsPending()
 }
 
 ///
+/// Истина, если ордер исполнен. Ложь в противном случае.
+///
+bool Order::IsExecuted()
+{
+   if(Math::DoubleEquals(!VolumeExecuted(), 0.0))
+      return true;
+   return false;
+}
+
+///
 /// Возвращает истину, если ордер находится в состоянии модификации.
 ///
 bool Order::InProcessing()
@@ -712,7 +723,10 @@ ulong Order::GetTakeMask(void)
 ///
 bool Order::IsStopLoss(void)
 {
-   return (magic & GetStopMask()) == GetStopMask();
+   bool res = (magic & GetStopMask()) == GetStopMask();
+   //Сработавший стоп обрабатывается по-другому и стопом не считается.
+   bool exe = IsExecuted();
+   return res && !exe;
 }
 
 ///

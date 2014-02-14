@@ -199,6 +199,9 @@ class Position : public Transaction
       Position* OrderManager(Order* openOrder, Order* cloingOrder);
       bool CompatibleForInit(Order* order);
       bool CompatibleForClose(Order* order);
+      bool CompatibleForStop(Order* order);
+      bool IsStopForActivePos(Order* order);
+      bool IsStopForHistoryPos(Order* order);
       InfoIntegration* AddClosingOrder(Order* outOrder);
       void AddInitialOrder(Order* inOrder);
       void AddNewStopLossOrder(Order* order);
@@ -210,6 +213,7 @@ class Position : public Transaction
       void OnUpdate(ulong OrderId);
       void ExecutingTask(void);
       void TaskCollector(void);
+      bool IsItMyPendingStop(Order* order);
       ///
       /// Инициирующий позицию ордер.
       ///
@@ -403,15 +407,58 @@ bool Position::CompatibleForClose(Order *order)
    return false;
 }
 
+///
+/// Истина, если ордер совместим со стоп-лоссом.
+///
+bool Position::CompatibleForStop(Order *order)
+{
+   // Если ордер не стоп-лосс то он не совместим как стоп.
+   if(!order.IsStopLoss())
+      return false;
+   if(status == POSITION_ACTIVE)
+      return IsStopForActivePos(order);
+   if(status == POSITION_HISTORY)
+      return IsStopForHistoryPos(order);
+   else
+      delete order;
+   return false;
+}
+
+///
+/// Истина, если стоп лосс совместим с активной позицией.
+///
+bool Position::IsStopForActivePos(Order* order)
+{
+   // Отмененные ордера не совместимы с открытыми позициями.
+   if(order.IsCanceled())
+   {
+      //Проверяем актуальность нашего стопа.
+      if(UsingStopLoss() && !slOrder.IsPending())
+      {
+         delete slOrder;
+         slOrder = NULL;
+         if(blocked)
+            ResetBlocked();
+         else
+            SendEventChangedPos(POSITION_REFRESH);
+      }
+      return false;
+   }
+}
+
+///
+/// Истина, если стоп лосс совместим с исторической позицией.
+///
+bool Position::IsStopForHistoryPos(Order* order)
+{
+   // Отложенные ордера несовместимы с иторическими позициями.
+   if(status == POSITION_HISTORY && order.IsPending())
+      return false;
+   return false;
+}
+
 void Position::AddNewStopLossOrder(Order *order)
 {
-   // Если ордер был отменен клиентом - запоминаем его стоп, в случаи текущей цены
-   // лучше этого стопа.
-   /*if(order.IsCanceled())
-   {
-      AddCanceledOrder(order);
-      return;
-   }*/
    //Если отложенный ордер еще существует, а позиция историческая -
    //необходимо удалить отложенный ордер.
    if(order.IsPending() && status == POSITION_HISTORY)
@@ -420,12 +467,64 @@ void Position::AddNewStopLossOrder(Order *order)
       delete order;
       return;
    }
-   if(slOrder != NULL)
+   //Позиция активна?
+   if(status == POSITION_ACTIVE)
+   {
+      //Это какой-то старый отмененный стоп?
+      if(order.IsCanceled())
+      {
+         //Если у меня нет активного стопа - то этот
+         //отмененный стоп точно не он.
+         if(!UsingStopLoss())
+         {
+            //Утилизирую поступивший ордер.
+            delete slOrder;
+            slOrder = NULL;
+            return;
+         }
+         //Случаем не отменили ли активный стоп?
+         else if(!slOrder.IsPending())
+         {
+            //А...!!! Мой активный стоп удалили...
+            delete slOrder;
+            slOrder = NULL;
+            //Refresh();
+            ResetBlocked();
+         }
+      }
+      else if(order.IsExecuted())
+      {
+      }
+      else if(order.IsPending())
+      {
+         slOrder = order;
+      }
+      else
+      {
+         delete order;
+         delete slOrder;
+         slOrder = NULL;
+         ResetBlocked();
+         return;
+      }
+   }
+   /*if(slOrder != NULL)
       delete slOrder;
    slOrder = order;
    slOrder.LinkWithPosition(GetPointer(this));
    ENUM_ORDER_STATUS st = slOrder.Status();
-   ResetBlocked();
+   ResetBlocked();*/
+}
+
+///
+/// Истина, если id переданного ордера соответствует текущему запомненному стопу.
+///
+bool Position::IsItMyPendingStop(Order* order)
+{
+   if(!UsingStopLoss())return false;
+   if(slOrder.GetId() == order.GetId())
+      return true;
+   return false;
 }
 
 ///
@@ -533,6 +632,13 @@ void Position::Refresh(void)
       SetId(initOrder.GetId());
    else
       SetId(0);
+   //Активная позиция не запоминает отмененные стопы.
+   if(status == POSITION_ACTIVE && UsingStopLoss() &&
+      slOrder.IsCanceled())
+   {
+      delete slOrder;
+      slOrder = NULL;
+   }
    SendEventChangedPos(POSITION_REFRESH);
 }
 
@@ -1048,8 +1154,10 @@ void Position::OnRequestNotice(EventRequestNotice* notice)
    TradeTransaction* trans = notice.GetTransaction();
    if(result.IsRejected())
       OnRejected(result);
-   else if(trans.IsUpdate())
+   else if(trans.IsUpdate() || trans.IsDelete())
       OnUpdate(trans.order);
+   //else if()
+   //   OnDelete(trans.order);
 }
 
 ///
@@ -1066,6 +1174,21 @@ void Position::OnRejected(TradeResult& result)
    }
    ExecutingTask();
 }
+
+///
+/// Обрабатывает ситуацию, когда отложенный ордер был удален.
+///
+/*void Position::OnDelete(ulong orderId)
+{
+   if(!result.IsRejected())return;
+   ResetBlocked();
+   switch(result.retcode)
+   {
+      case TRADE_RETCODE_NO_MONEY:
+         LogWriter("Position #" + (string)GetId() + ": Unmanaged hedge. Try to close parts.", MESSAGE_TYPE_INFO);
+   }
+   ExecutingTask();
+}*/
 
 ///
 /// Обновляет изменившейся ордер.
@@ -1166,17 +1289,10 @@ bool Position::StopLossModify(double newLevel, string comment=NULL, bool asynchM
       return false;
    }
    //Приказ на удаление Stop-Loss ордера.
-   if(Math::DoubleEquals(newLevel, 0.0))
-   {
-      if(slOrder != NULL)
-         res = trading.OrderDelete(slOrder.GetId());
-      else
-      {
-         slLevel = 0.0;
-         ResetBlocked();
-         return true;
-      }
-   }
+   if(Math::DoubleEquals(newLevel, 0.0) && slOrder != NULL &&
+      slOrder.IsPending())
+      return trading.OrderDelete(slOrder.GetId());
+   
    //Виртуальный ордер обрабатываем моментально.
    if(isVirtualStopLoss)
    {
@@ -1305,17 +1421,18 @@ void Position::TaskCollector(void)
 void Position::ExecutingTask(void)
 {
    if(task == NULL)return;
+   //Либо продолжаем выполнять.
+   usingTimeOut = true;
+   task.Execute();
    //Отработанную задачу удаляем.
    if(task.Status() != TASK_COMPLETED_FAILED ||
       task.Status() != TASK_COMPLETED_SUCCESS)
    {
+      LogWriter("Task complete for " + task.TimeExecutionTotal() + "msc.", MESSAGE_TYPE_INFO);
       delete task;
       task = NULL;
       return;
    }
-   //Либо продолжаем выполнять.
-   usingTimeOut = true;
-   task.Execute();
 }
 
 ///

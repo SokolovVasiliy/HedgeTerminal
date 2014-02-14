@@ -81,6 +81,13 @@ class ButtonClosePos : public Button
       {
          FontColor(clrDimGray);
       }
+      virtual void FontColor(color clr)
+      {
+         if(clr == Settings.ColorTheme.GetTextColor())
+            Button::FontColor(clrDimGray);
+         else
+            Button::FontColor(clr);
+      }
    protected:
       virtual void OnEvent(Event* event)
       {

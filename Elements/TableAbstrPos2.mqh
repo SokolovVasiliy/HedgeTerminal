@@ -44,6 +44,18 @@ class AbstractLine : public Line
          }
          return NULL;
       }
+      ///
+      /// Возвращает ссылку на ячейку.
+      ///
+      TextNode* GetCellText(ENUM_COLUMN_TYPE cType)
+      {
+         if(ArraySize(textNodes) > cType &&
+            CheckPointer(textNodes[cType]) != POINTER_INVALID)
+         {
+            return textNodes[cType];
+         }
+         return NULL;
+      }
    protected:
       ///
       /// Связка ячейка-текст. 
@@ -392,11 +404,12 @@ class PosLine : public AbstractLine
       ///
       void BlockedCell()
       {
+         tiks = GetTickCount();
          EditNode* cell = GetCell(COLUMN_VOLUME);
          cell.ReadOnly(true);
          cell = GetCell(COLUMN_SL);
          cell.ReadOnly(true);
-         SetBlockedColor();
+         SetColorLine(clrRed);
       }
       
       ///
@@ -405,6 +418,8 @@ class PosLine : public AbstractLine
       ///
       void UnBlockedCell()
       {
+         //LogWriter("Task complete for " + (string)(GetTickCount()-tiks) + " msc.", MESSAGE_TYPE_INFO);
+         //tiks = 0;
          EditNode* cell = GetCell(COLUMN_VOLUME);
          double vol = pos.VolumeExecuted();
          cell.Text(pos.VolumeToString(vol));
@@ -415,14 +430,30 @@ class PosLine : public AbstractLine
          //cell.Text(pos.PriceToString(sl));
          if(pos.Status() == POSITION_ACTIVE)
             cell.ReadOnly(false);
-         
+         cell.FontColor(clrRed);
+         TextNode* m = childNodes.At(0);
+         SetColorLine(Settings.ColorTheme.GetTextColor());
       }
+      
       ///
+      /// Устанавливает цвет текстовых сообщений.
       ///
-      ///
-      void SetBlockedColor()
+      void SetColorLine(color clr)
       {
-         //textNodes[0].Text("");
+         for(int i = 0; i < childNodes.Total(); i++)
+         {
+            TextNode* m = childNodes.At(i);
+            //if(m.TypeElement() != ELEMENT_TYPE_LABEL)continue;
+            TextNode* cell = m;
+            cell.FontColor(clr);
+         }
+         TextNode* node = GetCell(COLUMN_PROFIT);
+         if(node == NULL)return;
+         for(int i = 0; i < node.ChildsTotal(); i++)
+         {
+            TextNode* n = node.ChildElementAt(i);
+            n.FontColor(clr);
+         }
       }
       ///
       /// 
@@ -614,6 +645,11 @@ class PosLine : public AbstractLine
       /// Указатель на позицию, которую представляет данная строка.
       ///
       Position* pos;
+      ///
+      /// Запоминает кол-во тиков с момента первого запуска и служит
+      /// для расчета выполнения скорости операции.
+      ///
+      long tiks;
 };
 
 ///
