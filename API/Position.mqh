@@ -193,18 +193,19 @@ class Position : public Transaction
       ///
       //CArrayLong processingOrders;
       ENUM_CHANGED_ORDER DetectChangedOrder(Order* order);
-      void ChangedInitOrder();
       void AddCanceledOrder(Order* order);
       void DeleteAllOrders();
+      void DeleteOrder(Order* order);
       Position* OrderManager(Order* openOrder, Order* cloingOrder);
       bool CompatibleForInit(Order* order);
       bool CompatibleForClose(Order* order);
       bool CompatibleForStop(Order* order);
-      bool IsStopForActivePos(Order* order);
-      bool IsStopForHistoryPos(Order* order);
+      bool IntegrateStop(Order* order);
+      bool IntegrateStopActPos(Order* order);
+      bool IntegrateStopHistPos(Order* order);
+      void ChangeStopOrder(Order* order);
       InfoIntegration* AddClosingOrder(Order* outOrder);
-      void AddInitialOrder(Order* inOrder);
-      void AddNewStopLossOrder(Order* order);
+      void InitializePosition(Order* inOrder);
       POSITION_STATUS CheckStatus(void);
       void ResetBlocked(void);
       void SetBlock(void);
@@ -293,6 +294,12 @@ Position::Position(Order* inOrder, Order* outOrder) : Transaction(TRANS_POSITION
    closingOrder = outOrder;
    Refresh();
    closingOrder.LinkWithPosition(GetPointer(this));
+   if(outOrder.IsStopLoss())
+   {
+      slOrder = outOrder.Clone();
+      slOrder.LinkWithPosition(GetPointer(this));
+      Refresh();
+   }
 }
 
 bool Position::Compatible(Position *pos)
@@ -353,28 +360,27 @@ bool Position::Merge(Position *pos)
 InfoIntegration* Position::Integrate(Order* order)
 {
    InfoIntegration* info = NULL;
-   if(order.IsStopLoss() && order.PositionId() == GetId() && (order.IsPending() || order.IsCanceled()))
+   if(CompatibleForStop(order))
+      IntegrateStop(order);
+   else if(CompatibleForInit(order))
    {
-      AddNewStopLossOrder(order);
-      return info;
-   }
-   if(CompatibleForInit(order))
-   {
-      AddInitialOrder(order);
+      InitializePosition(order);
       info = new InfoIntegration();
    }
    else if(CompatibleForClose(order))
-   {
       info = AddClosingOrder(order);
-   }
    else
    {
       info = new InfoIntegration();
       info.InfoMessage = "Proposed order #" + (string)order.GetId() +
       "can not be integrated in position #" + (string)GetId() +
       ". Position and order has not compatible types";
+      printf("delete order #" + (string)order.GetId());
+      bool res = CompatibleForStop(order);
+      delete order;
    }
-   ResetBlocked();
+   if(blocked)
+      ResetBlocked();
    //Запрос обработан, продолжаем выполнять задания.
    ExecutingTask();
    return info;
@@ -408,112 +414,92 @@ bool Position::CompatibleForClose(Order *order)
 }
 
 ///
-/// Истина, если ордер совместим со стоп-лоссом.
+/// Истина, если ордер является совместимым с позицией стоп-ордером.
 ///
 bool Position::CompatibleForStop(Order *order)
 {
    // Если ордер не стоп-лосс то он не совместим как стоп.
-   if(!order.IsStopLoss())
-      return false;
+   if(order.IsStopLoss() && !order.IsExecuted() && order.PositionId() == GetId())
+      return true;
+   return false;
+}
+
+///
+/// Заменяет текущий стоп-ордер новым ордером
+/// \param order - ордер, которым необходимо заменить текущий стоп-ордер.
+///
+void Position::ChangeStopOrder(Order *order)
+{
+   DeleteOrder(slOrder);
+   slOrder = order;
+   slOrder.LinkWithPosition(GetPointer(this));   
+}
+
+///
+/// Истина, если ордер совместим со стоп-лоссом.
+///
+bool Position::IntegrateStop(Order *order)
+{
    if(status == POSITION_ACTIVE)
-      return IsStopForActivePos(order);
+      return IntegrateStopActPos(order);
    if(status == POSITION_HISTORY)
-      return IsStopForHistoryPos(order);
+      return IntegrateStopHistPos(order);
    else
-      delete order;
+      DeleteOrder(order);
    return false;
 }
 
 ///
 /// Истина, если стоп лосс совместим с активной позицией.
 ///
-bool Position::IsStopForActivePos(Order* order)
+bool Position::IntegrateStopActPos(Order *order)
 {
-   // Отмененные ордера не совместимы с открытыми позициями.
+   //Отмененные ордера не совместимы с открытыми позициями.
+   ulong id = order.GetId();
    if(order.IsCanceled())
    {
       //Проверяем актуальность нашего стопа.
       if(UsingStopLoss() && !slOrder.IsPending())
       {
-         delete slOrder;
-         slOrder = NULL;
-         if(blocked)
-            ResetBlocked();
-         else
-            SendEventChangedPos(POSITION_REFRESH);
+         DeleteOrder(slOrder);
+         SendEventChangedPos(POSITION_REFRESH);
       }
+      DeleteOrder(order);
       return false;
    }
+   //Отложенный ордер становитсья новым стопом.
+   if(order.IsPending())
+   {
+      ChangeStopOrder(order);
+      SendEventChangedPos(POSITION_REFRESH);
+   }
+   else
+      DeleteOrder(order);
+   return false;
 }
 
 ///
 /// Истина, если стоп лосс совместим с исторической позицией.
 ///
-bool Position::IsStopForHistoryPos(Order* order)
+bool Position::IntegrateStopHistPos(Order *order)
 {
-   // Отложенные ордера несовместимы с иторическими позициями.
-   if(status == POSITION_HISTORY && order.IsPending())
+   if(status != POSITION_HISTORY)
       return false;
-   return false;
-}
-
-void Position::AddNewStopLossOrder(Order *order)
-{
-   //Если отложенный ордер еще существует, а позиция историческая -
-   //необходимо удалить отложенный ордер.
-   if(order.IsPending() && status == POSITION_HISTORY)
+   if(!order.IsCanceled())
+      return false;
+   if(UsingStopLoss())
    {
-      AddTask(new TaskModifyOrSetStopLoss(GetPointer(this), 0.0, "canceled by wrong magic"));
-      delete order;
-      return;
-   }
-   //Позиция активна?
-   if(status == POSITION_ACTIVE)
-   {
-      //Это какой-то старый отмененный стоп?
-      if(order.IsCanceled())
+      if(slOrder.IsExecuted())
       {
-         //Если у меня нет активного стопа - то этот
-         //отмененный стоп точно не он.
-         if(!UsingStopLoss())
-         {
-            //Утилизирую поступивший ордер.
-            delete slOrder;
-            slOrder = NULL;
-            return;
-         }
-         //Случаем не отменили ли активный стоп?
-         else if(!slOrder.IsPending())
-         {
-            //А...!!! Мой активный стоп удалили...
-            delete slOrder;
-            slOrder = NULL;
-            //Refresh();
-            ResetBlocked();
-         }
-      }
-      else if(order.IsExecuted())
-      {
-      }
-      else if(order.IsPending())
-      {
-         slOrder = order;
+         DeleteOrder(order);
+         return false;
       }
       else
-      {
-         delete order;
-         delete slOrder;
-         slOrder = NULL;
-         ResetBlocked();
-         return;
-      }
+         DeleteOrder(slOrder);
    }
-   /*if(slOrder != NULL)
-      delete slOrder;
    slOrder = order;
-   slOrder.LinkWithPosition(GetPointer(this));
-   ENUM_ORDER_STATUS st = slOrder.Status();
-   ResetBlocked();*/
+   order.LinkWithPosition(GetPointer(this));
+   return true;
 }
 
 ///
@@ -528,39 +514,9 @@ bool Position::IsItMyPendingStop(Order* order)
 }
 
 ///
-/// Добавляет отмененный стоп-тейк профит ордер в позицию если это возможно.
-///
-/*void Position::AddCanceledOrder(Order* order)
-{
-   
-   if(Status() == POSITION_NULL)
-   {
-      delete order;
-      return;
-   }
-   if(slOrder != NULL)
-      delete slOrder;
-   slOrder = order;
-   bool goodStop = false;
-   if(order.Direction() == DIRECTION_LONG)
-      goodStop = order.PriceSetup() < ExitExecutedPrice();
-   else
-      goodStop = order.PriceSetup() > ExitExecutedPrice();
-   if(goodStop)
-   {
-      if(slOrder != NULL)
-         delete slOrder;
-      slOrder = order;
-   }
-   else
-      delete order;
-   
-}*/
-
-///
 /// Добавляет инициирующий ордер в позицию.
 ///
-void Position::AddInitialOrder(Order *inOrder)
+void Position::InitializePosition(Order *inOrder)
 {
    if(status == POSITION_NULL)
    {
@@ -587,23 +543,15 @@ void Position::AddInitialOrder(Order *inOrder)
 InfoIntegration* Position::AddClosingOrder(Order* outOrder)
 {
    InfoIntegration* info = new InfoIntegration();
-   double initVol = initOrder.VolumeExecuted();
-   double outVol = outOrder.VolumeExecuted();
-   ulong iT = initOrder.GetId();
-   ulong oT = outOrder.GetId();
+   
    info.HistoryPosition = OrderManager(initOrder, outOrder);
-   outVol = outOrder.VolumeExecuted();
-   int dT = outOrder.DealsTotal();
    if(outOrder.Status() != ORDER_NULL)
    {
       info.ActivePosition = new Position(outOrder);
       info.ActivePosition.Unmanagment(true);
    }
-   else
-   {
-      delete outOrder;
-      outOrder = NULL;
-   }
+   else   
+      DeleteOrder(outOrder);
    return info;
 }
 
@@ -636,8 +584,7 @@ void Position::Refresh(void)
    if(status == POSITION_ACTIVE && UsingStopLoss() &&
       slOrder.IsCanceled())
    {
-      delete slOrder;
-      slOrder = NULL;
+      DeleteOrder(slOrder);
    }
    SendEventChangedPos(POSITION_REFRESH);
 }
@@ -719,13 +666,15 @@ Position* Position::OrderManager(Order* inOrder, Order* outOrder)
    //преобразования двух ордеров.
    //histInOrder.CompressDeals();
    //histOutOrder.CompressDeals();
+   ulong id = histOutOrder.GetId();
+   int dbg;
+   if(id == 1009531471)
+      dbg = 5;
    Position* histPos = new Position(histInOrder, histOutOrder);
+   
    //Неуправляемая позиция продолжает быть неуправляемой в историческом состоянии.
    if(unmanagment)
       histPos.Unmanagment(true);
-   //Проверяем, нет ли к этому моменту отмененного стопа
-   if(UsingStopLoss() && slOrder.IsCanceled())
-      histPos.Integrate(new Order(slOrder));
    return histPos;
 }
 
@@ -772,43 +721,40 @@ void Position::OrderChanged(Order* order)
     {
       case CHANGED_ORDER_NDEF:
          return;
-      case CHANGED_ORDER_INIT:
-         ChangedInitOrder();
-         break;
-      case CHANGED_ORDER_CLOSED:
-         break;
     }
     Refresh();
 }
 
 ///
-/// Обрабатывает изменения инициирующего ордера.
-///
-void Position::ChangedInitOrder()
-{
-   if(initOrder.Status() == ORDER_EXECUTING)
-      SetBlock();
-}
-
-///
-/// Удаляет все ордера.
+/// Удаляет все ордера входящие в позицию.
 ///
 void Position::DeleteAllOrders(void)
 {
-   if(initOrder != NULL)
-   {
-      delete initOrder;
-      initOrder = NULL;
-   }
-   if(closingOrder != NULL)
-   {
-      delete closingOrder;
-      closingOrder = NULL;
-   }
+   DeleteOrder(initOrder);
+   DeleteOrder(closingOrder);
    if(slOrder != NULL)
    {
       delete slOrder;
       slOrder = NULL;
+   }
+   
+}
+
+///
+/// Удаляет переданный ордер.
+///
+void Position::DeleteOrder(Order *order)
+{
+   if(CheckPointer(order) != POINTER_INVALID)
+   {
+      if(order.IsPending())
+      {
+         TaskModifySL* sl =
+            new TaskModifySL(GetPointer(this), 0.0, "");
+         AddTask(sl);
+      }
+      delete order;
+      order = NULL;
    }
 }
 
@@ -826,6 +772,7 @@ bool Position::AsynchClose(double vol, string comment = NULL)
       printf("Position is blocked. Try letter");
       return false;
    }
+   
    trading.SetAsyncMode(true);
    trading.SetExpertMagicNumber(initOrder.GetMagic(MAGIC_TYPE_MARKET));
    #ifndef DEBUG
@@ -837,15 +784,9 @@ bool Position::AsynchClose(double vol, string comment = NULL)
    else if(Direction() == DIRECTION_SHORT)
       resTrans = trading.Buy(vol, Symbol(), 0.0, 0.0, 0.0, comment);
    if(resTrans)
-   {
       SetBlock();
-      //SetTask();
-   }
    else
-   {
       printf("Rejected current operation by reason: " + trading.ResultRetcodeDescription());
-      ResetBlocked();
-   }
    return resTrans;
 }
 
@@ -1012,7 +953,7 @@ ulong Position::ExitMagic(void)
 ///
 double Position::StopLossLevel(void)
 {
-   if(slOrder != NULL/* && slOrder.Status() != ORDER_HISTORY*/)
+   if(UsingStopLoss())
       return slOrder.PriceSetup();
    return slLevel;
 }
@@ -1152,12 +1093,19 @@ void Position::OnRequestNotice(EventRequestNotice* notice)
    
    TradeResult* result = notice.GetResult();
    TradeTransaction* trans = notice.GetTransaction();
+   bool isReset;
    if(result.IsRejected())
+   {
       OnRejected(result);
+      isReset = true;
+   }
    else if(trans.IsUpdate() || trans.IsDelete())
+   {
       OnUpdate(trans.order);
-   //else if()
-   //   OnDelete(trans.order);
+      isReset = true;
+   }
+   if(isReset && blocked)
+      ResetBlocked();
 }
 
 ///
@@ -1166,7 +1114,6 @@ void Position::OnRequestNotice(EventRequestNotice* notice)
 void Position::OnRejected(TradeResult& result)
 {
    if(!result.IsRejected())return;
-   ResetBlocked();
    switch(result.retcode)
    {
       case TRADE_RETCODE_NO_MONEY:
@@ -1181,7 +1128,6 @@ void Position::OnRejected(TradeResult& result)
 /*void Position::OnDelete(ulong orderId)
 {
    if(!result.IsRejected())return;
-   ResetBlocked();
    switch(result.retcode)
    {
       case TRADE_RETCODE_NO_MONEY:
@@ -1198,10 +1144,7 @@ void Position::OnUpdate(ulong OrderId)
 {
    Order* changeOrder = FindOrderById(OrderId);
    if(changeOrder != NULL)
-   {
       changeOrder.Refresh();
-      ResetBlocked();
-   }
 }
 
 ///
@@ -1277,33 +1220,31 @@ bool Position::Unmanagment()
 ///
 bool Position::StopLossModify(double newLevel, string comment=NULL, bool asynchMode = true)
 {
+   if(status != POSITION_ACTIVE)
+      return false;
    infoSymbol.Name(Symbol());
    newLevel = NormalizeDouble(newLevel, infoSymbol.Digits());
-   bool res = false;
+   #ifndef DEBUG
+      trading.LogLevel(0);
+   #endif
    trading.SetAsyncMode(asynchMode);
-   SetBlock();
+   bool res = false;
    //Неправильные уровни необрабатываем.
-   if(!CheckValidLevelSL(newLevel))
-   {
-      ResetBlocked();
+   if(!CheckValidLevelSL(newLevel))   
       return false;
-   }
-   //Приказ на удаление Stop-Loss ордера.
-   if(Math::DoubleEquals(newLevel, 0.0) && slOrder != NULL &&
-      slOrder.IsPending())
-      return trading.OrderDelete(slOrder.GetId());
-   
    //Виртуальный ордер обрабатываем моментально.
-   if(isVirtualStopLoss)
+   else if(isVirtualStopLoss)
    {
       slLevel = newLevel;
-      ResetBlocked();
-      return true;
+      res = true;
    }
-   if(slOrder == NULL || slOrder.Status() == ORDER_HISTORY)
+   //Приказ на удаление Stop-Loss ордера.
+   else if(Math::DoubleEquals(newLevel, 0.0) && UsingStopLoss() &&
+      slOrder.IsPending())
+      res = trading.OrderDelete(slOrder.GetId());
+   else if(!UsingStopLoss())
    {
       double vol = VolumeExecuted();
-      //if(!CheckVolume(vol))
       ulong magic = initOrder.GetMagic(MAGIC_TYPE_SL);
       trading.SetExpertMagicNumber(initOrder.GetMagic(MAGIC_TYPE_SL));
       if(Direction() == DIRECTION_LONG)
@@ -1317,10 +1258,9 @@ bool Position::StopLossModify(double newLevel, string comment=NULL, bool asynchM
    {
       LogWriter("Failed to set or modify stop-loss order. Reason: " +
                  trading.ResultRetcodeDescription(), MESSAGE_TYPE_ERROR);
-      ResetBlocked();
-      
-      return false;
    }
+   if(res && !blocked && !isVirtualStopLoss)
+      SetBlock();
    return res;
 }
 
@@ -1392,7 +1332,8 @@ void Position::AddTask(Task *ctask)
       delete task;
    task = ctask;
    task.Execute();
-   Refresh();
+   if(task.Status() == TASK_COMPLETED_FAILED)
+      Refresh();
 }
 
 ///
@@ -1401,10 +1342,10 @@ void Position::AddTask(Task *ctask)
 void Position::TaskCollector(void)
 {
    if(task == NULL)return;
-   ENUM_TASK_STATUS status = task.Status();
+   ENUM_TASK_STATUS taskStatus = task.Status();
    //Удаляем завершенные задачипо их завершению.
-   if(status == TASK_COMPLETED_SUCCESS ||
-      status == TASK_COMPLETED_FAILED)
+   if(taskStatus == TASK_COMPLETED_SUCCESS ||
+      taskStatus == TASK_COMPLETED_FAILED)
       delete task;
    else if(task.TimeLastExecution() > 180000)
    {
@@ -1428,7 +1369,7 @@ void Position::ExecutingTask(void)
    if(task.Status() != TASK_COMPLETED_FAILED ||
       task.Status() != TASK_COMPLETED_SUCCESS)
    {
-      LogWriter("Task complete for " + task.TimeExecutionTotal() + "msc.", MESSAGE_TYPE_INFO);
+      LogWriter("Task complete for " + (string)task.TimeExecutionTotal() + "msc.", MESSAGE_TYPE_INFO);
       delete task;
       task = NULL;
       return;

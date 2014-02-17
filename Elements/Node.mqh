@@ -343,9 +343,35 @@ class ProtoNode : public CObject
       ///
       void BackgroundColor(color clr)
       {
+         if(isBlockBgColor && clr != bgColor)return;
          bgColor = clr;
          if(visible)
             ObjectSetInteger(MAIN_WINDOW, nameId, OBJPROP_BGCOLOR, bgColor);
+      }
+      ///
+      /// Устанавливает подсказку, всплывающую при наведении мыши на графический узел.
+      ///
+      void Tooltip(string tip)
+      {
+         tooltip = tip;
+         if(visible)
+            ObjectSetString(MAIN_WINDOW, nameId, OBJPROP_TOOLTIP, tooltip);
+      }
+      ///
+      /// Возвращает подсказку, всплывающую при наведении мыши на графический узел.
+      ///
+      string Tooltip()
+      {
+         return tooltip;
+      }
+      ///
+      /// Устанавливает принудительный цвет фона. Любые попытки
+      /// изменения цвета через BackgroundColor будут игнорированы.
+      ///
+      void SetBlockBgColor(color clr)
+      {
+         BackgroundColor(clr);
+         isBlockBgColor = true;
       }
       ///
       /// Устанавливает цвет, согласно установкам.
@@ -686,6 +712,7 @@ class ProtoNode : public CObject
                BackgroundColor(bgColor);
                BorderColor(borderColor);
                BorderType(borderType);
+               Tooltip(tooltip);
                Move(xDist, yDist, COOR_GLOBAL);
                Resize(width, high);
                //
@@ -953,9 +980,18 @@ class ProtoNode : public CObject
       ///
       color bgColor;
       ///
+      /// Текст, всплывающий при наведении мыши на графический узел.
+      ///
+      string tooltip;
+      ///
+      /// Истина, если цвет фона заблокирован для изменений.
+      ///
+      bool isBlockBgColor;
+      ///
       /// Цвет границы текстовой рамки.
       ///
       color borderColor;
+      
       ///
       /// Номер строки в списке дочерних элементов.
       ///

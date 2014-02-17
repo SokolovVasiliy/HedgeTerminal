@@ -374,7 +374,7 @@ class CWorkArea : public Label
                {
                   ProtoNode* rnode = line.ChildElementAt(k);
                   //if(rnode.TypeElement() != ELEMENT_TYPE_BOTTON)
-                     rnode.BackgroundColor(clrBack);
+                  rnode.BackgroundColor(clrBack);
                   rnode.BorderColor(clrBack);
                }
             }

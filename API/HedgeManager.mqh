@@ -39,8 +39,9 @@ class HedgeManager
          long tick = GetTickCount();
          OnRefresh();
          isInit = true;
-         ShowActivePos();
-         
+         #ifdef HEDGE_PANEL
+         ShowPosition();
+         #endif
          PrintPerfomanceParsing(tick);
       }
       
@@ -119,6 +120,7 @@ class HedgeManager
       ///
       /// Отслеживает отмененные ордера.
       ///
+      int c;
       void TrackingPendingCancel()
       {
          //При первом вызове отмененные ордера не отслеживаем,
@@ -143,6 +145,7 @@ class HedgeManager
             //Возможно это стоп-лосс или тейк профит?
             if(order.IsStopLoss() || order.IsTakeProfit())
             {
+               //printf(c++);
                ENUM_ORDER_STATUS st = order.Status();
                //Отмененый стоп у активных позиций не актуален.
                //Отмененный стоп у исторической позиции надо запомнить.
@@ -171,19 +174,18 @@ class HedgeManager
       
       void CollectNewSLAndTPOrders()
       {
-         if(ordersPendingNow != OrdersTotal() || recalcModify)
+         //if(ordersPendingNow != OrdersTotal() || recalcModify)
+         if(true)
          {
-            ordersPendingNow = 0;
-            for(; ordersPendingNow < OrdersTotal(); ordersPendingNow++)
+            //ordersPendingNow = 0;
+            int total = OrdersTotal();
+            if(ordersPendingNow > total)
+               ordersPendingNow = total;
+            for(; ordersPendingNow < total; ordersPendingNow++)
             {
                ulong ticket = OrderGetTicket(ordersPendingNow);
-               OrderSelect(ticket);
+               if(!OrderSelect(ticket))continue;
                ENUM_ORDER_STATE state = (ENUM_ORDER_STATE)OrderGetInteger(ORDER_STATE);
-               /*if(IsOrderModify(state))
-               {
-                  recalcModify = true;
-                  continue;
-               }*/
                Order* order = new Order(ticket);
                Position* ActPos = FindActivePosById(order.PositionId());
                if(ActPos == NULL)
@@ -244,14 +246,21 @@ class HedgeManager
       ///
       /// Вызывается сразу после инициализации и отображает активные сделки.
       ///
-      void ShowActivePos()
+      #ifdef HEDGE_PANEL
+      void ShowPosition()
       {
          for(int i = 0; i < ActivePos.Total(); i++)
          {
             Position* pos = ActivePos.At(i);
             pos.SendEventChangedPos(POSITION_SHOW);
          }
+         for(int i = 0; i < HistoryPos.Total(); i++)
+         {
+            Position* pos = HistoryPos.At(i);
+            pos.SendEventChangedPos(POSITION_SHOW);
+         }
       }
+      #endif
       
       ///
       /// Интегрирует новую сделку в систему позиций.
@@ -363,10 +372,9 @@ class HedgeManager
             }
          }
          if(!isMerge)
-         {
             HistoryPos.InsertSort(histPos);
-            histPos.SendEventChangedPos(POSITION_SHOW);
-         }
+         if(isInit)
+            histPos.SendEventChangedPos(POSITION_SHOW);         
       }
       ///
       /// For API: Возвращает количество активных позиций
@@ -438,7 +446,7 @@ class HedgeManager
          int oTotal = HistoryOrdersTotal();
          string seconds = (string)isec + "." + srest;
          string line = "We are begin. Parsing of history deals (" + (string)dTotal +
-         ") and orders (" + (string)oTotal + ") completed for " + seconds + " sec.";
+         ") and orders (2x" + (string)oTotal + ") completed for " + seconds + " sec.";
          printf(line);
       }
       ///

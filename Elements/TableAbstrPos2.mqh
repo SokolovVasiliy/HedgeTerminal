@@ -29,7 +29,13 @@ class AbstractLine : public Line
          if(ArraySize(textNodes) > cType &&
             CheckPointer(textNodes[cType]) != POINTER_INVALID)
          {
-            textNodes[cType].Text(GetStringValue(cType));
+            if(cType != COLUMN_SL)
+               textNodes[cType].Text(GetStringValue(cType));
+            /*else if(pos.UsingStopLoss())
+            {
+               double delta = MathAbs(pos. pos.StopLossLevel() - pos.CurrentPrice());
+               //if()
+            }*/
          }
       }
       ///
@@ -172,6 +178,10 @@ class AbstractLine : public Line
       /// ƒл€ быстрого доступа к элементам строки также храним ссылки на элементы.
       ///
       ProtoNode* protoNodes[];
+      ///
+      /// «начение минимального изменени€ цены (PriceStep);
+      ///
+      double ticksize;
 };
 
 //class 
@@ -376,7 +386,7 @@ class PosLine : public AbstractLine
       {
          double setPrice = StringToDouble(editNode.Text());
          //pos.StopLossModify(setPrice, pos.ExitComment(), true);
-         TaskModifyOrSetStopLoss* sl = new TaskModifyOrSetStopLoss(pos, setPrice, pos.ExitComment());
+         TaskModifySL* sl = new TaskModifySL(pos, setPrice, pos.ExitComment());
          pos.AddTask(sl);
       }
       
@@ -389,14 +399,10 @@ class PosLine : public AbstractLine
          if(event.Status())
          {
             BlockedCell();
-            //SetBlockedColor();
-            //BorderColor(clrRed);
          }
          else
-         {
             UnBlockedCell();
-            //BorderColor(Settings.ColorTheme.GetSystemColor2());
-         }
+         
       }
       ///
       /// Ѕлокирует редактирование текста в €чейках, которые позвол€ют
@@ -475,8 +481,11 @@ class PosLine : public AbstractLine
                comby = GetProfitEl(el);
                break;
             case COLUMN_VOLUME:
-            case COLUMN_SL:
                comby.element = GetDefaultEditEl(el);
+               comby.value = comby.element;
+               break;
+            case COLUMN_SL:
+               comby.element = GetSLNode(el);
                comby.value = comby.element;
                break;
             default:
@@ -507,6 +516,22 @@ class PosLine : public AbstractLine
          tbox.OptimalWidth(el.OptimalWidth());
          tbox.ConstWidth(el.ConstWidth());
          return tbox;
+      }
+      
+      TextNode* GetSLNode(DefColumn* el)
+      {
+         EditNode* enode = GetDefaultEditEl(el);
+         if(pos.Status() != POSITION_HISTORY)
+            return enode;
+         Order* exitOrder = pos.ExitOrder();
+         if(exitOrder.IsStopLoss())
+         {
+            enode.SetBlockBgColor(clrPink);         
+            int dir = pos.Direction() == DIRECTION_LONG ? 1 : -1;
+            double slipage = (exitOrder.EntryExecutedPrice() - exitOrder.PriceSetup() * dir);
+            enode.Tooltip("slipage: " + pos.PriceToString(slipage));
+         }
+         return enode;
       }
       
       CheckBox* GetTralEl(DefColumn* el)
@@ -770,7 +795,10 @@ class DealLine : public AbstractLine
                   value = entryDeal.PriceToString(entryDeal.EntryExecutedPrice());
                break;
             case COLUMN_SL:
-               value = "-";
+               if(!Math::DoubleEquals(pos.StopLossLevel(), 0.0))
+                  value = pos.PriceToString(pos.StopLossLevel());
+               else
+                  value = "-";   
                break;
             case COLUMN_TP:
                value = "-";

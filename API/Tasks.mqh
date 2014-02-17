@@ -434,14 +434,14 @@ class TaskClosePos : public TaskPos
 ///
 /// Задание установить/модифицировать стоп-лосс
 ///
-class TaskModifyOrSetStopLoss : public TaskPos
+class TaskModifySL : public TaskPos
 {
    public:
-      TaskModifyOrSetStopLoss(Position* pos, double slLevel, string comm) : TaskPos(pos, TASK_MODIFY_STOP_LOSS)
+      TaskModifySL(Position* pos, double slLevel, string comm) : TaskPos(pos, TASK_MODIFY_STOP_LOSS)
       {
          setStop = new ModifyStopLoss(pos, slLevel, comm);
       }
-      ~TaskModifyOrSetStopLoss()
+      ~TaskModifySL()
       {
          delete setStop;
       }

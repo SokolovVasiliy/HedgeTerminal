@@ -465,13 +465,11 @@ bool Order::IsPending()
 }
 
 ///
-/// Истина, если ордер исполнен. Ложь в противном случае.
+/// Истина, если ордер когда-либо исполнялся. Ложь в противном случае.
 ///
 bool Order::IsExecuted()
 {
-   if(Math::DoubleEquals(!VolumeExecuted(), 0.0))
-      return true;
-   return false;
+   return activated || deals.Total();
 }
 
 ///
@@ -725,8 +723,9 @@ bool Order::IsStopLoss(void)
 {
    bool res = (magic & GetStopMask()) == GetStopMask();
    //Сработавший стоп обрабатывается по-другому и стопом не считается.
-   bool exe = IsExecuted();
-   return res && !exe;
+   return res;
+   //bool exe = IsExecuted();
+   //return res && !exe;
 }
 
 ///
