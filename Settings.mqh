@@ -186,6 +186,10 @@ class PanelSettings
       /// ¬озвращает список настроек дл€ каждого элемента таблицы исторических позиций.
       ///
       CArrayObj* GetSetForHistoryTable(){return GetPointer(setForHistoryPos);}
+      ///
+      /// ¬овзвращает рекомендованное количество прайсстепов, между ценой и стоп, тейк ордерами, 
+      ///
+      int GetPriceStepCount(){return 10;}
    private:        
       static PanelSettings* set;
       ///
@@ -241,9 +245,10 @@ class PanelSettings
          setForActivePos.Add(new DefColumn(COLUMN_TYPE, type, 80, false));                   
          setForActivePos.Add(new DefColumn(COLUMN_VOLUME, vol, 30, false));                  
          setForActivePos.Add(new DefColumn(COLUMN_ENTRY_PRICE, entryPrice, 50, false));      
+         setForActivePos.Add(new DefColumn(COLUMN_TRAL, tral, 20, true));
          setForActivePos.Add(new DefColumn(COLUMN_SL, sl, 50, false));                       setForHistoryPos.Add(new DefColumn(COLUMN_SL, sl, 50, false));
          setForActivePos.Add(new DefColumn(COLUMN_TP, tp, 50, false));                       setForHistoryPos.Add(new DefColumn(COLUMN_TP, tp, 50, false));
-         setForActivePos.Add(new DefColumn(COLUMN_TRAL, tral, 20, true));
+         
          setForActivePos.Add(new DefColumn(COLUMN_CURRENT_PRICE, currentPrice, 50, false));  
          setForActivePos.Add(new DefColumn(COLUMN_PROFIT, profit, 60, false));               setForHistoryPos.Add(new DefColumn(COLUMN_PROFIT, profit, 50, false));
          setForActivePos.Add(new DefColumn(COLUMN_ENTRY_COMMENT, entryComment, 150, false));  setForHistoryPos.Add(new DefColumn(COLUMN_ENTRY_COMMENT, entryComment, 90, false));

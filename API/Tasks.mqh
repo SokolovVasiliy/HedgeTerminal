@@ -117,6 +117,7 @@ class PrimitiveOP : public CObject
       PrimitiveOP(ENUM_OPERATION_TYPE type)
       {
          attempsAll = 1;
+         opType = type;
       }
       ///
       /// Задает операцию с заданным количеством попыток.
@@ -365,19 +366,27 @@ class TaskClosePos : public TaskPos
          while(listOperations.Total())
          {
             PrimitiveOP* op = listOperations.At(0);
+            ENUM_OPERATION_TYPE type = op.OperationType();
+            printf("#" + position.GetId() + " Получаю задачу: " + EnumToString(op.OperationType()));
             //Условия задания выполненны? - 
             //Переходим к следущему заданию.
             if(op.IsSuccess())
             {
                //... а старое удаляем.
+               printf("Задача " + EnumToString(op.OperationType()) + " успешно выполненна.");
                listOperations.Delete(0);
                continue;   
             }
             else if(op.IsPerform())
             {
+               printf("Запускаю задачу " + EnumToString(op.OperationType()) + " на выполнение...");
+               int dbg = 5;
+               if(op.OperationType() == OPERATION_POSITION_CLOSE)
+                  dbg = 6;
                bool res = op.Execute();
                if(!res)
                {
+                  printf("Задачу " + EnumToString(op.OperationType()) + " на удалось запустить.");
                   SetRestoreOP();
                   continue;
                }
@@ -385,6 +394,7 @@ class TaskClosePos : public TaskPos
             }
             else
             {
+               printf("Задача " + EnumToString(op.OperationType()) + " была запущена, но не выполнена.");
                //Сбой выполнения.
                //Устанавливаем сценарий восстановления.               
                message = "Operation " + EnumToString(op.OperationType()) + " failed.";
@@ -405,6 +415,7 @@ class TaskClosePos : public TaskPos
       ///
       void SetRestoreOP()
       {
+         printf("Восстанавливаю предыдущее состояние...");
          listOperations.Clear();
          //Если позиция не активна - восстанавливать уже нечего.
          //Также не вызываем функцию повторно.

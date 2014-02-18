@@ -36,6 +36,7 @@ class HedgeManager
          HistoryPos = new CArrayObj();
          ActivePos.Sort(SORT_ORDER_ID);
          HistoryPos.Sort(SORT_ORDER_ID);
+         ticketOrders.Sort();
          long tick = GetTickCount();
          OnRefresh();
          isInit = true;
@@ -91,6 +92,11 @@ class HedgeManager
             if(ActPos != NULL)
                ActPos.Event(event);
          }
+         //
+         if(trans.type == TRADE_TRANSACTION_HISTORY_ADD)
+         {
+            addOrderTicket = trans.order;
+         }
       }
       ///
       /// Следит за поступлением новых трейдов и ордеров.
@@ -120,7 +126,6 @@ class HedgeManager
       ///
       /// Отслеживает отмененные ордера.
       ///
-      int c;
       void TrackingPendingCancel()
       {
          //При первом вызове отмененные ордера не отслеживаем,
@@ -133,14 +138,30 @@ class HedgeManager
          }*/
          for(; historyOrdersCount < HistoryOrdersTotal(); historyOrdersCount++)
          {
-            ulong ticket = HistoryOrderGetTicket(historyOrdersCount);
-            int dbg = 3;
-            if(ticket == 1009521957)
-               dbg = 4;
+            ulong ticket;
+            if(!isInit)
+               ticket = HistoryOrderGetTicket(historyOrdersCount);
+            else
+               ticket = FindAddTicket();
+            //Не удалось найти ордер.
+            if(ticket == 0)
+            {
+               printf("Не удалось найти поступивший ордер.");
+               continue;
+            }
+            ticketOrders.InsertSort(ticket);
             ENUM_ORDER_STATE state = (ENUM_ORDER_STATE)HistoryOrderGetInteger(ticket, ORDER_STATE);
+            if(isInit)
+               printf("Add new order #" + ticket + ". State: " + EnumToString(state) + " Count: " + historyOrdersCount);
+            int dbg = 5;
+            if(historyOrdersCount == 216)
+               dbg = 4;
             //Ордер был отменен?
             if(state != ORDER_STATE_CANCELED)
+            {
+               //printf("Wrong state: " + ticket);
                continue;
+            }
             Order* order = new Order(ticket);
             //Возможно это стоп-лосс или тейк профит?
             if(order.IsStopLoss() || order.IsTakeProfit())
@@ -170,6 +191,51 @@ class HedgeManager
             else
                delete order;
          }
+      }
+         
+      ///
+      /// Находит тикет ордера, который был добавлен в историю ордеров.
+      ///
+      ulong FindAddTicket()
+      {
+         ulong ticket;
+         //Быстрый способ - если событие пришло раньше.
+         if(addOrderTicket != 0 && !ContainsHistTicket(addOrderTicket))
+         {
+            ticket = addOrderTicket;
+            addOrderTicket = 0;
+         }
+         //Медленный способ - если событие не пришло или задержалось.
+         else
+            ticket = FindTicketInHistory();
+         return ticket;
+      }
+      
+      ///
+      /// Перебирает все ордера в истории, и возвращает первый ордер с конца, который еще не был
+      /// внесен в список обработанных ордеров.
+      ///
+      ulong FindTicketInHistory()
+      {
+         int total = HistoryOrdersTotal();
+         for(int i = 0; i < total; i++)
+         {
+            ulong ticket = HistoryOrderGetTicket(i);
+            if(!ContainsHistTicket(ticket))
+               return ticket;
+         }
+         return 0;
+      }
+      ///
+      /// Истина, если список ticketOrders содержит тикет с данным модификатором.
+      /// Ложь в противном случае.
+      ///
+      bool ContainsHistTicket(ulong ticket)
+      {
+         int index = ticketOrders.Search(ticket);
+         if(index == -1)
+            return false;
+         return true;
       }
       
       void CollectNewSLAndTPOrders()
@@ -489,4 +555,12 @@ class HedgeManager
       /// Истина, если инициализация выполнена и осуществлен переход работы в режим реального времени.
       ///
       bool isInit;
+      ///
+      /// Проанализированный список тикетов проверенных ордеров.
+      ///
+      CArrayLong ticketOrders;
+      ///
+      /// Тикет добавляемого в историю ордера, который записывает метод отслеживания событий.
+      ///
+      ulong addOrderTicket;
 };

@@ -256,7 +256,7 @@ class Position : public Transaction
 Position::~Position()
 {
    DeleteAllOrders();
-   if(task != NULL)
+   if(CheckPointer(task) != POINTER_INVALID)
       delete task;
 }
 ///
@@ -1332,14 +1332,15 @@ void Position::AddTask(Task *ctask)
       delete task;
    task = ctask;
    task.Execute();
-   if(task.Status() == TASK_COMPLETED_FAILED)
+   if(task.Status() == TASK_COMPLETED_FAILED || 
+      task.Status() == TASK_COMPLETED_SUCCESS)
       Refresh();
 }
 
 ///
 /// Сборщик отработанных заданий.
 ///
-void Position::TaskCollector(void)
+/*void Position::TaskCollector(void)
 {
    if(task == NULL)return;
    ENUM_TASK_STATUS taskStatus = task.Status();
@@ -1354,7 +1355,7 @@ void Position::TaskCollector(void)
    }
    else if(task.TimeLastExecution() == 0)
       task.Execute();
-}
+}*/
 
 ///
 /// Выполняет задания из списка заданий.
@@ -1366,10 +1367,10 @@ void Position::ExecutingTask(void)
    usingTimeOut = true;
    task.Execute();
    //Отработанную задачу удаляем.
-   if(task.Status() != TASK_COMPLETED_FAILED ||
-      task.Status() != TASK_COMPLETED_SUCCESS)
+   if(task.Status() == TASK_COMPLETED_FAILED ||
+      task.Status() == TASK_COMPLETED_SUCCESS)
    {
-      LogWriter("Task complete for " + (string)task.TimeExecutionTotal() + "msc.", MESSAGE_TYPE_INFO);
+      LogWriter("Task complete for " + (string)task.TimeExecutionTotal() + " msc.", MESSAGE_TYPE_INFO);
       delete task;
       task = NULL;
       return;

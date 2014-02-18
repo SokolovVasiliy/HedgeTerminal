@@ -1,6 +1,8 @@
 #include "Table.mqh"
 #include "..\Math.mqh"
+#include "Node.mqh"
 #include "TextNode.mqh"
+
 ///
 /// јбстрактный класс одной из строк таблицы. —трока может быть заголовком, позицией или сделкой.
 /// ≈е тип должен быть определен в момент создани€.
@@ -18,7 +20,7 @@ class AbstractLine : public Line
       void RefreshAll()
       {
          int total = ArraySize(textNodes);
-         for(int i = 0; i < total; i++)   
+         for(int i = 0; i < total; i++)
             RefreshValue((ENUM_COLUMN_TYPE)i);
       }
       ///
@@ -29,13 +31,8 @@ class AbstractLine : public Line
          if(ArraySize(textNodes) > cType &&
             CheckPointer(textNodes[cType]) != POINTER_INVALID)
          {
-            if(cType != COLUMN_SL)
-               textNodes[cType].Text(GetStringValue(cType));
-            /*else if(pos.UsingStopLoss())
-            {
-               double delta = MathAbs(pos. pos.StopLossLevel() - pos.CurrentPrice());
-               //if()
-            }*/
+            textNodes[cType].Text(GetStringValue(cType));
+            OnRefreshValue(cType);
          }
       }
       ///
@@ -167,7 +164,10 @@ class AbstractLine : public Line
             delete node;
          }
       }
-      
+      ///
+      /// ¬ызываетс€ при обновлении колонки cType и переопредел€етс€ дочерним классом.
+      ///
+      virtual void OnRefreshValue(ENUM_COLUMN_TYPE cType){;}
    private:
       ENUM_TABLE_TYPE tblType;
       ///
@@ -521,6 +521,11 @@ class PosLine : public AbstractLine
       TextNode* GetSLNode(DefColumn* el)
       {
          EditNode* enode = GetDefaultEditEl(el);
+         if(pos.UsingStopLoss())
+         {
+            Order* order = pos.StopOrder();
+            enode.Tooltip("#" + order.GetId());
+         }
          if(pos.Status() != POSITION_HISTORY)
             return enode;
          Order* exitOrder = pos.ExitOrder();
@@ -630,7 +635,11 @@ class PosLine : public AbstractLine
                if(Math::DoubleEquals(sl, 0.0))
                   value = "-.";
                else
+               {
                   value = pos.PriceToString(sl);
+                  /*ProtoNode* node = GetCell(COLUMN_SL);
+                  if(node != NULL && node.ToolTip() != )*/
+               }
                break;
             }
             case COLUMN_TP:
@@ -666,6 +675,37 @@ class PosLine : public AbstractLine
          }
          return value;
       }
+      
+      ///
+      /// ќпредел€ем дополнительные действи€ при обновлении цен
+      ///
+      virtual void OnRefreshValue(ENUM_COLUMN_TYPE cType)
+      {
+         if(cType != COLUMN_PROFIT)return;
+         double sl = pos.StopLossLevel();
+         if(Math::DoubleEquals(sl, 0.0))return;
+         double delta = MathAbs(pos.CurrentPrice() - sl);
+         TextNode* node = GetCell(COLUMN_SL);
+         if(node == NULL)return;
+         int steps = Settings.GetPriceStepCount();
+         if(stepValue < 0.00001)
+            stepValue = SymbolInfoDouble(pos.Symbol(), SYMBOL_TRADE_TICK_SIZE);
+         if(delta < steps*stepValue)
+            node.BackgroundColor(clrPink);
+         //ѕытаемс€ восстановить цвет
+         else if(node.BackgroundColor() == clrPink)
+         {
+            color restoreClr = clrWhite;
+            //Ѕерем первый попавшийс€ цвет.
+            for(int i = 0; i < childNodes.Total(); i++)
+            {
+               ProtoNode* anyNode = childNodes.At(i);
+               restoreClr = anyNode.BackgroundColor();
+               break;
+            }
+            node.BackgroundColor(restoreClr);
+         }
+      }
       ///
       /// ”казатель на позицию, которую представл€ет данна€ строка.
       ///
@@ -675,6 +715,11 @@ class PosLine : public AbstractLine
       /// дл€ расчета выполнени€ скорости операции.
       ///
       long tiks;
+      ///
+      /// ¬еличина одного прайсстепа в пунктах инструмента.
+      ///
+      double stepValue;
+      int countPS;
 };
 
 ///
