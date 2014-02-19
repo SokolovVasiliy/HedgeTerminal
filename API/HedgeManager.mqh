@@ -118,7 +118,7 @@ class HedgeManager
             ulong ticket = HistoryDealGetTicket(dealsCountNow);
             AddNewDeal(ticket);
          }
-         TrackingPendingCancel();
+         //TrackingPendingCancel();
          CheckModifyOrders();
          CollectNewSLAndTPOrders();
       }
@@ -152,7 +152,7 @@ class HedgeManager
             ticketOrders.InsertSort(ticket);
             ENUM_ORDER_STATE state = (ENUM_ORDER_STATE)HistoryOrderGetInteger(ticket, ORDER_STATE);
             if(isInit)
-               printf("Add new order #" + ticket + ". State: " + EnumToString(state) + " Count: " + historyOrdersCount);
+               printf("Add new order #" + (string)ticket + ". State: " + EnumToString(state) + " Count: " + (string)historyOrdersCount);
             int dbg = 5;
             if(historyOrdersCount == 216)
                dbg = 4;

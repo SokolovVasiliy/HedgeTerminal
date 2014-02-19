@@ -4,6 +4,7 @@
 #include "..\Log.mqh"
 #include "..\Events.mqh"
 #include "Tasks.mqh"
+#include "Targets.mqh"
 #include <Trade\SymbolInfo.mqh>
  
 class Position;
@@ -141,6 +142,7 @@ class Position : public Transaction
       bool VirtualStopLoss(){return isVirtualStopLoss;}
       void AddTask(Task* task);
       Order* FindOrderById(ulong id);
+      void TaskChanged();
    private:
       ///
       /// Класс, для совершения торговых операций.
@@ -249,6 +251,10 @@ class Position : public Transaction
       /// Флаг указывающий, что текущее задание имеет ограничение по времени.
       ///
       bool usingTimeOut;
+      ///
+      /// Текущая цель.
+      ///
+      Target* target;
 };
 ///
 /// Деинициализирует позицию.
@@ -379,8 +385,6 @@ InfoIntegration* Position::Integrate(Order* order)
       bool res = CompatibleForStop(order);
       delete order;
    }
-   if(blocked)
-      ResetBlocked();
    //Запрос обработан, продолжаем выполнять задания.
    ExecutingTask();
    return info;
@@ -1327,9 +1331,19 @@ void Position::AddTask(Task *ctask)
       delete ctask;
       ctask = NULL;
    }
-   //Старую задачу удаляем.
+   //Старую задачу удаляем если это возможно.
    if(CheckPointer(task) != POINTER_INVALID)
-      delete task;
+   {
+      if(task.IsFinished())
+         delete task;
+      else
+      {
+         string msg = "Position# " + (string)GetId() + ": Current operation (" + EnumToString(task.TaskType()) + ") not finished. Try Letter.";
+         LogWriter(msg, MESSAGE_TYPE_ERROR);
+         delete ctask;
+         return;
+      }
+   }
    task = ctask;
    task.Execute();
    if(task.Status() == TASK_COMPLETED_FAILED || 
@@ -1362,10 +1376,12 @@ void Position::AddTask(Task *ctask)
 ///
 void Position::ExecutingTask(void)
 {
-   if(task == NULL)return;
+   if(CheckPointer(task) == POINTER_INVALID)return;
    //Либо продолжаем выполнять.
-   usingTimeOut = true;
-   task.Execute();
+   //usingTimeOut = true;
+   if(task.Status() == TASK_QUEUED ||
+      task.Status() == TASK_EXECUTING)
+      task.Execute();
    //Отработанную задачу удаляем.
    if(task.Status() == TASK_COMPLETED_FAILED ||
       task.Status() == TASK_COMPLETED_SUCCESS)
@@ -1373,6 +1389,8 @@ void Position::ExecutingTask(void)
       LogWriter("Task complete for " + (string)task.TimeExecutionTotal() + " msc.", MESSAGE_TYPE_INFO);
       delete task;
       task = NULL;
+      if(blocked)
+         ResetBlocked();
       return;
    }
 }
@@ -1393,4 +1411,12 @@ Order* Position::FindOrderById(ulong id)
    if(UsingStopLoss() && slOrder.GetId() == id)return slOrder;
    //if(UsingTakeProfit() && tpOrder.GetId() == id)return tpOrder;
    return NULL;
+}
+
+///
+/// Вызывается, в случае если цель была изменена
+///
+void Position::TaskChanged(void)
+{
+   //if(CheckPointer())
 }

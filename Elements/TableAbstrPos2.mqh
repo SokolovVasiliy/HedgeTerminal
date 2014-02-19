@@ -524,7 +524,7 @@ class PosLine : public AbstractLine
          if(pos.UsingStopLoss())
          {
             Order* order = pos.StopOrder();
-            enode.Tooltip("#" + order.GetId());
+            enode.Tooltip("#" + (string)order.GetId());
          }
          if(pos.Status() != POSITION_HISTORY)
             return enode;

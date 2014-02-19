@@ -301,6 +301,8 @@ class Transaction : public CObject
 #include "Deal.mqh"
 #include "Order.mqh"
 #include "Position.mqh"
+#include "Targets.mqh"
 #include "Tasks.mqh"
+
 
 

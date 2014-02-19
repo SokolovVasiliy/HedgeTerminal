@@ -5,6 +5,7 @@
 ///
 enum ENUM_TASK_TYPE
 {
+   TASK_DELETE_PENDING_ORDER,
    ///
    /// Закрыть всю позицию.
    ///
@@ -73,7 +74,7 @@ enum ENUM_OPERATION_TYPE
 ///
 /// Базовый класс примитивных операций.
 ///
-class PrimitiveOP : public CObject
+class Operation : public CObject
 {
    public:
       ///
@@ -114,7 +115,7 @@ class PrimitiveOP : public CObject
       ///
       ENUM_OPERATION_TYPE OperationType(){return opType;}
    protected:
-      PrimitiveOP(ENUM_OPERATION_TYPE type)
+      Operation(ENUM_OPERATION_TYPE type)
       {
          attempsAll = 1;
          opType = type;
@@ -122,7 +123,7 @@ class PrimitiveOP : public CObject
       ///
       /// Задает операцию с заданным количеством попыток.
       ///
-      PrimitiveOP(ENUM_OPERATION_TYPE type, int attemps)
+      Operation(ENUM_OPERATION_TYPE type, int attemps)
       {
          attempsAll = attemps;
       }
@@ -152,13 +153,13 @@ class PrimitiveOP : public CObject
 ///
 /// Реализует закрытие позиции, либо ее части.
 ///
-class ClosePosition : public PrimitiveOP
+class ClosePosition : public Operation
 {
    public:
       ///
       /// Определяет закрытие всей позиции.
       ///
-      ClosePosition(Position* cpos, string comm) : PrimitiveOP(OPERATION_POSITION_CLOSE)
+      ClosePosition(Position* cpos, string comm) : Operation(OPERATION_POSITION_CLOSE)
       {
          pos = cpos;
          comment = comm;
@@ -167,7 +168,7 @@ class ClosePosition : public PrimitiveOP
       ///
       /// Определяет закрытие части позиции с объемом vol
       ///
-      ClosePosition(Position* cpos, double vol, string comm) : PrimitiveOP(OPERATION_POSITION_CLOSE)
+      ClosePosition(Position* cpos, double vol, string comm) : Operation(OPERATION_POSITION_CLOSE)
       {
          pos = cpos;
          comment = comm;
@@ -198,10 +199,10 @@ class ClosePosition : public PrimitiveOP
 ///
 /// Реализует модификацию стоп-лосса.
 ///
-class ModifyStopLoss : public PrimitiveOP
+class ModifyStopLoss : public Operation
 {
    public:
-      ModifyStopLoss(Position* cpos, double slLevel, string comm) : PrimitiveOP(OPERATION_SL_MODIFY)
+      ModifyStopLoss(Position* cpos, double slLevel, string comm) : Operation(OPERATION_SL_MODIFY)
       {
          pos = cpos;
          comment = comm;
@@ -279,6 +280,30 @@ class Task : public CObject
          if(timeEnd == 0)
             return GetTickCount() - timeBegin;
          return timeEnd - timeBegin;
+      }
+      
+      ///
+      /// Истина, если текущая задача завершена и больше не может выполняться,
+      /// ложь в противном случае.
+      ///
+      bool IsFinished()
+      {
+         if(taskStatus == TASK_COMPLETED_FAILED ||
+            taskStatus == TASK_COMPLETED_FAILED)
+            return true;
+         return false;
+      }
+      
+      ///
+      /// Истина, если текущая задача готова к выполнению или уже находится в стадии
+      /// выполнения, ложь в противном случае.
+      ///
+      bool IsWorking()
+      {
+         if(taskStatus == TASK_QUEUED ||
+            taskStatus == TASK_EXECUTING)
+            return true;
+         return false;
       }
    protected:
       ///
@@ -365,9 +390,9 @@ class TaskClosePos : public TaskPos
       {
          while(listOperations.Total())
          {
-            PrimitiveOP* op = listOperations.At(0);
-            ENUM_OPERATION_TYPE type = op.OperationType();
-            printf("#" + position.GetId() + " Получаю задачу: " + EnumToString(op.OperationType()));
+            Operation* op = listOperations.At(0);
+            ENUM_OPERATION_TYPE mtype = op.OperationType();
+            printf("#" + (string)position.GetId() + " Получаю задачу: " + EnumToString(op.OperationType()));
             //Условия задания выполненны? - 
             //Переходим к следущему заданию.
             if(op.IsSuccess())
@@ -471,7 +496,7 @@ class TaskModifySL : public TaskPos
          }
          taskStatus = TASK_COMPLETED_FAILED;
       }
-      PrimitiveOP* setStop;
+      Operation* setStop;
 };
 
 
