@@ -1,130 +1,207 @@
-#include "Tasks2.mqh"
-/*
-  Target - включает совокупность задач и определяет их алгоритм исполнения.
-  Также включает объект, над которым будут выполнены эти задачи.
-  Успешное выполнение всех задач, включенных в таргет, изменяет состояние объекта
-  с первоначального на желаемое, конечное состояние. Таким образом цель таргета будет достигнута.
-  Любой таргет должен содержать как минимум три части:
-  1. Список задач (может состоять из одной задачи).
-  2. Объект, к которому будут применяться задачи
-  3. Последовательность действий исполнения задач.
-  4. Итоговую цель.
- */
- 
+#include "Transaction.mqh"
+#include "Methods.mqh"
+
 ///
-/// Статус цели.
+/// Идентификаторы таргетов
+///
+enum ENUM_TARGET_TYPE
+{
+   ///
+   /// Удаление отложенного ордера.
+   ///
+   TARGET_DELETE_PENDING_ORDER
+};
+
+///
+/// Статус выполнения подзадачи (таргета).
 ///
 enum ENUM_TARGET_STATUS
 {
    ///
-   /// Цель может выполнятся.
+   /// Подзадача находится в режиме ожидания и готова к выполнению.
    ///
-   TARGET_STATUS_MAKE,
+   TARGET_STATUS_WAITING,
    ///
-   /// Выполнения цели завершилось неудачей.
+   /// Подзадача находится в процессе выполнения. Ожидает поступления новых событий.
+   ///
+   TARGET_STATUS_EXECUTING,
+   ///
+   /// Подзадача выполнена успешно.
+   ///
+   TARGET_STATUS_COMLETE,
+   ///
+   /// Выполнение подзадачи завершилось неудачей. 
    ///
    TARGET_STATUS_FAILED,
-   ///
-   /// Цель успешно достигнута.
-   ///
-   TARGET_STATUS_COMPLETE
 };
 
 ///
+/// Таргет - абстрактная подзадача. Подзадача - это параметризированный метод со статусом выполнения. 
 ///
-/// Target - конечная цель совокупности операций.
-///
-class Target
+class Target : CObject
 {
    public:
       bool Execute()
       {
-         return OnExecute();
+         if(status != TARGET_STATUS_WAITING)
+            LogWriter(EnumToString(type) + ": State target (" + EnumToString(status) + ") not support executing.", MESSAGE_TYPE_ERROR);
+         bool res = OnExecute();
+         attempsMade++;
+         return res;
       }
       ///
-      /// Цель можно подписать на торговые события. Какие именно события обрабатывать - определяет потомок.
+      /// Истина, если текущее задание завершено неудачей.
       ///
-      virtual void Event(Event* event){;}
-      
-      ENUM_TARGET_STATUS Status(){return status;}
-      ///
-      /// Возвращает истину, если последняя операция была выполнена успешно и ложь
-      /// в противном случае.
-      ///
-      virtual bool SuccessLastOp(){return false;}
-   protected:
-      virtual bool OnExecute()
+      bool IsFailed()
       {
+         if(status == TARGET_STATUS_FAILED)
+            return true;
          return false;
       }
-      Target(){;}
-      Target(Position* pos)
+      ///
+      /// Истина, если операцию можно выполнить, ложь - в противном случае.
+      ///
+      /*bool IsPerform()
       {
-         position = pos;
+         return attempsMade < attempsAll;
+      }*/
+      ///
+      /// Возвращает истину, если состояние объекта соответствует цели действия.
+      /// Например, если требуется удалить стоп-лосс ордер у позиции, а позиция уже
+      /// не имеет стоп-лосс ордер, IsSuccess вернет истину.
+      ///
+      virtual bool IsSuccess()
+      {
+         return true;
       }
+      ///
+      /// Возвращает идентификатор подзадания.
+      ///
+      ENUM_TARGET_TYPE TargetType(void){return type;}
+      ///
+      /// Возвращает статус таргета.
+      ///
+      ENUM_TARGET_STATUS Status()
+      {
+         return status;
+      }
+      ///
+      /// Подзадачу можно подписать на торговые события. Какие именно события обрабатывать - определяет конкретная подзадача.
+      ///
+      virtual void Event(Event* event)
+      {
+         switch(event.EventId())
+         {
+            case EVENT_REFRESH:
+               Timeout();
+               break;
+            default:
+               OnEvent(event);
+               break;
+         }
+      }
+      
+      ///
+      /// Истина, если время дающиеся на завершение операции завершено и ложь и в противном случае.
+      ///
+      bool Timeout()
+      {
+         if(timeBegin <= 0)return false;
+         if((TimeCurrent() - timeBegin) > timeoutSec)
+         {
+            status = TARGET_STATUS_FAILED;
+            return true;
+         }
+         return false;
+      }
+   protected:
+      Target(ENUM_TARGET_TYPE target_type)
+      {
+         attempsAll = 1;
+         type = target_type;
+         //По-умолчанию выделяется три минуты на выполнение.
+         timeoutSec = 3*60;
+      }
+      ///
+      ///
+      ///
+      virtual bool OnExecute(){return true;}
+      ///
+      ///
+      ///
+      virtual void OnEvent(Event* event){;}
+      ///
+      /// Статус таргета.
+      ///
       ENUM_TARGET_STATUS status;
+   private:
       ///
-      /// Позиция, для которой будут выполняться задачи.
+      /// Идентификатор события.
       ///
-      Position* position;
+      ENUM_TARGET_TYPE type;
+      ///
+      /// Содержит количество совершенных попыток.
+      ///
+      int attempsMade;
+      ///
+      /// Содержит количество разрешенных попыток.
+      ///
+      int attempsAll;
+      ///
+      /// Время начала выполнения операции.
+      ///
+      datetime timeBegin;
+      ///
+      /// Время в секундах, которое дается на выполнение подзадачи.
+      ///
+      int timeoutSec;
 };
 
 ///
-/// Удаляет стоп-лосс позиции.
+/// Задача - удалить отложенный ордер.
 ///
-class TargetDeleteStopLoss : public Target
+class TargetDeletePendingOrder : public Target
 {
    public:
-      TargetDeleteStopLoss(Position* pos, bool asynch_mode) : Target(pos){;}
-      ~TargetDeleteStopLoss()
+      TargetDeletePendingOrder(ulong order_id, bool asynch_mode) : Target(TARGET_DELETE_PENDING_ORDER)
       {
-         if(CheckPointer(task) != POINTER_INVALID)
-            delete task;
+         method = new MethodDeletePendingOrder(order_id, asynch_mode);
       }
+      ~TargetDeletePendingOrder()
+      {
+         delete method;
+      }
+      
    private:
+      ///
+      /// Удаляет отложенный ордер.
+      ///
       virtual bool OnExecute()
       {
-         // Если позиция не использует стоп-лосс - цель таргета достигнута.
-         if(CheckDeletePendingOrder())
-         {
-            status = TARGET_STATUS_COMPLETE;
-            return true;
-         }
-         if(task == NULL)
-         {
-            Order* slOrder = position.StopOrder();
-            orderId = slOrder.GetId();
-            task = new TaskDeletePendingOrder(orderId, true);
-         }
-         if(!task.IsPerform())
-         {
-            status = TARGET_STATUS_FAILED;
-            return false;
-         }
-         return task.Execute();
-      }
-      
-      virtual bool SuccessLastOp()
-      {
-         switch(lastTask)
-         {
-            case TASK_DELETE_PENDING_ORDER:
-               return CheckDeletePendingOrder();
-         }
-         return false;
-      }
-      ///
-      /// Истина, если позиция не использует стоп-ордер и ложь в противном случае.
-      ///
-      bool CheckDeletePendingOrder()
-      {
-         if(position.UsingStopLoss())
-            return false;
+         bool res = false;
+         if(!IsSuccess())
+            res = method.Execute();
+         if(res)
+            status = TARGET_STATUS_EXECUTING;
          else
-            return true;
+            status = TARGET_STATUS_FAILED;
+         return res;
+      }
+      ///
+      /// Истина, если отложенного ордера с order_id не существует, и ложь в противном случае.
+      ///
+      virtual bool IsSuccess()
+      {
+         if(OrderSelect(method.OrderId()))
+            return false;
+         status = TARGET_STATUS_COMLETE;
+         return true;
       }
       
-      virtual void Event(Event* event)
+      ///
+      /// Ждем подтверждения об удалении либо отмене операции.
+      ///
+      virtual void OnEvent(Event* event)
       {
          switch(event.EventId())
          {
@@ -132,42 +209,30 @@ class TargetDeleteStopLoss : public Target
                OnRequestNotice(event);
                break;
             case EVENT_CHANGE_POS:
-               OnChangePos(event);
+               OnPosChanged();
                break;
          }
       }
       ///
-      /// Обрабатывает изменение ордера.
+      /// Обрабатываем событие.
       ///
       void OnRequestNotice(EventRequestNotice* event)
       {
          TradeRequest* request = event.GetRequest();
-         if(request.order != orderId)return;
+         if(request.order != method.OrderId())
+            return;
          TradeResult* result = event.GetResult();
-         //Запрос на удаление ордера был отвергнут?
+         //Запрос был отвергнут - подзадача завершена неудачно.
          if(result.IsRejected())
-         {
             status = TARGET_STATUS_FAILED;
-            //position.
-         }
       }
-      void OnChangePos(EventPositionChanged* event)
+      ///
+      /// Реагируем на изменение позиции.
+      ///
+      void OnPosChanged()
       {
-         
+         if(IsSuccess())
+            status = TARGET_STATUS_COMLETE;
       }
-      
-      TaskDeletePendingOrder * task;
-      ///
-      /// Флаг, указывающий на использование асинхронного режима.
-      ///
-      bool asynchMode;
-      ///
-      /// Идентификатор последней задачи, которая была запущена на выполнение.
-      ///
-      ENUM_TASK_TYPE lastTask;
-      ///
-      /// Идентификатор ордера, который необходимо удалить.
-      ///
-      ulong orderId;
-      
+      MethodDeletePendingOrder* method;
 };

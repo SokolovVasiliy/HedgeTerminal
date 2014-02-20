@@ -385,6 +385,13 @@ class PosLine : public AbstractLine
       void OnStopLossModify(EditNode* editNode)
       {
          double setPrice = StringToDouble(editNode.Text());
+         
+         if(!Math::DoubleEquals(pos.StopLossLevel(), 0.0) > 0.0 &&
+            Math::DoubleEquals(setPrice, 0.0))
+         {
+            pos.AddTask2(new TaskDeleteStopLoss(pos, true));
+            return;
+         }
          //pos.StopLossModify(setPrice, pos.ExitComment(), true);
          TaskModifySL* sl = new TaskModifySL(pos, setPrice, pos.ExitComment());
          pos.AddTask(sl);

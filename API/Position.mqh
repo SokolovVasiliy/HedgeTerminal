@@ -4,7 +4,7 @@
 #include "..\Log.mqh"
 #include "..\Events.mqh"
 #include "Tasks.mqh"
-#include "Targets.mqh"
+#include "Tasks2.mqh"
 #include <Trade\SymbolInfo.mqh>
  
 class Position;
@@ -141,6 +141,7 @@ class Position : public Transaction
       bool CheckValidLevelSL(double newLevel);
       bool VirtualStopLoss(){return isVirtualStopLoss;}
       void AddTask(Task* task);
+      void AddTask2(Task2* task);
       Order* FindOrderById(ulong id);
       void TaskChanged();
    private:
@@ -215,6 +216,7 @@ class Position : public Transaction
       void OnRejected(TradeResult& result);
       void OnUpdate(ulong OrderId);
       void ExecutingTask(void);
+      void NoticeTask();
       void TaskCollector(void);
       bool IsItMyPendingStop(Order* order);
       ///
@@ -254,7 +256,7 @@ class Position : public Transaction
       ///
       /// Текущая цель.
       ///
-      Target* target;
+      Task2* task2;
 };
 ///
 /// Деинициализирует позицию.
@@ -385,8 +387,9 @@ InfoIntegration* Position::Integrate(Order* order)
       bool res = CompatibleForStop(order);
       delete order;
    }
-   //Запрос обработан, продолжаем выполнять задания.
+   
    ExecutingTask();
+   NoticeTask();
    return info;
 }
 
@@ -466,7 +469,7 @@ bool Position::IntegrateStopActPos(Order *order)
       if(UsingStopLoss() && !slOrder.IsPending())
       {
          DeleteOrder(slOrder);
-         SendEventChangedPos(POSITION_REFRESH);
+         //SendEventChangedPos(POSITION_REFRESH);
       }
       DeleteOrder(order);
       return false;
@@ -475,7 +478,7 @@ bool Position::IntegrateStopActPos(Order *order)
    if(order.IsPending())
    {
       ChangeStopOrder(order);
-      SendEventChangedPos(POSITION_REFRESH);
+      //SendEventChangedPos(POSITION_REFRESH);
    }
    else
       DeleteOrder(order);
@@ -585,11 +588,11 @@ void Position::Refresh(void)
    else
       SetId(0);
    //Активная позиция не запоминает отмененные стопы.
-   if(status == POSITION_ACTIVE && UsingStopLoss() &&
+   /*if(status == POSITION_ACTIVE && UsingStopLoss() &&
       slOrder.IsCanceled())
    {
       DeleteOrder(slOrder);
-   }
+   }*/
    SendEventChangedPos(POSITION_REFRESH);
 }
 
@@ -1031,7 +1034,7 @@ void Position::ResetBlocked(void)
    blockedTime.Tiks(0);
    isModify = false;
    SendEventBlockStatus(false);
-   SendEventChangedPos(POSITION_REFRESH);
+   //SendEventChangedPos(POSITION_REFRESH);
 }
 
 ///
@@ -1351,6 +1354,49 @@ void Position::AddTask(Task *ctask)
       Refresh();
 }
 
+void Position::AddTask2(Task2 *ctask)
+{
+   if(CheckPointer(task2) != POINTER_INVALID)
+   {
+      if(task2.IsActive())
+      {
+         delete task2;
+         LogWriter("Position is blocked. Try letter.", MESSAGE_TYPE_ERROR);
+      }
+   }
+   task2 = ctask;
+   task2.Execute();
+}
+
+///
+/// Уведомляет задачу о изменении позиции.
+///
+void Position::NoticeTask(void)
+{
+   if(CheckPointer(task2) == POINTER_INVALID)
+      return;
+   EventPositionChanged* event = new EventPositionChanged(GetPointer(this), POSITION_REFRESH);
+   task2.Event(event);
+   delete event;
+}
+
+///
+/// Вызывается, в случае изменения статуса текущей задачи.
+///
+void Position::TaskChanged(void)
+{
+   if(CheckPointer(task2) == POINTER_INVALID)
+      return;
+   if(task2.IsFinished())
+   {
+      task2 = NULL;
+      SendEventChangedPos(POSITION_REFRESH);
+      ResetBlocked();
+   }
+   if(task2.Status() == TASK_EXECUTING)
+      SetBlock();
+}
+
 ///
 /// Сборщик отработанных заданий.
 ///
@@ -1395,6 +1441,8 @@ void Position::ExecutingTask(void)
    }
 }
 
+
+
 ///
 /// Пытается найти один из ордеров позиции, чей идентификатор
 /// равен указанному. Возвращает найденый ордер, либо NULL
@@ -1413,10 +1461,3 @@ Order* Position::FindOrderById(ulong id)
    return NULL;
 }
 
-///
-/// Вызывается, в случае если цель была изменена
-///
-void Position::TaskChanged(void)
-{
-   //if(CheckPointer())
-}

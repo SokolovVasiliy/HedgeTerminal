@@ -190,6 +190,10 @@ class MethodDeletePendingOrder : public Method
          orderId = order_id;
          asynchMode = asynchMode;
       };
+      ///
+      /// Возвращает идентификатор ордера, который требуется удалить.
+      ///
+      ulong OrderId(){return orderId;}
    private:
       ///
       /// Выполняет операцию. Истина, если операция была успешно выполнена и ложь в противном случае.

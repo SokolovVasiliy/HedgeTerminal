@@ -15,7 +15,7 @@ class HedgeManager
       ///
       void Event(Event* event)
       {
-         ENUM_EVENT enEvent = event.EventId();
+         SendTaskEvent(event);
          switch(event.EventId())
          {
             case EVENT_REFRESH:
@@ -56,14 +56,39 @@ class HedgeManager
       }
       
       ///
-      /// ¬озвращает идентификатор позиции которой может принадлежать транзакци€ с магическим номером magic_id.
-      /// ‘актически позиции может не существовать.
+      /// ƒобавл€ет задачу в список задач.
       ///
-      /*static ulong CanPositionId(ulong magic_id)
+      void AddTask(Task2* task)
       {
-         return magic_id;
-      }*/
+         tasks.Add(task);
+      }
       
+      ///
+      /// —ледит за поступлением новых трейдов и ордеров.
+      ///
+      void OnRefresh()
+      {
+         //LoadHistory();
+         datetime t_now = TimeCurrent();
+         HistorySelect(timeBegin, t_now);
+         //TODO.
+         //timeBegin = t_now;
+         int total = HistoryDealsTotal();
+         //ѕеребираем все доступные трейды и формируем на их основе прототипы будущих позиций типа COrder
+         int dbg = 5;
+         for(; dealsCountNow < total; dealsCountNow++)
+         {  
+            if(dealsCountNow == 2)
+               dbg = 6;
+            ulong ticket = HistoryDealGetTicket(dealsCountNow);
+            AddNewDeal(ticket);
+         }
+         TrackingPendingCancel();
+         CheckModifyOrders();
+         CollectNewSLAndTPOrders();
+         
+      }
+   private:
       ///
       /// ѕеренаправл€ет торговые событи€ на конкретные активные позиции,
       /// к которым они относ€тс€.
@@ -97,30 +122,6 @@ class HedgeManager
          {
             addOrderTicket = trans.order;
          }
-      }
-      ///
-      /// —ледит за поступлением новых трейдов и ордеров.
-      ///
-      void OnRefresh()
-      {
-         //LoadHistory();
-         datetime t_now = TimeCurrent();
-         HistorySelect(timeBegin, t_now);
-         //TODO.
-         //timeBegin = t_now;
-         int total = HistoryDealsTotal();
-         //ѕеребираем все доступные трейды и формируем на их основе прототипы будущих позиций типа COrder
-         int dbg = 5;
-         for(; dealsCountNow < total; dealsCountNow++)
-         {  
-            if(dealsCountNow == 2)
-               dbg = 6;
-            ulong ticket = HistoryDealGetTicket(dealsCountNow);
-            AddNewDeal(ticket);
-         }
-         //TrackingPendingCancel();
-         CheckModifyOrders();
-         CollectNewSLAndTPOrders();
       }
       
       ///
@@ -465,8 +466,24 @@ class HedgeManager
          return pos;
       }
       
-      
-   private:
+      ///
+      /// ѕосылает поступившее событие каждому заданию из списка заданий.
+      ///
+      void SendTaskEvent(Event* event)
+      {
+         for(int i = 0; i < tasks.Total(); i++)
+         {
+            Task2* task = tasks.At(i);
+            if(task.IsFinished())
+            {
+               tasks.Delete(i);
+               i--;
+               continue;
+            }
+            task.Event(event);
+         }
+      }
+   
       ///
       /// ¬озвращает список идентификаторов трейдов, совершенных на основе ордера orderId.
       ///
@@ -563,4 +580,8 @@ class HedgeManager
       /// “икет добавл€емого в историю ордера, который записывает метод отслеживани€ событий.
       ///
       ulong addOrderTicket;
+      ///
+      /// —писок заданий.
+      ///
+      CArrayObj tasks;
 };

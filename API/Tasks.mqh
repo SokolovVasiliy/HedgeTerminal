@@ -52,7 +52,15 @@ enum ENUM_TASK_STATUS
    ///
    /// Задание завершено неудачей.
    ///
-   TASK_COMPLETED_FAILED
+   TASK_COMPLETED_FAILED,
+   ///
+   /// Задание успешно завершено.
+   ///
+   TASK_STATUS_COMPLETE,
+   ///
+   /// Задание провалилось.
+   ///
+   TASK_STATUS_FAILED
 };
 
 /* Примитивы */
@@ -114,11 +122,13 @@ class Operation : public CObject
       /// Возвращает идентификатор операции.
       ///
       ENUM_OPERATION_TYPE OperationType(){return opType;}
+      
    protected:
       Operation(ENUM_OPERATION_TYPE type)
       {
          attempsAll = 1;
          opType = type;
+         
       }
       ///
       /// Задает операцию с заданным количеством попыток.
