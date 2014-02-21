@@ -22,38 +22,55 @@ class Task2 : CObject
       void Execute()
       {
          if(!isContinue && targets.Total())
+         {
             currTarget = targets.GetFirstNode();
+            isContinue = true;
+            //Раз проваленую задачу больше не исполняем.
+            if(status == TASK_STATUS_FAILED)
+            {
+               return;
+               TaskChanged();
+            }
+         }
          while(targets.Total())
          {
             Target* target = CurrentTarget();
-            //Условия задания выполнены?
-            if(target.IsSuccess())
+            if(target.Status() == TARGET_STATUS_EXECUTING)
+               return;
+            if(target.Status() == TARGET_STATUS_COMLETE)
             {
                //Все задания закончились.
                if(targets.GetNextNode() == NULL)
                {
-                  status = TASK_STATUS_COMPLETE;
+                  TaskChanged();
                   return;
                }
                //Приступаем к выполнению следущего задания.
                else continue;
             }
             //Если нет, то выполняем задание если возможно.
-            else if(!target.IsFailed())
+            else if(target.Status() == TARGET_STATUS_WAITING)
             {
                bool res = target.Execute();
                if(!res)
+               {
                   OnCrashed();
+                  TaskChanged();
+                  continue;
+               }
                //Ушли на выполнение.
                else
                {
-                  status = TASK_EXECUTING;
                   TaskChanged();
                   return;
                }
             }
-            //Сценарий восстановления задается потомком.
-            OnCrashed();
+            else if(target.Status() == TARGET_STATUS_FAILED)
+            {
+               //Сценарий восстановления задается потомком.
+               OnCrashed();
+               TaskChanged();
+            }
          }
       }
       
@@ -64,8 +81,15 @@ class Task2 : CObject
       {
          if(currTarget != NULL)
          {
+            //Запоминаем состояние подзадачи.
+            ENUM_TARGET_STATUS
+               targetStatus = currTarget.Status();
             currTarget.Event(event);
-            Execute();
+            //Состояние изменилось? - выполняем алгоритм.
+            if(currTarget.Status() != targetStatus)
+            {
+               Execute();
+            }
          }
       }
       
@@ -87,7 +111,7 @@ class Task2 : CObject
       ///
       bool IsFinished()
       {
-         if(status == TASK_COMPLETED_SUCCESS || status == TASK_COMPLETED_FAILED)
+         if(status == TASK_STATUS_COMPLETE || status == TASK_STATUS_FAILED)
             return true;
          return false;
       }
@@ -95,16 +119,21 @@ class Task2 : CObject
       ///
       /// Содержит сценарий действия в случае сбоя подзадачи.
       ///
-      virtual void OnCrashed()
-      {
-         //По-умолчанию переходим к следущему заданию.
-         currTarget = targets.GetNextNode();
-      }
+      virtual void OnCrashed(){}
       ///
       /// Уведомляет связанную с заданием позицию, что состояние задания было измененно.
       ///
       virtual void TaskChanged()
       {
+         if(currTarget.Status() == TARGET_STATUS_COMLETE &&
+            currTarget.Next() == NULL)
+            status = TASK_STATUS_COMPLETE;
+         else if(currTarget.Status() == TARGET_STATUS_WAITING)
+            status = TASK_STATUS_WAITING;
+         else if(currTarget.Status() == TARGET_STATUS_EXECUTING)
+            status = TASK_STATUS_EXECUTING;
+         else if(currTarget.Status() == TARGET_STATUS_FAILED)
+            status = TASK_STATUS_FAILED;
          if(position != NULL)
             position.TaskChanged();
       }
@@ -188,4 +217,32 @@ class TaskDeleteStopLoss : public Task2
          }
          AddTarget(new TargetDeletePendingOrder(stopId, asynch_mode));
       }  
+};
+
+class TaskSetStopLoss : Task2
+{
+   public:
+      TaskSetStopLoss(Position* pos, double price, bool asynch_mode) : Task2(pos)
+      {
+         if(pos.UsingStopLoss())
+         {
+            LogWriter("Position already using stop-order. Delete old stop-order and set new.", MESSAGE_TYPE_ERROR);
+            status = TASK_STATUS_FAILED;
+            return;
+         }
+         if(pos.Status() != POSITION_ACTIVE)
+         {
+            LogWriter("Position not active. Execute task not posiible.", MESSAGE_TYPE_ERROR);
+            status = TASK_STATUS_FAILED;
+            return;
+         }
+         ENUM_ORDER_TYPE orderType;
+         if(pos.Direction() == DIRECTION_LONG)
+            orderType = ORDER_TYPE_SELL_STOP;
+         if(pos.Direction() == DIRECTION_SHORT)
+            orderType = ORDER_TYPE_BUY_STOP;
+         Order* initOrder = pos.EntryOrder();
+         ulong magic = initOrder.GetMagic(MAGIC_TYPE_SL);
+         AddTarget(new TargetSetPendingOrder(pos.Symbol(), orderType, pos.VolumeExecuted(), price, pos.ExitComment(), magic, true));
+      }
 };

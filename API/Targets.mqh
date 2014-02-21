@@ -9,7 +9,15 @@ enum ENUM_TARGET_TYPE
    ///
    /// Удаление отложенного ордера.
    ///
-   TARGET_DELETE_PENDING_ORDER
+   TARGET_DELETE_PENDING_ORDER,
+   ///
+   /// Установка отложенного ордера.
+   ///
+   TARGET_SET_PENDING_ORDER,
+   ///
+   /// Изменение цены отложенного ордера.
+   ///
+   TARGET_MODIFY_PENDING_ORDER
 };
 
 ///
@@ -38,13 +46,13 @@ enum ENUM_TARGET_STATUS
 ///
 /// Таргет - абстрактная подзадача. Подзадача - это параметризированный метод со статусом выполнения. 
 ///
-class Target : CObject
+class Target : public CObject
 {
    public:
       bool Execute()
       {
-         if(status != TARGET_STATUS_WAITING)
-            LogWriter(EnumToString(type) + ": State target (" + EnumToString(status) + ") not support executing.", MESSAGE_TYPE_ERROR);
+         //if(status != TARGET_STATUS_WAITING)
+         //   LogWriter(EnumToString(type) + ": State target (" + EnumToString(status) + ") not support executing.", MESSAGE_TYPE_ERROR);
          bool res = OnExecute();
          attempsMade++;
          return res;
@@ -194,7 +202,7 @@ class TargetDeletePendingOrder : public Target
       {
          if(OrderSelect(method.OrderId()))
             return false;
-         status = TARGET_STATUS_COMLETE;
+         //status = TARGET_STATUS_COMLETE;
          return true;
       }
       
@@ -235,4 +243,98 @@ class TargetDeletePendingOrder : public Target
             status = TARGET_STATUS_COMLETE;
       }
       MethodDeletePendingOrder* method;
+};
+
+class TargetSetPendingOrder : public Target
+{
+   public:
+      TargetSetPendingOrder(string symbol, ENUM_ORDER_TYPE orderType, double volume,
+                           double price, string comment, ulong magic, bool asynchMode) :
+      Target(TARGET_SET_PENDING_ORDER)
+      {
+         pendingOrder = new MethodSetPendingOrder(symbol, orderType, volume, price, comment, magic, asynchMode);
+      }
+      ~TargetSetPendingOrder()
+      {
+         delete pendingOrder;
+      }
+   private:
+      ///
+      /// Истина, если отложенный ордер с заданными параметрами существует и ложь в противном случае.
+      ///
+      virtual bool IsSuccess()
+      {
+         bool res = false;
+         for(int i = 0; i < OrdersTotal(); i++)
+         {
+            ulong ticket = OrderGetTicket(i);
+            if(!OrderSelect(ticket))continue;
+            if(OrderGetInteger(ORDER_MAGIC) != pendingOrder.Magic())continue;
+            if(OrderGetInteger(ORDER_TYPE) != pendingOrder.OrderType())continue;
+            if(OrderGetString(ORDER_SYMBOL) != pendingOrder.Symbol())continue;
+            res = true;
+            break;
+         }
+         return res;
+      }
+      ///
+      /// Удаляет отложенный ордер.
+      ///
+      virtual bool OnExecute()
+      {
+         bool res = false;
+         if(!IsSuccess())
+            res = pendingOrder.Execute();
+         if(res)
+            status = TARGET_STATUS_EXECUTING;
+         else
+            status = TARGET_STATUS_FAILED;
+         return res;
+      }
+      ///
+      /// Ждем подтверждения об удалении либо отмене операции.
+      ///
+      virtual void OnEvent(Event* event)
+      {
+         switch(event.EventId())
+         {
+            case EVENT_REQUEST_NOTICE:
+               OnRequestNotice(event);
+               break;
+            case EVENT_CHANGE_POS:
+               OnPosChanged();
+               break;
+         }
+      }
+      ///
+      /// Обрабатываем событие.
+      ///
+      void OnRequestNotice(EventRequestNotice* event)
+      {
+         TradeRequest* request = event.GetRequest();
+         if(request.magic != pendingOrder.Magic())
+            return;
+         TradeResult* result = event.GetResult();
+         //Запрос был отвергнут - подзадача завершена неудачно.
+         if(result.IsRejected())
+            status = TARGET_STATUS_FAILED;
+      }
+      ///
+      /// Реагируем на изменение позиции.
+      ///
+      void OnPosChanged()
+      {
+         if(IsSuccess())
+            status = TARGET_STATUS_COMLETE;
+      }
+      ///
+      /// Метод устанавливающий отложенный ордер.
+      ///
+      MethodSetPendingOrder* pendingOrder;
+};
+
+class TargetModifyPendingOrder : Target
+{
+   public:
+      
 };

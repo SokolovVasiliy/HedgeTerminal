@@ -104,28 +104,61 @@ class MethodTradeOnMarket : public Method
 ///
 /// Устанавливает отложенный стоп ордер.
 ///
-class MethodSetStopOrder : public Method
+class MethodSetPendingOrder : public Method
 {
    public:
-      MethodSetStopOrder(string symbol_op, ENUM_DIRECTION_TYPE direction, double volume, double price_order, string comment_op, ulong magic_op, bool asynch_mode):
-      Method(symbol_op, direction, volume, price_order, comment_op, magic_op, asynch_mode){;}
+      MethodSetPendingOrder(string symbol_op, ENUM_ORDER_TYPE typeOrder, double volume, double price_order, string comment_op, ulong magic_op, bool asynch_mode):
+      Method(symbol_op, DIRECTION_NDEF, volume, price_order, comment_op, magic_op, asynch_mode)
+      {
+         orderType = typeOrder;
+      }
+      ///
+      /// Возвращает маджик отложенного ордера.
+      ///
+      ulong Magic(){return magic;}
+      ///
+      /// Возвращает символ отложенного ордера.
+      ///
+      string Symbol(){return symbol;}
+      ///
+      /// Возвращает тип отложенного ордера.
+      ///
+      ENUM_ORDER_TYPE OrderType(){return orderType;}
+      
    private:
       virtual bool OnExecute()
       {
-         if(dirType == DIRECTION_NDEF)
-         {
-            LogWriter("Set stop order: direction not defined.", MESSAGE_TYPE_ERROR);
-            return false;
-         }
          bool res = false;
-         if(dirType == DIRECTION_LONG)
-            res = trade.BuyStop(vol, price, symbol, 0.0, 0.0, ORDER_TIME_GTC, 0, comment);
-         else if(dirType == DIRECTION_SHORT)
-            res = trade.SellStop(vol, price, symbol, 0.0, 0.0, ORDER_TIME_GTC, 0, comment);
+         switch(orderType)
+         {
+            case ORDER_TYPE_BUY:
+            case ORDER_TYPE_SELL:
+            case ORDER_TYPE_BUY_STOP_LIMIT:
+            case ORDER_TYPE_SELL_STOP_LIMIT:
+               LogWriter("This type of pending order not support.", MESSAGE_TYPE_ERROR);
+               res = true;
+               break;
+            case ORDER_TYPE_BUY_STOP:
+               res = trade.BuyStop(vol, price, symbol, 0.0, 0.0, ORDER_TIME_GTC, 0, comment);
+               break;
+            case ORDER_TYPE_SELL_STOP:
+               res = trade.SellStop(vol, price, symbol, 0.0, 0.0, ORDER_TIME_GTC, 0, comment);
+               break;
+            case ORDER_TYPE_BUY_LIMIT:
+               res = trade.BuyLimit(vol, price, symbol, 0.0, 0.0, ORDER_TIME_GTC, 0, comment);
+               break;
+            case ORDER_TYPE_SELL_LIMIT:
+               res = trade.SellLimit(vol, price, symbol, 0.0, 0.0, ORDER_TIME_GTC, 0, comment);
+               break;
+         }
          if(!res)
-            SendError("Failed to set stop order.");
+            SendError("Installation fails pending order.");
          return res;
       }
+      ///
+      /// Тип ордера.
+      ///
+      ENUM_ORDER_TYPE orderType;
 };
 
 ///

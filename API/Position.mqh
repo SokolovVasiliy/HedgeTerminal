@@ -367,6 +367,7 @@ bool Position::Merge(Position *pos)
 ///
 InfoIntegration* Position::Integrate(Order* order)
 {
+   ulong orderId = order.GetId();
    InfoIntegration* info = NULL;
    if(CompatibleForStop(order))
       IntegrateStop(order);
@@ -1393,7 +1394,7 @@ void Position::TaskChanged(void)
       SendEventChangedPos(POSITION_REFRESH);
       ResetBlocked();
    }
-   if(task2.Status() == TASK_EXECUTING)
+   else if((task2.Status() == TASK_STATUS_EXECUTING) && !blocked)
       SetBlock();
 }
 

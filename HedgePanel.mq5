@@ -89,10 +89,14 @@ void  OnTradeTransaction(
    )
 {
    
+   bool isDebug = MQLInfoInteger(MQL_DEBUG);
+   string debug = "";
+   if(isDebug)debug = " (MQL_DEBUG)";
+   else debug = " (MQL_EXE)";
    EventRequestNotice* event_request = new EventRequestNotice(trans, request, result);
    printf(EnumToString(trans.order_state) + "   " + EnumToString(trans.type) + " " +
    (string)result.retcode + " magic: " + (string)request.magic + " order: " + (string)request.order +
-   " res order: " + (string)trans.order);
+   " res order: " + (string)trans.order + debug);
    api.Event(event_request);
    delete event_request;
 }
