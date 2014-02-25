@@ -236,7 +236,7 @@ class TaskSetStopLoss : Task2
             status = TASK_STATUS_FAILED;
             return;
          }
-         ENUM_ORDER_TYPE orderType;
+         ENUM_ORDER_TYPE orderType = ORDER_TYPE_SELL;
          if(pos.Direction() == DIRECTION_LONG)
             orderType = ORDER_TYPE_SELL_STOP;
          if(pos.Direction() == DIRECTION_SHORT)
@@ -246,3 +246,24 @@ class TaskSetStopLoss : Task2
          AddTarget(new TargetSetPendingOrder(pos.Symbol(), orderType, pos.VolumeExecuted(), price, pos.ExitComment(), magic, true));
       }
 };
+
+///
+/// Модифицирует уровень нового стоп-лосса.
+///
+class TaskModifyStop : Task2
+{
+   public:
+      TaskModifyStop(Position* pos, double newPrice, bool asynchMode) : Task2(pos)
+      {
+         ulong stopId = 0;
+         Order* stopOrder;
+         if(pos.UsingStopLoss())
+         {
+            stopOrder = pos.StopOrder();
+            stopId = stopOrder.GetId();
+         }
+         AddTarget(new TargetModifyPendingOrder(stopId, newPrice, asynchMode));
+      }
+};
+
+//class TaskClo

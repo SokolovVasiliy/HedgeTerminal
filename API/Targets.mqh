@@ -17,7 +17,11 @@ enum ENUM_TARGET_TYPE
    ///
    /// Изменение цены отложенного ордера.
    ///
-   TARGET_MODIFY_PENDING_ORDER
+   TARGET_MODIFY_PENDING_ORDER,
+   ///
+   /// Совершение сделок по рыночным ценам.
+   ///
+   TARGET_TRADE_BY_MARKET
 };
 
 ///
@@ -336,5 +340,142 @@ class TargetSetPendingOrder : public Target
 class TargetModifyPendingOrder : Target
 {
    public:
+      TargetModifyPendingOrder(ulong orderId, double newPrice, bool asynchMode) : Target(TARGET_MODIFY_PENDING_ORDER)
+      {
+         orderModify = new MethodModifyPendingOrder(orderId, newPrice, asynchMode);
+      }
+      virtual bool IsSuccess()
+      {
+         if(!OrderSelect(orderModify.OrderId()))return false;
+         //Новая цена должна отличаться от цены отложенного ордера
+         double curPrice = OrderGetDouble(ORDER_PRICE_OPEN);
+         if(!Math::DoubleEquals(curPrice, orderModify.Price()))
+            return false;
+         return true;
+      }
+   private:
+      ///
+      /// Удаляет отложенный ордер.
+      ///
+      virtual bool OnExecute()
+      {
+         bool res = false;
+         if(!IsSuccess())
+            res = orderModify.Execute();
+         if(res)
+            status = TARGET_STATUS_EXECUTING;
+         else
+            status = TARGET_STATUS_FAILED;
+         return res;
+      }
+      ///
+      /// Ждем подтверждения об удалении либо отмене операции.
+      ///
+      virtual void OnEvent(Event* event)
+      {
+         switch(event.EventId())
+         {
+            case EVENT_REQUEST_NOTICE:
+               OnRequestNotice(event);
+               break;
+            case EVENT_CHANGE_POS:
+               OnPosChanged();
+               break;
+         }
+      }
+      ///
+      /// Обрабатываем событие.
+      ///
+      void OnRequestNotice(EventRequestNotice* event)
+      {
+         TradeRequest* request = event.GetRequest();
+         if(request.order != orderModify.OrderId())
+            return;
+         TradeResult* result = event.GetResult();
+         //Запрос был отвергнут - подзадача завершена неудачно.
+         if(result.IsRejected())
+            status = TARGET_STATUS_FAILED;
+      }
+      ///
+      /// Обрабатываем событие.
+      ///
+      void OnPosChanged()
+      {
+         if(IsSuccess())
+            status = TARGET_STATUS_COMLETE;
+      }
+      ///
+      /// Метод модификации отложенного ордера.
+      ///
+      MethodModifyPendingOrder* orderModify;
+};
+
+class TargetTradeByMarket : Target
+{
+   public:
+      TargetTradeByMarket(string symbol, ENUM_DIRECTION_TYPE dir, double vol, string comment, ulong magic, bool asynchMode) :
+      Target(TARGET_TRADE_BY_MARKET)
+      {
+         tradeMarket = new MethodTradeByMarket(symbol, dir, vol, comment, magic, asynchMode);
+      }
       
+      virtual bool IsSuccess()
+      {
+         if(status != TARGET_STATUS_COMLETE)
+            return false;
+         return true;
+      }
+   private:
+      virtual bool OnExecute()
+      {
+         bool res = false;
+         if(status == TARGET_STATUS_WAITING)
+            res = tradeMarket.Execute();
+         else
+            return false;
+         if(res)
+            status = TARGET_STATUS_EXECUTING;
+         else
+            status = TARGET_STATUS_FAILED;
+         return res;
+      }
+      
+      virtual void OnEvent(Event* event)
+      {
+         switch(event.EventId())
+         {
+            case EVENT_REQUEST_NOTICE:
+               OnRequestNotice(event);
+               break;
+         }
+      }
+      ///
+      /// Обрабатываем событие.
+      ///
+      void OnRequestNotice(EventRequestNotice* event)
+      {
+         TradeResult* result = event.GetResult();
+         TradeTransaction* trans = event.GetTransaction();
+         TradeRequest* request = event.GetRequest();
+         
+         if(trans.type == TRADE_TRANSACTION_REQUEST &&
+            result.request_id == tradeMarket.RequestId())
+         {
+            orderId = request.order;
+            return;
+         }
+         if(trans.type == TRADE_TRANSACTION_ORDER_ADD)
+         {
+            ;
+         }
+      }
+      MethodTradeByMarket* tradeMarket;
+      ///
+      /// Идентификатор транзакции.
+      ///
+      ulong requestId;
+      ///
+      /// Идентификатор нового ордера.
+      ///
+      ulong orderId;
 };

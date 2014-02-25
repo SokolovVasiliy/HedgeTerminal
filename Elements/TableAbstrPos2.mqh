@@ -396,9 +396,19 @@ class PosLine : public AbstractLine
             pos.AddTask2(new TaskSetStopLoss(pos, setPrice, true));
             return;
          }
+         if(pos.UsingStopLoss())
+         {
+            if(notNull && !Math::DoubleEquals(setPrice, pos.StopLossLevel()))
+            {
+               pos.AddTask2(new TaskModifyStop(pos, setPrice, true));
+               return;
+            }
+         }
+         else
+            RefreshAll();
          //pos.StopLossModify(setPrice, pos.ExitComment(), true);
-         TaskModifySL* sl = new TaskModifySL(pos, setPrice, pos.ExitComment());
-         pos.AddTask(sl);
+         //TaskModifySL* sl = new TaskModifySL(pos, setPrice, pos.ExitComment());
+         //pos.AddTask(sl);
       }
       
       ///

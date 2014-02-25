@@ -391,6 +391,7 @@ InfoIntegration* Position::Integrate(Order* order)
    
    ExecutingTask();
    NoticeTask();
+   
    return info;
 }
 
@@ -470,7 +471,7 @@ bool Position::IntegrateStopActPos(Order *order)
       if(UsingStopLoss() && !slOrder.IsPending())
       {
          DeleteOrder(slOrder);
-         //SendEventChangedPos(POSITION_REFRESH);
+         SendEventChangedPos(POSITION_REFRESH);
       }
       DeleteOrder(order);
       return false;
@@ -479,7 +480,7 @@ bool Position::IntegrateStopActPos(Order *order)
    if(order.IsPending())
    {
       ChangeStopOrder(order);
-      //SendEventChangedPos(POSITION_REFRESH);
+      SendEventChangedPos(POSITION_REFRESH);
    }
    else
       DeleteOrder(order);
