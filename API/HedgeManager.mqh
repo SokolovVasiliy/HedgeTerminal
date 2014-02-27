@@ -68,27 +68,167 @@ class HedgeManager
       ///
       void OnRefresh()
       {
-         //LoadHistory();
-         datetime t_now = TimeCurrent();
-         HistorySelect(timeBegin, t_now);
-         //TODO.
-         //timeBegin = t_now;
+         HistorySelect(timeBegin, TimeCurrent());
+         TrackingHistoryDeals();
+         TrackingHistoryOrders();
+         TrackingPendingOrders();
+      }
+   private:
+      ///
+      /// Отслеживает поступление новых трейдов в истории трейдов.
+      ///
+      void TrackingHistoryDeals()
+      {
          int total = HistoryDealsTotal();
          //Перебираем все доступные трейды и формируем на их основе прототипы будущих позиций типа COrder
-         int dbg = 5;
          for(; dealsCountNow < total; dealsCountNow++)
          {  
-            if(dealsCountNow == 2)
-               dbg = 6;
             ulong ticket = HistoryDealGetTicket(dealsCountNow);
             AddNewDeal(ticket);
          }
-         TrackingPendingCancel();
-         CheckModifyOrders();
-         CollectNewSLAndTPOrders();
-         
       }
-   private:
+      
+      ///
+      /// Отслеживает поступление новых исторических ордеров.
+      ///
+      void TrackingHistoryOrders()
+      {
+         for(; historyOrdersCount < HistoryOrdersTotal(); historyOrdersCount++)
+         {
+            Order* order = CreateCancelOrderOrNull(historyOrdersCount);
+            if(order == NULL)continue;
+            bool isIntegrate = SendCancelStopAndProfitOrder(order);
+            EventOrderCancel* cancelOrder = new EventOrderCancel(order);
+            SendTaskEvent(cancelOrder);
+            delete cancelOrder;
+            if(!isIntegrate)
+               delete order;
+         }
+      }
+      
+      ///
+      /// Отслеживает поступление новых отложенных активных ордеров.
+      ///
+      void TrackingPendingOrders()
+      {
+         int total = OrdersTotal();
+         if(ordersPendingNow > total)
+            ordersPendingNow = total;
+         for(; ordersPendingNow < total; ordersPendingNow++)
+         {
+            ulong ticket = OrderGetTicket(ordersPendingNow);
+            if(!OrderSelect(ticket))continue;
+            Order* order = new Order(ticket);
+            bool isIntegrate = SendPendingOrder(order);
+            EventOrderPending* pendingOrder = new EventOrderPending(order);
+            SendTaskEvent(pendingOrder);
+            delete pendingOrder;
+            if(!isIntegrate)
+               delete order;
+         }
+         ordersPendingNow = OrdersTotal();
+      }
+      
+      ///
+      /// Отправляет поступивший отложенный ордер активной позиции, которой он принадлежит.
+      /// \return Истина, если поступивший ордер был отправлен позиции и ложь, если соответствующая
+      /// позиция не нашлась и ордер не был отправлен.
+      ///
+      bool SendPendingOrder(Order* order)
+      {
+         Position* ActPos = FindActivePosById(order.PositionId());
+         if(ActPos == NULL)return false;
+         if(order.IsStopLoss() || order.IsTakeProfit())
+         {
+            InfoIntegration* info = ActPos.Integrate(order);
+            bool res = info.IsSuccess;
+            delete info;
+            return res;
+         }
+         return false;
+      }
+      
+      ///
+      /// Создает отмененный ордер, анализируя изменившуюся историю ордеров.
+      ///
+      Order* CreateCancelOrderOrNull(int index)
+      {
+         ulong ticket;
+         if(!isInit)
+            ticket = HistoryOrderGetTicket(index);
+         else
+            ticket = FindAddTicket();
+         if(ticket == 0)return NULL;
+         ticketOrders.InsertSort(ticket);
+         ENUM_ORDER_STATE state = (ENUM_ORDER_STATE)HistoryOrderGetInteger(ticket, ORDER_STATE);
+         if(state != ORDER_STATE_CANCELED)return NULL;
+         Order* createOrder = new Order(ticket);
+         return createOrder;
+      }
+      ///
+      /// Пересылает отложенные стоп и профит ордера позициям, которым они
+      /// принадлежат.
+      /// \return Истина, если ордер был интегрирован в соответствующую позицию и ложь
+      /// в противном случае.
+      ///
+      bool SendCancelStopAndProfitOrder(Order* order)
+      {
+         if(!order.IsStopLoss() && !order.IsTakeProfit())return false;
+         //Отмененый стоп у активных позиций не актуален.
+         //Отмененный стоп у исторической позиции надо запомнить.
+         Position* ActPos;
+         ActPos = FindActivePosById(order.PositionId());
+         if(ActPos != NULL)
+         {
+            InfoIntegration* info = ActPos.Integrate(order);
+            bool res = info.IsSuccess;
+            delete info;
+            return res;
+         }
+         ActPos = FindHistPosById(order.PositionId());
+         if(ActPos != NULL)
+         {
+            InfoIntegration* info = ActPos.Integrate(order);
+            bool res = info.IsSuccess;
+            delete info;
+            return res;
+         }
+         return false;
+      }
+      ///
+      /// Находит тикет ордера, который был добавлен в историю ордеров.
+      ///
+      ulong FindAddTicket()
+      {
+         ulong ticket;
+         //Быстрый способ - если событие пришло раньше.
+         if(addOrderTicket != 0 && !ContainsHistTicket(addOrderTicket))
+         {
+            ticket = addOrderTicket;
+            addOrderTicket = 0;
+         }
+         //Медленный способ - если событие не пришло или задержалось.
+         else
+            ticket = FindTicketInHistory();
+         return ticket;
+      }
+      
+      ///
+      /// Перебирает все ордера в истории, и возвращает первый ордер с конца, который еще не был
+      /// внесен в список обработанных ордеров.
+      ///
+      ulong FindTicketInHistory()
+      {
+         int total = HistoryOrdersTotal();
+         for(int i = 0; i < total; i++)
+         {
+            ulong ticket = HistoryOrderGetTicket(i);
+            if(!ContainsHistTicket(ticket))
+               return ticket;
+         }
+         return 0;
+      }
+      
       ///
       /// Перенаправляет торговые события на конкретные активные позиции,
       /// к которым они относятся.
@@ -125,109 +265,6 @@ class HedgeManager
       }
       
       ///
-      /// Отслеживает отмененные ордера.
-      ///
-      void TrackingPendingCancel()
-      {
-         //При первом вызове отмененные ордера не отслеживаем,
-         //т.к. первый вызов это разбор истории.
-         /*if(!tracking)
-         {
-            tracking = true;
-            historyOrdersCount = HistoryOrdersTotal();
-            return;
-         }*/
-         for(; historyOrdersCount < HistoryOrdersTotal(); historyOrdersCount++)
-         {
-            ulong ticket;
-            if(!isInit)
-               ticket = HistoryOrderGetTicket(historyOrdersCount);
-            else
-               ticket = FindAddTicket();
-            //Не удалось найти ордер.
-            if(ticket == 0)
-            {
-               printf("Не удалось найти поступивший ордер.");
-               continue;
-            }
-            ticketOrders.InsertSort(ticket);
-            ENUM_ORDER_STATE state = (ENUM_ORDER_STATE)HistoryOrderGetInteger(ticket, ORDER_STATE);
-            if(isInit)
-               printf("Add new order #" + (string)ticket + ". State: " + EnumToString(state) + " Count: " + (string)historyOrdersCount);
-            int dbg = 5;
-            if(historyOrdersCount == 216)
-               dbg = 4;
-            //Ордер был отменен?
-            if(state != ORDER_STATE_CANCELED)
-            {
-               //printf("Wrong state: " + ticket);
-               continue;
-            }
-            Order* order = new Order(ticket);
-            //Возможно это стоп-лосс или тейк профит?
-            if(order.IsStopLoss() || order.IsTakeProfit())
-            {
-               //printf(c++);
-               ENUM_ORDER_STATUS st = order.Status();
-               //Отмененый стоп у активных позиций не актуален.
-               //Отмененный стоп у исторической позиции надо запомнить.
-               ulong id = order.PositionId();
-               int total = HistoryPos.Total();
-               Position* ActPos;
-               ActPos = FindActivePosById(order.PositionId());
-               if(ActPos != NULL)
-               {
-                  ActPos.Integrate(order);
-                  continue;
-               }
-               ActPos = FindHistPosById(order.PositionId());
-               if(ActPos != NULL)
-               {
-                  ActPos.Integrate(order);
-                  continue;
-               }
-               delete order;
-               continue;
-            }
-            else
-               delete order;
-         }
-      }
-         
-      ///
-      /// Находит тикет ордера, который был добавлен в историю ордеров.
-      ///
-      ulong FindAddTicket()
-      {
-         ulong ticket;
-         //Быстрый способ - если событие пришло раньше.
-         if(addOrderTicket != 0 && !ContainsHistTicket(addOrderTicket))
-         {
-            ticket = addOrderTicket;
-            addOrderTicket = 0;
-         }
-         //Медленный способ - если событие не пришло или задержалось.
-         else
-            ticket = FindTicketInHistory();
-         return ticket;
-      }
-      
-      ///
-      /// Перебирает все ордера в истории, и возвращает первый ордер с конца, который еще не был
-      /// внесен в список обработанных ордеров.
-      ///
-      ulong FindTicketInHistory()
-      {
-         int total = HistoryOrdersTotal();
-         for(int i = 0; i < total; i++)
-         {
-            ulong ticket = HistoryOrderGetTicket(i);
-            if(!ContainsHistTicket(ticket))
-               return ticket;
-         }
-         return 0;
-      }
-      ///
       /// Истина, если список ticketOrders содержит тикет с данным модификатором.
       /// Ложь в противном случае.
       ///
@@ -239,59 +276,6 @@ class HedgeManager
          return true;
       }
       
-      void CollectNewSLAndTPOrders()
-      {
-         //if(ordersPendingNow != OrdersTotal() || recalcModify)
-         if(true)
-         {
-            //ordersPendingNow = 0;
-            int total = OrdersTotal();
-            if(ordersPendingNow > total)
-               ordersPendingNow = total;
-            for(; ordersPendingNow < total; ordersPendingNow++)
-            {
-               ulong ticket = OrderGetTicket(ordersPendingNow);
-               if(!OrderSelect(ticket))continue;
-               ENUM_ORDER_STATE state = (ENUM_ORDER_STATE)OrderGetInteger(ORDER_STATE);
-               Order* order = new Order(ticket);
-               Position* ActPos = FindActivePosById(order.PositionId());
-               if(ActPos == NULL)
-               {
-                  delete order;
-                  continue;
-               }
-               if(order.IsStopLoss() || order.IsTakeProfit())
-                  ActPos.Integrate(order);
-               else
-                  delete order;
-            }
-            ordersPendingNow = OrdersTotal();
-         }
-      }
-      ///
-      /// Находит среди активных ордеров изменяющие свой статус и
-      /// уведомляет об этом позиции, к которым они могут принадлежать.
-      ///
-      void CheckModifyOrders()
-      {
-         if(ordersCountNow != OrdersTotal())
-         {
-            ordersCountNow = 0;
-            for(; ordersCountNow < OrdersTotal(); ordersCountNow++)
-            {
-               ulong ticket = OrderGetTicket(ordersCountNow);
-               OrderSelect(ticket);
-               ENUM_ORDER_STATE state = (ENUM_ORDER_STATE)OrderGetInteger(ORDER_STATE);
-               if(!IsOrderModify(state))continue;
-               Order* order = new Order(ticket);
-               Position* ActPos = FindActivePosById(order.PositionId());
-               delete order;
-               if(ActPos == NULL)continue;
-               ActPos.NoticeModify();
-            }
-            ordersCountNow = OrdersTotal();
-         }
-      }
       ///
       /// Возвращает истину, если статус ордера указывает на то, что он находится
       /// в процессе модификации.
@@ -346,6 +330,9 @@ class HedgeManager
             delete order;
             return;
          }
+         EventOrderExe* event = new EventOrderExe(order);
+         SendTaskEvent(event);
+         delete event;
          ulong magic = order.Magic();
          ulong oid = order.GetId();
          Position* actPos = FindActivePosById(order.PositionId());

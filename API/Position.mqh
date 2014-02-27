@@ -207,7 +207,7 @@ class Position : public Transaction
       bool IntegrateStopActPos(Order* order);
       bool IntegrateStopHistPos(Order* order);
       void ChangeStopOrder(Order* order);
-      InfoIntegration* AddClosingOrder(Order* outOrder);
+      void AddClosingOrder(Order* outOrder, InfoIntegration* info);
       void InitializePosition(Order* inOrder);
       POSITION_STATUS CheckStatus(void);
       void ResetBlocked(void);
@@ -368,30 +368,26 @@ bool Position::Merge(Position *pos)
 InfoIntegration* Position::Integrate(Order* order)
 {
    ulong orderId = order.GetId();
-   InfoIntegration* info = NULL;
+   InfoIntegration* info = new InfoIntegration;
+   //Истина, если поступивший ордер успешно интегрирован.
+   bool res = false;
    if(CompatibleForStop(order))
-      IntegrateStop(order);
+      info.IsSuccess = IntegrateStop(order);
    else if(CompatibleForInit(order))
    {
       InitializePosition(order);
-      info = new InfoIntegration();
+      info.IsSuccess = true;
    }
    else if(CompatibleForClose(order))
-      info = AddClosingOrder(order);
+      AddClosingOrder(order, info);
    else
    {
-      info = new InfoIntegration();
       info.InfoMessage = "Proposed order #" + (string)order.GetId() +
       "can not be integrated in position #" + (string)GetId() +
       ". Position and order has not compatible types";
-      printf("delete order #" + (string)order.GetId());
-      bool res = CompatibleForStop(order);
-      delete order;
    }
-   
-   ExecutingTask();
+   //ExecutingTask();
    NoticeTask();
-   
    return info;
 }
 
@@ -473,7 +469,6 @@ bool Position::IntegrateStopActPos(Order *order)
          DeleteOrder(slOrder);
          SendEventChangedPos(POSITION_REFRESH);
       }
-      DeleteOrder(order);
       return false;
    }
    //Отложенный ордер становитсья новым стопом.
@@ -481,9 +476,8 @@ bool Position::IntegrateStopActPos(Order *order)
    {
       ChangeStopOrder(order);
       SendEventChangedPos(POSITION_REFRESH);
+      return true;
    }
-   else
-      DeleteOrder(order);
    return false;
 }
 
@@ -500,7 +494,6 @@ bool Position::IntegrateStopHistPos(Order *order)
    {
       if(slOrder.IsExecuted())
       {
-         DeleteOrder(order);
          return false;
       }
       else
@@ -549,19 +542,17 @@ void Position::InitializePosition(Order *inOrder)
 ///
 /// Добавляте закрывающий ордер в актинвую позицию.
 ///
-InfoIntegration* Position::AddClosingOrder(Order* outOrder)
+void Position::AddClosingOrder(Order* outOrder, InfoIntegration* info)
 {
-   InfoIntegration* info = new InfoIntegration();
-   
+   info.IsSuccess = true;
    info.HistoryPosition = OrderManager(initOrder, outOrder);
    if(outOrder.Status() != ORDER_NULL)
    {
       info.ActivePosition = new Position(outOrder);
       info.ActivePosition.Unmanagment(true);
    }
-   else   
+   else
       DeleteOrder(outOrder);
-   return info;
 }
 
 ///
@@ -1070,14 +1061,7 @@ void Position::SendEventBlockStatus(bool curStatus)
 ///
 bool Position::IsBlocked(void)
 {
-   if(!isModify)
-   {
-      if(!blocked)
-         return false;
-      long elepseTime = TimeCurrent() - blockedTime.ToDatetime();
-      if(elepseTime > 180)
-         ResetBlocked();
-   }
+
    return isModify || blocked;
 }
 
@@ -1113,8 +1097,8 @@ void Position::OnRequestNotice(EventRequestNotice* notice)
       OnUpdate(trans.order);
       isReset = true;
    }
-   if(isReset && blocked)
-      ResetBlocked();
+   /*if(isReset && blocked)
+      ResetBlocked();*/
 }
 
 ///
@@ -1128,7 +1112,7 @@ void Position::OnRejected(TradeResult& result)
       case TRADE_RETCODE_NO_MONEY:
          LogWriter("Position #" + (string)GetId() + ": Unmanaged hedge. Try to close parts.", MESSAGE_TYPE_INFO);
    }
-   ExecutingTask();
+   //ExecutingTask();
 }
 
 ///
@@ -1392,58 +1376,12 @@ void Position::TaskChanged(void)
    if(task2.IsFinished())
    {
       task2 = NULL;
-      SendEventChangedPos(POSITION_REFRESH);
       ResetBlocked();
+      SendEventChangedPos(POSITION_REFRESH);
    }
    else if((task2.Status() == TASK_STATUS_EXECUTING) && !blocked)
       SetBlock();
 }
-
-///
-/// Сборщик отработанных заданий.
-///
-/*void Position::TaskCollector(void)
-{
-   if(task == NULL)return;
-   ENUM_TASK_STATUS taskStatus = task.Status();
-   //Удаляем завершенные задачипо их завершению.
-   if(taskStatus == TASK_COMPLETED_SUCCESS ||
-      taskStatus == TASK_COMPLETED_FAILED)
-      delete task;
-   else if(task.TimeLastExecution() > 180000)
-   {
-      delete task;
-      ResetBlocked();
-   }
-   else if(task.TimeLastExecution() == 0)
-      task.Execute();
-}*/
-
-///
-/// Выполняет задания из списка заданий.
-///
-void Position::ExecutingTask(void)
-{
-   if(CheckPointer(task) == POINTER_INVALID)return;
-   //Либо продолжаем выполнять.
-   //usingTimeOut = true;
-   if(task.Status() == TASK_QUEUED ||
-      task.Status() == TASK_EXECUTING)
-      task.Execute();
-   //Отработанную задачу удаляем.
-   if(task.Status() == TASK_COMPLETED_FAILED ||
-      task.Status() == TASK_COMPLETED_SUCCESS)
-   {
-      LogWriter("Task complete for " + (string)task.TimeExecutionTotal() + " msc.", MESSAGE_TYPE_INFO);
-      delete task;
-      task = NULL;
-      if(blocked)
-         ResetBlocked();
-      return;
-   }
-}
-
-
 
 ///
 /// Пытается найти один из ордеров позиции, чей идентификатор

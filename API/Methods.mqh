@@ -81,6 +81,10 @@ class MethodTradeByMarket : public Method
       MethodTradeByMarket(string symbol_op, ENUM_DIRECTION_TYPE direction, double volume, string comment_op, ulong magic_op, bool asynch_mode):
       Method(symbol_op, direction, volume, 0.0, comment_op, magic_op, asynch_mode){;}
       ///
+      /// Возвращает уникальный идентификатор ордера.
+      ///
+      ulong Magic(){return magic;}
+      ///
       /// Возвращает идентификатор ордера, который будет исполнен.
       ///
       uint RequestId()
@@ -189,7 +193,7 @@ class MethodModifyPendingOrder : public Method
       ///
       /// Возвращает новую цену, которую надо установить отложенному ордеру.
       ///
-      double Price(){return price;}
+      double NewPrice(){return price;}
       
       ///
       /// Проверяет правильность цен. Истина, если метод может быть исполнен и ложь

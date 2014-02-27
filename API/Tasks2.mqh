@@ -134,7 +134,7 @@ class Task2 : CObject
             status = TASK_STATUS_EXECUTING;
          else if(currTarget.Status() == TARGET_STATUS_FAILED)
             status = TASK_STATUS_FAILED;
-         if(position != NULL)
+         if(CheckPointer(position) != POINTER_INVALID)
             position.TaskChanged();
       }
       
@@ -266,4 +266,17 @@ class TaskModifyStop : Task2
       }
 };
 
-//class TaskClo
+///
+/// Закрывает активную позицию.
+///
+class TaskClosePosition : Task2
+{
+   public:
+      TaskClosePosition(Position* pos) : Task2(pos)
+      {
+         ENUM_DIRECTION_TYPE dir = pos.Direction() == DIRECTION_LONG ? DIRECTION_SHORT: DIRECTION_LONG;
+         Order* initOrder = pos.EntryOrder();
+         ulong magic = initOrder.GetMagic(MAGIC_TYPE_MARKET);
+         AddTarget(new TargetTradeByMarket(pos.Symbol(), dir, pos.VolumeExecuted(), pos.ExitComment(), magic, true));
+      }
+};

@@ -94,10 +94,11 @@ void  OnTradeTransaction(
    
    if(isDebug)debug = " (MQL_DEBUG)";
    else debug = " (MQL_EXE)";
+   ENUM_TRADE_TRANSACTION_TYPE type = trans.type;
    EventRequestNotice* event_request = new EventRequestNotice(trans, request, result);
-   printf("request id: " + (string)result.request_id + "   " + EnumToString(trans.type) + " " +
-   (string)result.retcode + " magic: " + (string)request.magic + " order: " + (string)request.order +
-   " res order: " + (string)trans.order + debug);
+   //printf("request id: " + (string)result.request_id + "   " + EnumToString(trans.type) + " " +
+   //(string)result.retcode + " magic: " + (string)request.magic + " order: " + (string)request.order +
+   //" res order: " + (string)trans.order + debug);
    api.Event(event_request);
    delete event_request;
 }

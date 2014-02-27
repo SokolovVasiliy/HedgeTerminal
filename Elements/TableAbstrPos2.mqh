@@ -357,8 +357,10 @@ class PosLine : public AbstractLine
          //pos.AsynchClose(pos.VolumeExecuted(), value);
          //ѕровер€ем, можем ли мы закрыть позицию.
          //...
-         TaskClosePos* closePos = new TaskClosePos(pos, value);
-         pos.AddTask(closePos);
+         TaskClosePosition* cPos = new TaskClosePosition(pos);
+         pos.AddTask2(cPos);
+         //TaskClosePos* closePos = new TaskClosePos(pos, value);
+         //pos.AddTask(closePos);
       }
       
       ///

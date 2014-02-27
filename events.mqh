@@ -175,7 +175,19 @@ enum ENUM_EVENT
    ///
    /// »дентификатор событи€ "—татус блокировки позиции изменен".
    ///
-   EVENT_BLOCK_POS
+   EVENT_BLOCK_POS,
+   ///
+   /// »дентификатор событи€ поступлени€ отложенного ордера.
+   ///
+   EVENT_ORDER_CANCEL,
+   ///
+   /// »дентификатор событи€ поступлени€ сработавшего ордера.
+   ///
+   EVENT_ORDER_EXE,
+   ///
+   /// »дентификатор событи€ поступлени€ нового отложенного ордера.
+   ///
+   EVENT_ORDER_PENDING,
 };
 
 
@@ -684,7 +696,63 @@ class EventClosePos : public Event
       string comment;
 };
 
+class Order;
+///
+/// Ёто событие посылает HedgeManager, когда в историю ордеров попадает
+/// новый отмененный ордер.
+///
+class EventOrderCancel : public Event
+{
+   public:
+      EventOrderCancel(Order* myOrder) : Event(EVENT_FROM_UP, EVENT_ORDER_CANCEL, "Terminal API")
+      {
+         order = myOrder;
+      }
+      ///
+      /// ¬озвращает отмененный ордер.
+      ///
+      Order* Order(){return order;}
+   private:
+      Order* order;
+};
 
+///
+/// Ёто событие посылает HedgeManager, когда формируетс€ новый
+/// сработавший ордер.
+///
+class EventOrderExe : public Event
+{
+   public:
+      EventOrderExe(Order* myOrder) : Event(EVENT_FROM_UP, EVENT_ORDER_EXE, "Terminal API")
+      {
+         order = myOrder;
+      }
+      ///
+      /// ¬озвращает отмененный ордер.
+      ///
+      Order* Order(){return order;}
+   private:
+      Order* order;
+};
+
+///
+/// Ёто событие посылает HedgeManager, когда поступает новый
+/// отложенный (активный) ордер в список активных ордеров.
+///
+class EventOrderPending : public Event
+{
+   public:
+      EventOrderPending(Order* myOrder) : Event(EVENT_FROM_UP, EVENT_ORDER_PENDING, "Terminal API")
+      {
+         order = myOrder;
+      }
+      ///
+      /// ¬озвращает отмененный ордер.
+      ///
+      Order* Order(){return order;}
+   private:
+      Order* order;
+};
 
 class EventCollapseTree : public Event
 {

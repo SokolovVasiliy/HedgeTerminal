@@ -1,5 +1,7 @@
 #include "Transaction.mqh"
 #include "Methods.mqh"
+#include "Order.mqh"
+#include "MqlTransactions.mqh"
 
 ///
 /// Идентификаторы таргетов
@@ -70,13 +72,6 @@ class Target : public CObject
             return true;
          return false;
       }
-      ///
-      /// Истина, если операцию можно выполнить, ложь - в противном случае.
-      ///
-      /*bool IsPerform()
-      {
-         return attempsMade < attempsAll;
-      }*/
       ///
       /// Возвращает истину, если состояние объекта соответствует цели действия.
       /// Например, если требуется удалить стоп-лосс ордер у позиции, а позиция уже
@@ -206,7 +201,6 @@ class TargetDeletePendingOrder : public Target
       {
          if(OrderSelect(method.OrderId()))
             return false;
-         //status = TARGET_STATUS_COMLETE;
          return true;
       }
       
@@ -220,8 +214,8 @@ class TargetDeletePendingOrder : public Target
             case EVENT_REQUEST_NOTICE:
                OnRequestNotice(event);
                break;
-            case EVENT_CHANGE_POS:
-               OnPosChanged();
+            case EVENT_ORDER_CANCEL:
+               OnOrderCancel(event);
                break;
          }
       }
@@ -238,17 +232,25 @@ class TargetDeletePendingOrder : public Target
          if(result.IsRejected())
             status = TARGET_STATUS_FAILED;
       }
+      
       ///
-      /// Реагируем на изменение позиции.
+      /// Если отложенный ордер переместился в историю - задание выполненно.
       ///
-      void OnPosChanged()
+      void OnOrderCancel(EventOrderCancel* event)
       {
-         if(IsSuccess())
+         Order* order = event.Order();
+         if(order.GetId() == method.OrderId())
             status = TARGET_STATUS_COMLETE;
       }
+      ///
+      /// Метод удаления ордера.
+      ///
       MethodDeletePendingOrder* method;
 };
 
+///
+/// Установка отложенного ордера.
+///
 class TargetSetPendingOrder : public Target
 {
    public:
@@ -305,8 +307,8 @@ class TargetSetPendingOrder : public Target
             case EVENT_REQUEST_NOTICE:
                OnRequestNotice(event);
                break;
-            case EVENT_CHANGE_POS:
-               OnPosChanged();
+            case EVENT_ORDER_PENDING:
+               OnOrderPending(event);
                break;
          }
       }
@@ -323,14 +325,17 @@ class TargetSetPendingOrder : public Target
          if(result.IsRejected())
             status = TARGET_STATUS_FAILED;
       }
+      
       ///
-      /// Реагируем на изменение позиции.
+      /// Обрабатываем поступившие отложенные ордера.
       ///
-      void OnPosChanged()
+      void OnOrderPending(EventOrderPending* event)
       {
-         if(IsSuccess())
+         Order* order = event.Order();
+         if(order.Magic() == pendingOrder.Magic())
             status = TARGET_STATUS_COMLETE;
       }
+      
       ///
       /// Метод устанавливающий отложенный ордер.
       ///
@@ -344,12 +349,16 @@ class TargetModifyPendingOrder : Target
       {
          orderModify = new MethodModifyPendingOrder(orderId, newPrice, asynchMode);
       }
+      ~TargetModifyPendingOrder()
+      {
+         delete orderModify;
+      }
       virtual bool IsSuccess()
       {
          if(!OrderSelect(orderModify.OrderId()))return false;
          //Новая цена должна отличаться от цены отложенного ордера
          double curPrice = OrderGetDouble(ORDER_PRICE_OPEN);
-         if(!Math::DoubleEquals(curPrice, orderModify.Price()))
+         if(!Math::DoubleEquals(curPrice, orderModify.NewPrice()))
             return false;
          return true;
       }
@@ -378,9 +387,6 @@ class TargetModifyPendingOrder : Target
             case EVENT_REQUEST_NOTICE:
                OnRequestNotice(event);
                break;
-            case EVENT_CHANGE_POS:
-               OnPosChanged();
-               break;
          }
       }
       ///
@@ -388,11 +394,35 @@ class TargetModifyPendingOrder : Target
       ///
       void OnRequestNotice(EventRequestNotice* event)
       {
+         TradeTransaction* trans = event.GetTransaction();
          TradeRequest* request = event.GetRequest();
+         TradeResult* result = event.GetResult();
+         switch(trans.type)
+         {
+            case TRADE_TRANSACTION_REQUEST:
+               OnRequest(request, result);
+               break;
+            case TRADE_TRANSACTION_ORDER_UPDATE:
+               OnUpdate(trans);
+               break;
+         }
+      }
+      ///
+      /// Обрабатывает изменение ордера.
+      ///
+      void OnUpdate(TradeTransaction* trans)
+      {
+         if(trans.order != orderModify.OrderId())
+            return;
+         status = TARGET_STATUS_COMLETE;
+      }
+      ///
+      /// Обрабатывает ответ торгового сервера на запрос.
+      ///
+      void OnRequest(TradeRequest* request, TradeResult* result)
+      {
          if(request.order != orderModify.OrderId())
             return;
-         TradeResult* result = event.GetResult();
-         //Запрос был отвергнут - подзадача завершена неудачно.
          if(result.IsRejected())
             status = TARGET_STATUS_FAILED;
       }
@@ -410,6 +440,9 @@ class TargetModifyPendingOrder : Target
       MethodModifyPendingOrder* orderModify;
 };
 
+///
+/// Совершает рыночные сделки.
+///
 class TargetTradeByMarket : Target
 {
    public:
@@ -418,7 +451,10 @@ class TargetTradeByMarket : Target
       {
          tradeMarket = new MethodTradeByMarket(symbol, dir, vol, comment, magic, asynchMode);
       }
-      
+      ~TargetTradeByMarket()
+      {
+         delete tradeMarket;
+      }
       virtual bool IsSuccess()
       {
          if(status != TARGET_STATUS_COMLETE)
@@ -447,6 +483,9 @@ class TargetTradeByMarket : Target
             case EVENT_REQUEST_NOTICE:
                OnRequestNotice(event);
                break;
+            case EVENT_ORDER_EXE:
+               OnOrderExe(event);
+               break;
          }
       }
       ///
@@ -461,15 +500,26 @@ class TargetTradeByMarket : Target
          if(trans.type == TRADE_TRANSACTION_REQUEST &&
             result.request_id == tradeMarket.RequestId())
          {
-            orderId = request.order;
-            return;
-         }
-         if(trans.type == TRADE_TRANSACTION_ORDER_ADD)
-         {
-            ;
+            if(result.IsRejected())
+               status = TARGET_STATUS_FAILED;
+            else
+               orderId = request.order;
          }
       }
+      ///
+      /// Обрабатываем срабатывания нового ордера.
+      ///
+      void OnOrderExe(EventOrderExe* event)
+      {
+         Order* order = event.Order();
+         //Можно повсякому идентифицировать исполнение ордера.
+         if(orderId != 0 && order.GetId() == orderId)
+            status = TARGET_STATUS_COMLETE;
+         else if(tradeMarket.Magic() == order.Magic())
+            status = TARGET_STATUS_COMLETE;
+      }
       MethodTradeByMarket* tradeMarket;
+      
       ///
       /// Идентификатор транзакции.
       ///
