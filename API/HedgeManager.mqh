@@ -158,6 +158,9 @@ class HedgeManager
             ticket = HistoryOrderGetTicket(index);
          else
             ticket = FindAddTicket();
+         int dbg = 5;
+         if(ticket == 1009658190)
+            dbg = 4;
          if(ticket == 0)return NULL;
          ticketOrders.InsertSort(ticket);
          ENUM_ORDER_STATE state = (ENUM_ORDER_STATE)HistoryOrderGetInteger(ticket, ORDER_STATE);

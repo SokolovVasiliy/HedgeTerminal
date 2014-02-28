@@ -278,5 +278,55 @@ class TaskClosePosition : Task2
          Order* initOrder = pos.EntryOrder();
          ulong magic = initOrder.GetMagic(MAGIC_TYPE_MARKET);
          AddTarget(new TargetTradeByMarket(pos.Symbol(), dir, pos.VolumeExecuted(), pos.ExitComment(), magic, true));
+         if(pos.UsingStopLoss())
+         {
+            Order* slOrder = pos.StopOrder();
+            AddTarget(new TargetDeletePendingOrder(slOrder.GetId(), true));
+         }
       }
+};
+
+///
+/// Закрывает часть активной позиции.
+///
+class TaskClosePartPosition : Task2
+{
+   public:
+      ///
+      /// Формирует задачу по закрытию части активной позиции.
+      /// \param pos - Позиция, часть объема которой требуется закрыть.
+      /// \param volume - объем, который требуется закрыть.
+      ///
+      TaskClosePartPosition(Position* pos, double volume) : Task2(pos)
+      {
+         if(volume > pos.VolumeExecuted())
+         {
+            status = TASK_STATUS_FAILED;
+            LogWriter("Incorrect volume", MESSAGE_TYPE_ERROR);
+            return;
+         }
+         Order* slOrder;
+         if(pos.UsingStopLoss())
+         {
+            stopLevel = pos.StopLossLevel();
+            slOrder = pos.StopOrder();
+            AddTarget(new TargetDeletePendingOrder(slOrder.GetId(), true));
+         }
+         ENUM_DIRECTION_TYPE dir = pos.Direction() == DIRECTION_LONG ? DIRECTION_SHORT: DIRECTION_LONG;
+         Order* initOrder = pos.EntryOrder();
+         ulong magic = initOrder.GetMagic(MAGIC_TYPE_MARKET);
+         AddTarget(new TargetTradeByMarket(pos.Symbol(), dir, volume, pos.ExitComment(), magic, true));
+         if(pos.UsingStopLoss())
+         {
+            ENUM_ORDER_TYPE type = pos.Direction() == DIRECTION_LONG ? ORDER_TYPE_SELL_STOP : ORDER_TYPE_BUY_STOP;
+            magic = initOrder.GetMagic(MAGIC_TYPE_SL);
+            double nVol = pos.VolumeExecuted() - volume;
+            AddTarget(new TargetSetPendingOrder(pos.Symbol(), type, nVol, stopLevel, slOrder.Comment(),  magic, true));
+         }
+      }
+   private:
+      ///
+      /// Запомненный уровень стоп-лосса.
+      ///
+      double stopLevel;
 };

@@ -370,15 +370,17 @@ class PosLine : public AbstractLine
       {
          double setVol = StringToDouble(editNode.Text());
          double curVol = pos.VolumeExecuted();
+         
          if(!pos.IsValidNewVolume(setVol))
          {
             editNode.Text(pos.VolumeToString(curVol));
             return;
          }
          editNode.Text(pos.VolumeToString(setVol)+"...");
-         string exitComment = GetStringValue(COLUMN_EXIT_COMMENT);
+         //string exitComment = GetStringValue(COLUMN_EXIT_COMMENT);
          double vol = curVol < setVol ? setVol : curVol - setVol;
-         pos.AsynchClose(vol, exitComment);
+         pos.AddTask2(new TaskClosePartPosition(pos, vol));
+         //pos.AsynchClose(vol, exitComment);
       }
       
       ///

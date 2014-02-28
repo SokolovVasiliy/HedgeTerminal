@@ -165,7 +165,7 @@ class MethodSetPendingOrder : public Method
                break;
          }
          if(!res)
-            SendError("Installation fails pending order.");
+            SendError("Installation pending order was fails.");
          return res;
       }
       ///
@@ -243,7 +243,7 @@ class MethodDeletePendingOrder : public Method
       MethodDeletePendingOrder(ulong order_id, bool asynch_mode)
       {
          orderId = order_id;
-         asynchMode = asynchMode;
+         asynchMode = asynch_mode;
       };
       ///
       /// Возвращает идентификатор ордера, который требуется удалить.

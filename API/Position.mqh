@@ -501,6 +501,7 @@ bool Position::IntegrateStopHistPos(Order *order)
    }
    slOrder = order;
    order.LinkWithPosition(GetPointer(this));
+   SendEventChangedPos(POSITION_REFRESH);
    return true;
 }
 
