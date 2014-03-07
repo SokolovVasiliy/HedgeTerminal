@@ -145,6 +145,9 @@ class AbstractLine : public Line
          for(int i = 0; i < total; i++)
          {
             TextNode* value = NULL;
+            int dbg = 5;
+            if(CheckPointer(scolumns.At(i)) == POINTER_INVALID)
+               dbg = 4;
             DefColumn* el = scolumns.At(i);
             ENUM_COLUMN_TYPE cType = el.ColumnType();
             tnode* node = GetColumn(el);
@@ -358,7 +361,7 @@ class PosLine : public AbstractLine
          //ѕровер€ем, можем ли мы закрыть позицию.
          //...
          TaskClosePosition* cPos = new TaskClosePosition(pos);
-         pos.AddTask2(cPos);
+         pos.AddTask(cPos);
          //TaskClosePos* closePos = new TaskClosePos(pos, value);
          //pos.AddTask(closePos);
       }
@@ -379,7 +382,7 @@ class PosLine : public AbstractLine
          editNode.Text(pos.VolumeToString(setVol)+"...");
          //string exitComment = GetStringValue(COLUMN_EXIT_COMMENT);
          double vol = curVol < setVol ? setVol : curVol - setVol;
-         pos.AddTask2(new TaskClosePartPosition(pos, vol));
+         pos.AddTask(new TaskClosePartPosition(pos, vol));
          //pos.AsynchClose(vol, exitComment);
       }
       
@@ -392,19 +395,19 @@ class PosLine : public AbstractLine
          bool notNull = !Math::DoubleEquals(setPrice, 0.0);
          if(pos.UsingStopLoss() && !notNull)
          {
-            pos.AddTask2(new TaskDeleteStopLoss(pos, true));
+            pos.AddTask(new TaskDeleteStopLoss(pos, true));
             return;
          }
          if(!pos.UsingStopLoss() && notNull)
          {
-            pos.AddTask2(new TaskSetStopLoss(pos, setPrice, true));
+            pos.AddTask(new TaskSetStopLoss(pos, setPrice, true));
             return;
          }
          if(pos.UsingStopLoss())
          {
             if(notNull && !Math::DoubleEquals(setPrice, pos.StopLossLevel()))
             {
-               pos.AddTask2(new TaskModifyStop(pos, setPrice, true));
+               pos.AddTask(new TaskModifyStop(pos, setPrice, true));
                return;
             }
          }

@@ -1,4 +1,5 @@
 #include <Arrays\ArrayObj.mqh>
+
 #define SETTINGS_MQH
 ///
 /// Содержит цветовые константы панели.
@@ -98,7 +99,8 @@ enum ENUM_COLUMN_TYPE
    COLUMN_CURRENT_PRICE,
    COLUMN_PROFIT,
    COLUMN_ENTRY_COMMENT,
-   COLUMN_EXIT_COMMENT
+   COLUMN_EXIT_COMMENT,
+   COLUMN_NDEF
 };
 
 ///
@@ -157,6 +159,8 @@ class DefColumn : public CObject
       ///
       bool constWidth;
 };
+
+#include ".\xml\SettingsLoader.mqh"
 ///
 /// Класс-сингельтон глобальных настроек
 ///
@@ -205,7 +209,10 @@ class PanelSettings
       ///
       PanelSettings()
       {
-         string collapse = "CollapsePos.";
+         XmlLoader loader;
+         setForActivePos.AssignArray(loader.GetActiveColumns());
+         setForHistoryPos.AssignArray(loader.GetHistoryColumns());
+         /*string collapse = "CollapsePos.";
          string magic = "Magic";
          string symbol = "Symbol";
          string entryOrderId = "Entry ID";
@@ -252,7 +259,7 @@ class PanelSettings
          setForActivePos.Add(new DefColumn(COLUMN_CURRENT_PRICE, currentPrice, 50, false));  
          setForActivePos.Add(new DefColumn(COLUMN_PROFIT, profit, 60, false));               setForHistoryPos.Add(new DefColumn(COLUMN_PROFIT, profit, 50, false));
          setForActivePos.Add(new DefColumn(COLUMN_ENTRY_COMMENT, entryComment, 150, false));  setForHistoryPos.Add(new DefColumn(COLUMN_ENTRY_COMMENT, entryComment, 90, false));
-                                                                                             setForHistoryPos.Add(new DefColumn(COLUMN_EXIT_COMMENT, exitComment, 90, false));
+                                                                                             setForHistoryPos.Add(new DefColumn(COLUMN_EXIT_COMMENT, exitComment, 90, false));*/
       }
       PanelSettings* operator=(const PanelSettings*);
 };

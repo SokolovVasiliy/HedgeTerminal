@@ -296,13 +296,9 @@ class Transaction : public CObject
       ulong currId; 
 };
 
-//#include "Position.mqh"
-//#include "Deal.mqh"
 #include "Deal.mqh"
 #include "Order.mqh"
 #include "Position.mqh"
-#include "Targets.mqh"
-#include "Tasks.mqh"
 
 
 

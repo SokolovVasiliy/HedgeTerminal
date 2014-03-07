@@ -4,7 +4,6 @@
 #include "..\Log.mqh"
 #include "..\Events.mqh"
 #include "Tasks.mqh"
-#include "Tasks2.mqh"
 #include <Trade\SymbolInfo.mqh>
  
 class Position;
@@ -15,27 +14,11 @@ class Position;
 class InfoIntegration
 {
    public:
-      /*InfoIntegration();
-      ~InfoIntegration();*/
       bool IsSuccess;
       string InfoMessage;
       Position* ActivePosition;
       Position* HistoryPosition;
 };
-
-
-/*InfoIntegration::InfoIntegration(void)
-{
-   printf("create infoIntegr.");
-   //ActivePosition = new Position();
-   //HistoryPosition = new Position();
-   //InfoMessage = "";
-}
-
-InfoIntegration::~InfoIntegration(void)
-{
-   printf("delete infoIntegr.");
-}*/
 
 ///
 /// Статус позиции.
@@ -128,7 +111,6 @@ class Position : public Transaction
       virtual int Compare(const CObject* node, const int mode=0);
       void OrderChanged(Order* order);
       void Refresh();
-      bool AsynchClose(double vol, string comment = NULL);
       virtual string TypeAsString(void);
       virtual ENUM_DIRECTION_TYPE Direction(void);
       bool IsBlocked();
@@ -137,11 +119,9 @@ class Position : public Transaction
       void SendEventChangedPos(ENUM_POSITION_CHANGED_TYPE type);
       void Unmanagment(bool isUnmng);
       bool Unmanagment(void);
-      bool StopLossModify(double newLevel, string comment, bool asynchMode = true);
-      bool CheckValidLevelSL(double newLevel);
       bool VirtualStopLoss(){return isVirtualStopLoss;}
-      void AddTask(Task* task);
-      void AddTask2(Task2* task);
+      
+      void AddTask(Task2* task);
       Order* FindOrderById(ulong id);
       void TaskChanged();
    private:
@@ -246,10 +226,6 @@ class Position : public Transaction
       #endif
       CSymbolInfo infoSymbol;
       ///
-      /// Текущее задание которое необходимо выполнить.
-      ///
-      Task* task;
-      ///
       /// Флаг указывающий, что текущее задание имеет ограничение по времени.
       ///
       bool usingTimeOut;
@@ -264,8 +240,6 @@ class Position : public Transaction
 Position::~Position()
 {
    DeleteAllOrders();
-   if(CheckPointer(task) != POINTER_INVALID)
-      delete task;
 }
 ///
 /// Создает неактивную позицию со статусом POSITION_NULL.
@@ -738,7 +712,6 @@ void Position::DeleteAllOrders(void)
       delete slOrder;
       slOrder = NULL;
    }
-   
 }
 
 ///
@@ -748,47 +721,9 @@ void Position::DeleteOrder(Order *order)
 {
    if(CheckPointer(order) != POINTER_INVALID)
    {
-      if(order.IsPending())
-      {
-         TaskModifySL* sl =
-            new TaskModifySL(GetPointer(this), 0.0, "");
-         AddTask(sl);
-      }
       delete order;
       order = NULL;
    }
-}
-
-///
-/// Закрывает текущую позицию либо ее часть асинхронно.
-/// \param vol - объем, который необходимо закрыть.
-/// \param comment - комментарий, который необходимо присвоить закрывающей сделке.
-///
-bool Position::AsynchClose(double vol, string comment = NULL)
-{
-   infoSymbol.Name(Symbol());
-   vol = NormalizeDouble(vol, infoSymbol.Digits());
-   if(IsBlocked())
-   {
-      printf("Position is blocked. Try letter");
-      return false;
-   }
-   
-   trading.SetAsyncMode(true);
-   trading.SetExpertMagicNumber(initOrder.GetMagic(MAGIC_TYPE_MARKET));
-   #ifndef DEBUG
-      trading.LogLevel(0);
-   #endif
-   bool resTrans = false;
-   if(Direction() == DIRECTION_LONG)
-      resTrans = trading.Sell(vol, Symbol(), 0.0, 0.0, 0.0, comment);
-   else if(Direction() == DIRECTION_SHORT)
-      resTrans = trading.Buy(vol, Symbol(), 0.0, 0.0, 0.0, comment);
-   if(resTrans)
-      SetBlock();
-   else
-      printf("Rejected current operation by reason: " + trading.ResultRetcodeDescription());
-   return resTrans;
 }
 
 ///
@@ -1062,7 +997,6 @@ void Position::SendEventBlockStatus(bool curStatus)
 ///
 bool Position::IsBlocked(void)
 {
-
    return isModify || blocked;
 }
 
@@ -1098,8 +1032,8 @@ void Position::OnRequestNotice(EventRequestNotice* notice)
       OnUpdate(trans.order);
       isReset = true;
    }
-   /*if(isReset && blocked)
-      ResetBlocked();*/
+   //if(isReset && blocked)
+   //   ResetBlocked();
 }
 
 ///
@@ -1113,23 +1047,7 @@ void Position::OnRejected(TradeResult& result)
       case TRADE_RETCODE_NO_MONEY:
          LogWriter("Position #" + (string)GetId() + ": Unmanaged hedge. Try to close parts.", MESSAGE_TYPE_INFO);
    }
-   //ExecutingTask();
 }
-
-///
-/// Обрабатывает ситуацию, когда отложенный ордер был удален.
-///
-/*void Position::OnDelete(ulong orderId)
-{
-   if(!result.IsRejected())return;
-   switch(result.retcode)
-   {
-      case TRADE_RETCODE_NO_MONEY:
-         LogWriter("Position #" + (string)GetId() + ": Unmanaged hedge. Try to close parts.", MESSAGE_TYPE_INFO);
-   }
-   ExecutingTask();
-}*/
-
 ///
 /// Обновляет изменившейся ордер.
 /// \param OrderId - идентификатор ордера, который изменился.
@@ -1209,139 +1127,7 @@ bool Position::Unmanagment()
    return unmanagment;
 }
 
-///
-/// Модифицирует текущий уровень стоп-лосса.
-///
-bool Position::StopLossModify(double newLevel, string comment=NULL, bool asynchMode = true)
-{
-   if(status != POSITION_ACTIVE)
-      return false;
-   infoSymbol.Name(Symbol());
-   newLevel = NormalizeDouble(newLevel, infoSymbol.Digits());
-   #ifndef DEBUG
-      trading.LogLevel(0);
-   #endif
-   trading.SetAsyncMode(asynchMode);
-   bool res = false;
-   //Неправильные уровни необрабатываем.
-   if(!CheckValidLevelSL(newLevel))   
-      return false;
-   //Виртуальный ордер обрабатываем моментально.
-   else if(isVirtualStopLoss)
-   {
-      slLevel = newLevel;
-      res = true;
-   }
-   //Приказ на удаление Stop-Loss ордера.
-   else if(Math::DoubleEquals(newLevel, 0.0) && UsingStopLoss() &&
-      slOrder.IsPending())
-      res = trading.OrderDelete(slOrder.GetId());
-   else if(!UsingStopLoss())
-   {
-      double vol = VolumeExecuted();
-      ulong magic = initOrder.GetMagic(MAGIC_TYPE_SL);
-      trading.SetExpertMagicNumber(initOrder.GetMagic(MAGIC_TYPE_SL));
-      if(Direction() == DIRECTION_LONG)
-         res = trading.SellStop(VolumeExecuted(), newLevel, Symbol(), 0.0, 0.0, ORDER_TIME_GTC, 0, comment);
-      else if(Direction() == DIRECTION_SHORT)
-         res = trading.BuyStop(VolumeExecuted(), newLevel, Symbol(), 0.0, 0.0, ORDER_TIME_GTC, 0, comment);
-   }
-   else
-      res = trading.OrderModify(slOrder.GetId(), newLevel, 0.0, 0.0, ORDER_TIME_GTC, 0, 0);
-   if(!res)
-   {
-      LogWriter("Failed to set or modify stop-loss order. Reason: " +
-                 trading.ResultRetcodeDescription(), MESSAGE_TYPE_ERROR);
-   }
-   if(res && !blocked && !isVirtualStopLoss)
-      SetBlock();
-   return res;
-}
-
-///
-/// Проверяет на правильность новый уровень стоп-лосса.
-///
-bool Position::CheckValidLevelSL(double newLevel)
-{
-   infoSymbol.Name(Symbol());
-   infoSymbol.RefreshRates();
-   if(newLevel < 0.0)
-   {
-      string msg = "Position #" + (string)GetId() + ": New Stop-Loss level must be bigger null.";
-      LogWriter(msg, MESSAGE_TYPE_ERROR);
-      return false;
-   }
-   if(Math::DoubleEquals(newLevel, 0.0))
-      return true;
-   if(Direction() == DIRECTION_LONG)
-   {
-      double last = infoSymbol.Last();
-      if(infoSymbol.Last() < newLevel)
-      {
-         string msg = "Position #" + (string)GetId() + ": New stop-loss must be less current price.";
-         LogWriter(msg, MESSAGE_TYPE_ERROR);
-         return false;
-      }
-      /*if(newLevel >= (infoSymbol.Last() - infoSymbol.FreezeLevel()))
-      {
-         string msg = "Position #" + (string)GetId() + ": New stop-loss must be less level of freeze.";
-         LogWriter(msg, MESSAGE_TYPE_ERROR);
-         return false;
-      }*/
-   }
-   if(Direction() == DIRECTION_SHORT)
-   {
-      double last = infoSymbol.Last();
-      if(infoSymbol.Last() > newLevel)
-      {
-         string msg = "Position #" + (string)GetId() + ": New stop-loss must be bigger current price.";
-         LogWriter(msg, MESSAGE_TYPE_ERROR);
-         return false;
-      }
-      /*if(newLevel <= (infoSymbol.Last() + infoSymbol.FreezeLevel()))
-      {
-         string msg = "Position #" + (string)GetId() + ": New stop-loss must be bigger level of freeze.";
-         LogWriter(msg, MESSAGE_TYPE_ERROR);
-         return false;
-      }*/
-   }
-   return true;
-}
-
-///
-/// Добавляет новое задание в очередь заданий.
-/// Добавленное задание будет существовать в списке заданий,
-/// пока не будет выполенно или отменено позицией.
-///
-void Position::AddTask(Task *ctask)
-{
-   if(IsBlocked())
-   {
-      LogWriter("Position #" + (string)GetId() + " is blocked. Try letter.", MESSAGE_TYPE_ERROR);
-      delete ctask;
-      ctask = NULL;
-   }
-   //Старую задачу удаляем если это возможно.
-   if(CheckPointer(task) != POINTER_INVALID)
-   {
-      if(task.IsFinished())
-         delete task;
-      else
-      {
-         string msg = "Position# " + (string)GetId() + ": Current operation (" + EnumToString(task.TaskType()) + ") not finished. Try Letter.";
-         LogWriter(msg, MESSAGE_TYPE_ERROR);
-         delete ctask;
-         return;
-      }
-   }
-   task = ctask;
-   task.Execute();
-   if(task.Status() == TASK_COMPLETED_FAILED || 
-      task.Status() == TASK_COMPLETED_SUCCESS)
-      Refresh();
-}
-
-void Position::AddTask2(Task2 *ctask)
+void Position::AddTask(Task2 *ctask)
 {
    if(CheckPointer(task2) != POINTER_INVALID)
    {
