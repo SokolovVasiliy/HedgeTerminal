@@ -11,6 +11,7 @@ class XmlLoader
       XmlLoader();
       CArrayObj* GetActiveColumns(){return GetPointer(activeTab);}
       CArrayObj* GetHistoryColumns(){return GetPointer(historyTab);}
+      void Event(Event* event);
    private:
       ///
       /// Известные секции настроек.
@@ -66,7 +67,7 @@ XmlLoader::XmlLoader()
 {
    CXmlDocument doc;
    string err;
-   string path = "test.xml";
+   string path = "HedgeTerminalSettings.xml";
    if(!doc.CreateFromFile(path, err))
    {
       printf(err);
@@ -81,9 +82,7 @@ XmlLoader::XmlLoader()
             ParseColumnsSettings(xmlItem);
             break;
       }
-      printf(xmlItem.GetName());
    }
-   
 }
 
 ///
@@ -130,7 +129,8 @@ void XmlLoader::ParseColumns(CXmlElement* xmlItem, ENUM_TAB_TYPE tabType)
       ENUM_COLUMN_TYPE columnType = GetColumnType(columnId.GetValue());
       if(!CheckCompatibleType(columnType, tabType))
       {
-         LogWriter("Column /'" + columnId.GetName() + "/' not compatible for table.", MESSAGE_TYPE_WARNING);
+         string typeTable = tabType == TAB_ACTIVE ? "table of active positions" : "table of history positions";
+         LogWriter("Value of attribute's \'" + columnId.GetName() + "=" + columnId.GetValue() + "\' not compatible for " + typeTable, MESSAGE_TYPE_WARNING);
          continue;
       }
       ParseColumn(xmlColumn, tabType);
@@ -248,7 +248,7 @@ bool XmlLoader::CheckCompatibleType(ENUM_COLUMN_TYPE colType, ENUM_TAB_TYPE tabT
          case COLUMN_EXIT_PRICE:
          case COLUMN_EXIT_DATE:
          case COLUMN_EXIT_MAGIC:
-         case COLUMN_EXIT_COMMENT:
+         //case COLUMN_EXIT_COMMENT:
          case COLUMN_EXIT_ORDER_ID:
             return false;
          default:
@@ -268,3 +268,18 @@ bool XmlLoader::CheckCompatibleType(ENUM_COLUMN_TYPE colType, ENUM_TAB_TYPE tabT
    }
    return false;
 }
+
+///
+///
+///
+/*void XmlLoader::Event(Event* event)
+{
+   switch(event.EventId())
+   {
+      case EVENT_REFRESH:
+         OnEventRefresh(event);
+         break;
+      default:
+         break;
+   }
+}*/

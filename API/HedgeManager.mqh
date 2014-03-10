@@ -3,6 +3,8 @@
 
 #include "Order.mqh"
 #include "..\Events.mqh"
+#include "XmlInfo.mqh"
+#include "..\xml\XmlBase.mqh"
 ///
 /// Класс позиции
 ///
@@ -72,6 +74,7 @@ class HedgeManager
          TrackingHistoryDeals();
          TrackingHistoryOrders();
          TrackingPendingOrders();
+         CheckXmlChanged();
       }
    private:
       ///
@@ -128,6 +131,66 @@ class HedgeManager
          }
          ordersPendingNow = OrdersTotal();
       }
+      
+      ///
+      /// Проверяет изменения в xml файлах.
+      ///
+      void CheckXmlChanged()
+      {
+         if(TimeCurrent() - lastFileAccess >= 1)
+         {
+            if(CheckModifyActivePos())
+               ReadActivePosInfo();
+            //CheckModifyHistoryPos();
+            lastFileAccess = TimeCurrent();
+         }
+      }
+      ///
+      /// Проверяет изменения файла с информацией об активных позиций.
+      /// \return Истина, если файл был изменен, ложь в противном случае.
+      ///
+      bool CheckModifyActivePos()
+      {
+         int handle = FileOpen(Settings.GetActivePosXml(), FILE_BIN|FILE_READ|FILE_COMMON);
+         if(handle == -1)return false;
+         datetime modifyTime = (datetime)FileGetInteger(handle, FILE_MODIFY_DATE);
+         FileClose(handle);
+         if(modifyTime != lastActivePosModify)
+         {
+            lastActivePosModify = modifyTime;
+            return true;
+         }
+         return false;
+      }
+      
+      ///
+      /// Читает ифнормацию из файла активных позиций.
+      ///
+      void ReadActivePosInfo()
+      {
+         CXmlDocument doc;
+         string err;
+         if(!doc.CreateFromFile(Settings.GetActivePosXml(), err))
+         {
+            LogWriter("XML file " + Settings.GetActivePosXml() + " is broked. Check sintax error.", MESSAGE_TYPE_WARNING);
+            return;
+         }
+         for(int i = 0; i < doc.FDocumentElement.GetChildCount(); i++)
+         {
+            CXmlElement* xmlItem = doc.FDocumentElement.GetChild(i);
+            if(xmlItem.GetName() == "Position")
+            {
+                //CheckValidPosNode(xmlItem);
+            }
+         }
+      }
+      ///
+      /// Проверяет правильность тега 'Position'
+      ///
+      /*CheckValidPosNode(CXmlElement* xmlItem)
+      {
+         
+      }*/
       
       ///
       /// Отправляет поступивший отложенный ордер активной позиции, которой он принадлежит.
@@ -550,6 +613,18 @@ class HedgeManager
       /// Время, с которого происходит загрузка иситории.
       ///
       datetime timeBegin;
+      ///
+      /// Содержит последнее время доступа к файлам xml.
+      ///
+      datetime lastFileAccess;
+      ///
+      /// Содержит последнее время модификации файла активных позиций.
+      ///
+      datetime lastActivePosModify;
+      ///
+      /// Содержит последнее время модификации файла исторических позиций.
+      ///
+      datetime lastHistoryPosModify;
       ///
       /// Истина, если включено отслеживание ордеров.
       ///
