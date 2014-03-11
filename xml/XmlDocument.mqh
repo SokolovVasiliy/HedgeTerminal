@@ -311,7 +311,7 @@ bool CXmlDocument::CreateFromFile(const string filename,string &err)
 bool CXmlDocument::SaveToFile(const string filename) 
   {
    ResetLastError();
-   int h=FileOpen(filename,FILE_BIN | FILE_WRITE);
+   int h=FileOpen(filename,FILE_BIN|FILE_WRITE|FILE_COMMON);
    if(h!=INVALID_HANDLE) 
      {
       uchar data[];

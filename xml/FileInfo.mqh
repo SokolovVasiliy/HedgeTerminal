@@ -53,6 +53,7 @@ bool FileInfo::IsModify(void)
    if(TimeCurrent() - lastAccess < refresh)
       return false;
    int handle = FileOpen(fileName, FILE_BIN|FILE_READ|flagDist);
+   lastAccess = TimeCurrent();
    if(handle == -1)
       return false;
    datetime modify = (datetime)FileGetInteger(handle, FILE_MODIFY_DATE);

@@ -5,6 +5,7 @@
 #include "..\Events.mqh"
 #include "Tasks.mqh"
 #include <Trade\SymbolInfo.mqh>
+#include "..\XML\XmlPosition.mqh"
  
 class Position;
 
@@ -199,6 +200,8 @@ class Position : public Transaction
       void NoticeTask();
       void TaskCollector(void);
       bool IsItMyPendingStop(Order* order);
+      void OnXmlRefresh(EventXmlActPosRefresh* event);
+      bool CheckValidTP(double tp);
       ///
       /// Инициирующий позицию ордер.
       ///
@@ -233,6 +236,14 @@ class Position : public Transaction
       /// Текущая цель.
       ///
       Task2* task2;
+      ///
+      /// Закрывающий комментарий для АКТИВНОЙ позиции.
+      ///
+      string exitComment;
+      ///
+      /// Виртуальный тейк профит для позиции.
+      ///
+      double takeProfit;
 };
 ///
 /// Деинициализирует позицию.
@@ -743,7 +754,7 @@ string Position::ExitComment(void)
 {
    if(closingOrder != NULL)
       return closingOrder.Comment();
-   return "";
+   return exitComment;
 }
 
 ///
@@ -906,7 +917,7 @@ void Position::StopLossLevel(double level)
 ///
 double Position::TakeProfitLevel(void)
 {
-   return 0.0;
+   return takeProfit;
 }
 
 ///
@@ -1010,6 +1021,9 @@ void Position::Event(Event* event)
       case EVENT_REQUEST_NOTICE:
          OnRequestNotice(event);
          break;
+      case EVENT_XML_ACTPOS_REFRESH:
+         OnXmlRefresh(event);
+         break;
    }
 }
 
@@ -1034,6 +1048,26 @@ void Position::OnRequestNotice(EventRequestNotice* notice)
    }
    //if(isReset && blocked)
    //   ResetBlocked();
+}
+
+void Position::OnXmlRefresh(EventXmlActPosRefresh *event)
+{
+   XmlPosition* xPos = event.GetXmlPosition();
+   exitComment = xPos.ExitComment();
+   double tp = xPos.TakeProfit();
+   //infoSymbol.Name(symbol);
+   tp = NormalizeDouble(tp, 4);
+   bool neq = !Math::DoubleEquals(tp, xPos.TakeProfit());
+   bool valid = CheckValidTP(tp);
+   if(valid)
+      takeProfit = tp;
+   if(!valid || neq)
+   {
+      xPos.TakeProfit(takeProfit);
+      xPos.SyncronizeXml();
+   }
+   if(valid)
+      SendEventChangedPos(POSITION_REFRESH);
 }
 
 ///
@@ -1187,4 +1221,15 @@ Order* Position::FindOrderById(ulong id)
    //if(UsingTakeProfit() && tpOrder.GetId() == id)return tpOrder;
    return NULL;
 }
-
+///
+/// Проверяет корректность цены тейк-профит цены.
+///
+bool Position::CheckValidTP(double tp)
+{
+   if(tp > CurrentPrice() && Direction() == DIRECTION_SHORT)
+      return false;
+   if(tp < CurrentPrice() && Direction() == DIRECTION_LONG)
+      return false;
+   if(tp < 0.0)return false;
+   return true;
+}

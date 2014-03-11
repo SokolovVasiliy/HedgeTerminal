@@ -54,7 +54,12 @@ enum ENUM_TRANSACTION_TYPE
    ///
    /// Транзакция является сделкой.
    ///
-   TRANS_DEAL
+   TRANS_DEAL,
+   ///
+   /// Облегченная версия универсальной транзакции содержащая
+   /// уникальный идентификатор.
+   ///
+   TRANS_ABSTR
 };
 
 ///
@@ -294,6 +299,18 @@ class Transaction : public CObject
       /// Текущий идентификатор транзакции, с которым работают функции.
       ///
       ulong currId; 
+};
+
+///
+/// Виртуальная транзакция для быстрого поиска.
+///
+class TransId : public Transaction
+{
+   public:
+      TransId(ulong id) : Transaction(TRANS_ABSTR)
+      {
+         SetId(id);
+      }
 };
 
 #include "Deal.mqh"

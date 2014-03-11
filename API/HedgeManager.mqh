@@ -3,8 +3,8 @@
 
 #include "Order.mqh"
 #include "..\Events.mqh"
-#include "XmlInfo.mqh"
-#include "..\xml\XmlBase.mqh"
+#include "..\XML\XmlInfo.mqh"
+#include "..\XML\XmlPosition.mqh"
 ///
 /// Класс позиции
 ///
@@ -22,9 +22,13 @@ class HedgeManager
          {
             case EVENT_REFRESH:
                OnRefresh();
+               xmlInfo.Event(event);
                break;
             case EVENT_REQUEST_NOTICE:
                OnRequestNotice(event);
+               break;
+            case EVENT_XML_ACTPOS_REFRESH:
+               OnXmlActPosRefresh(event);
                break;
          }
       }
@@ -74,7 +78,6 @@ class HedgeManager
          TrackingHistoryDeals();
          TrackingHistoryOrders();
          TrackingPendingOrders();
-         CheckXmlChanged();
       }
    private:
       ///
@@ -131,66 +134,6 @@ class HedgeManager
          }
          ordersPendingNow = OrdersTotal();
       }
-      
-      ///
-      /// Проверяет изменения в xml файлах.
-      ///
-      void CheckXmlChanged()
-      {
-         if(TimeCurrent() - lastFileAccess >= 1)
-         {
-            if(CheckModifyActivePos())
-               ReadActivePosInfo();
-            //CheckModifyHistoryPos();
-            lastFileAccess = TimeCurrent();
-         }
-      }
-      ///
-      /// Проверяет изменения файла с информацией об активных позиций.
-      /// \return Истина, если файл был изменен, ложь в противном случае.
-      ///
-      bool CheckModifyActivePos()
-      {
-         int handle = FileOpen(Settings.GetActivePosXml(), FILE_BIN|FILE_READ|FILE_COMMON);
-         if(handle == -1)return false;
-         datetime modifyTime = (datetime)FileGetInteger(handle, FILE_MODIFY_DATE);
-         FileClose(handle);
-         if(modifyTime != lastActivePosModify)
-         {
-            lastActivePosModify = modifyTime;
-            return true;
-         }
-         return false;
-      }
-      
-      ///
-      /// Читает ифнормацию из файла активных позиций.
-      ///
-      void ReadActivePosInfo()
-      {
-         CXmlDocument doc;
-         string err;
-         if(!doc.CreateFromFile(Settings.GetActivePosXml(), err))
-         {
-            LogWriter("XML file " + Settings.GetActivePosXml() + " is broked. Check sintax error.", MESSAGE_TYPE_WARNING);
-            return;
-         }
-         for(int i = 0; i < doc.FDocumentElement.GetChildCount(); i++)
-         {
-            CXmlElement* xmlItem = doc.FDocumentElement.GetChild(i);
-            if(xmlItem.GetName() == "Position")
-            {
-                //CheckValidPosNode(xmlItem);
-            }
-         }
-      }
-      ///
-      /// Проверяет правильность тега 'Position'
-      ///
-      /*CheckValidPosNode(CXmlElement* xmlItem)
-      {
-         
-      }*/
       
       ///
       /// Отправляет поступивший отложенный ордер активной позиции, которой он принадлежит.
@@ -329,7 +272,26 @@ class HedgeManager
             addOrderTicket = trans.order;
          }
       }
-      
+      ///
+      /// Вызывается при изменении xml позиции.
+      ///
+      void OnXmlActPosRefresh(EventXmlActPosRefresh* event)
+      {
+         XmlPosition* xPos = event.GetXmlPosition();
+         ulong login = AccountInfoInteger(ACCOUNT_LOGIN);
+         if(login != xPos.AccountId())return;
+         TransId* trans = new TransId(xPos.Id());
+         int index = ActivePos.Search(trans);
+         delete trans;
+         if(index == -1)
+         {
+            //SendEventDelXmlPos(xPos);
+            return;
+         }
+         Position* pos = ActivePos.At(index);
+         pos.Event(event);
+         //printf("Свойства XML позиции изменились. ExitComment=" + xPos.ExitComment());
+      }
       ///
       /// Истина, если список ticketOrders содержит тикет с данным модификатором.
       /// Ложь в противном случае.
@@ -612,19 +574,7 @@ class HedgeManager
       ///
       /// Время, с которого происходит загрузка иситории.
       ///
-      datetime timeBegin;
-      ///
-      /// Содержит последнее время доступа к файлам xml.
-      ///
-      datetime lastFileAccess;
-      ///
-      /// Содержит последнее время модификации файла активных позиций.
-      ///
-      datetime lastActivePosModify;
-      ///
-      /// Содержит последнее время модификации файла исторических позиций.
-      ///
-      datetime lastHistoryPosModify;
+      datetime timeBegin;      
       ///
       /// Истина, если включено отслеживание ордеров.
       ///
@@ -649,4 +599,8 @@ class HedgeManager
       /// Список заданий.
       ///
       CArrayObj tasks;
+      ///
+      /// Контур xml данных.
+      ///
+      XmlInfo xmlInfo;
 };

@@ -28,6 +28,7 @@ class EventExchange
             panel.Event(myEvent);
          #endif
       }
+      
       static Event* PopEvent()
       {
          return event;
@@ -188,6 +189,18 @@ enum ENUM_EVENT
    /// Идентификатор события поступления нового отложенного ордера.
    ///
    EVENT_ORDER_PENDING,
+   ///
+   /// Идентификатор события данные xml активной позиции изменились. (31-ое событие)
+   ///
+   EVENT_XML_ACTPOS_REFRESH,
+   ///
+   /// Идентификатор приказа удаления xml позиции и лежащего в его основе xml узла.
+   ///
+   EVENT_DELETE_XML_POS,
+   ///
+   /// Идентификатор приказа изменения xml аттрибута.
+   ///
+   EVENT_CHANGE_XML_ATTR
 };
 
 
@@ -1007,3 +1020,44 @@ class EventAddDeal : public Event
       ulong orderId;
 };
 
+class XmlPosition;
+///
+/// Событие xml данные активной позиции изменились.
+///
+class EventXmlActPosRefresh : Event
+{
+   public:
+      XmlPosition* GetXmlPosition(void){return xPos;}
+      virtual Event* Clone()
+      {
+         return new EventXmlActPosRefresh(xPos);
+      }
+      EventXmlActPosRefresh(XmlPosition* xmlPos):
+      Event(EVENT_FROM_UP, EVENT_XML_ACTPOS_REFRESH, "TERMINAL_WINDOW")
+      {
+         xPos = xmlPos;
+      }
+   private:
+      XmlPosition* xPos;
+};
+
+///
+/// Создает приказ на изменение xml позиции.
+///
+/*class EventChangeXmlAttr : Event
+{
+   public:
+      virtual Event* Clone()
+      {
+         return new EventXmlPosConfig();
+      }
+      ///
+      /// Создает приказ на изменение xml атрибута.
+      /// \param attrName - имя атрибута
+      ///
+      ///
+      EventXmlPosConfig(string attrName, string value) : Event(EVENT_FROM_UP, EVENT_CHANGE_XML_ATTR, "TERMINAL_WINDOW")
+      {
+         ;
+      }
+};*/
