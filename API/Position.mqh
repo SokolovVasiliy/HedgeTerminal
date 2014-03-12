@@ -5,7 +5,8 @@
 #include "..\Events.mqh"
 #include "Tasks.mqh"
 #include <Trade\SymbolInfo.mqh>
-#include "..\XML\XmlPosition.mqh"
+//#include "..\XML\XmlPosition.mqh"
+#include "..\XML\XmlPosition1.mqh"
  
 class Position;
 
@@ -244,6 +245,10 @@ class Position : public Transaction
       /// Виртуальный тейк профит для позиции.
       ///
       double takeProfit;
+      ///
+      /// Содержит XML представление активной позиции.
+      ///
+      XmlPosition1* activeXmlPos;
 };
 ///
 /// Деинициализирует позицию.
@@ -1064,7 +1069,7 @@ void Position::OnXmlRefresh(EventXmlActPosRefresh *event)
    if(!valid || neq)
    {
       xPos.TakeProfit(takeProfit);
-      xPos.SyncronizeXml();
+      //xPos.SyncronizeXml();
    }
    if(valid)
       SendEventChangedPos(POSITION_REFRESH);

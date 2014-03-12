@@ -11,7 +11,6 @@ class XmlLoader
       XmlLoader();
       CArrayObj* GetActiveColumns(){return GetPointer(activeTab);}
       CArrayObj* GetHistoryColumns(){return GetPointer(historyTab);}
-      void Event(Event* event);
    private:
       ///
       /// Известные секции настроек.

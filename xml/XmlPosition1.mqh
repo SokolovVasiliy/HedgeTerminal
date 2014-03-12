@@ -1,11 +1,13 @@
 #include "XmlBase.mqh"
+#include "..\Settings.mqh"
 #include "..\Log.mqh"
 #include "..\Math.mqh"
-#include "..\Settings.mqh"
+#include "FileInfo.mqh"
+class Position;
 ///
 /// XML Позиция.
 ///
-class XmlPosition : CObject
+class XmlPosition1 : CObject
 {
    public:
       ///
@@ -20,7 +22,6 @@ class XmlPosition : CObject
       /// Возвращает уровень виртуального тейк-профита.
       ///
       double TakeProfit(){return takeProfit;}
-      void TakeProfit(double tp){takeProfit = tp;}
       ///
       /// Возвращает уровень стоп-лосса.
       ///
@@ -39,9 +40,10 @@ class XmlPosition : CObject
       /// \param xmlFile - Название xml файла в котором содержится сведенья о xml позиции.
       /// \param xmlItem - xml узел, описывающий xml позицию.
       ///
-      XmlPosition(string xmlFile, CXmlElement* xmlItem);
+      XmlPosition1(Position* pos);
+      ~XmlPosition1();
       
-      XmlPosition(string xml_file);
+      //XmlPosition(string xml_file)
       ///
       /// Истина, если xml позиция верно сконфигурированна.
       ///
@@ -72,12 +74,23 @@ class XmlPosition : CObject
       /// Возвращает текстовое значение xml аттрибута определяющего уровень взятия прибыли.
       ///
       string StringTakeProfit(){return strTakeProfit;}
-      
+      ///
+      /// Проверяет обновление файла XML.
+      ///
+      void CheckModify(void);
+      ///
+      /// Истина, если значения xml узла, связанного с текущем экзмепляром, были изменены.
+      ///
+      bool ChangedValues(void);
    private:
+      ///
+      /// Конструктор для внутреннего использования.
+      ///
+      XmlPosition1(CXmlElement* xmlItem);
       ///
       /// Атрибуты позиции.
       ///
-      /*enum ENUM_ATTRIBUTE_POS
+      enum ENUM_ATTRIBUTE_POS
       {
          ///
          /// Идентификатор счета, к которому принадлежит позиция.
@@ -95,11 +108,11 @@ class XmlPosition : CObject
          /// Уровень виртуального тейк-профита.
          ///
          ATTR_TAKE_PROFIT
-      };*/
+      };
       
       virtual int Compare(const CObject *node,const int mode=0) const
       {
-         const XmlPosition* xmlPos = node;
+         const XmlPosition1* xmlPos = node;
          if(xmlPos.Id() < id)
             return -1;
          if(xmlPos.Id() > id)
@@ -137,7 +150,12 @@ class XmlPosition : CObject
       /// \return ссылка на XML документ в случае удачи и NULL в противном случае.
       ///
       CXmlDocument* ReadXmlFile(void);
-      
+      ///
+      /// Проверяет, принадлжети ли переданный xml узел текущему экзмепляру xml-позиции.
+      /// \return Истина, если переданный узел является представлением xml-позиции
+      /// и ложь в противном случае.
+      ///
+      bool IsMyXmlNode(CXmlElement* xmlItem);
       void SyncronizeXmlAttr(CXmlElement* xmlItem);
       ///
       /// Идентификатор позиции.
@@ -155,7 +173,6 @@ class XmlPosition : CObject
       /// Уровень стоп-лосса.
       ///
       double stopLoss;
-      
       ///
       /// Истина, если xml позиция верно сконфигурирована.
       ///
@@ -184,39 +201,68 @@ class XmlPosition : CObject
       /// Строковое значение закрывающего комментария.
       ///
       string strExitComment;
+      ///
+      /// Позиция, к которой принадлежит текущее XML представление.
+      ///
+      Position* position;
+      ///
+      /// Файл, который необходимо отслеживать.
+      ///
+      FileInfo* file;
 };
 
-XmlPosition::XmlPosition(string xml_file, CXmlElement *xmlItem)
+XmlPosition1::~XmlPosition1()
+{
+   if(CheckPointer(file) != POINTER_INVALID)
+      delete file;
+}
+
+XmlPosition1::XmlPosition1(Position* pos)
+{
+   strAccountId = "";
+   strExitComment = "";
+   strId = "";
+   strTakeProfit = "";
+   accountId = AccountInfoInteger(ACCOUNT_LOGIN);
+   id = pos.GetId();
+   xmlFile = Settings.GetActivePosXml();
+   CXmlElement* xmlItem = FindXmlNode();
+   if(xmlItem == NULL)
+      valid = SaveToFile();
+   else
+      valid = ParsePositionNode(xmlItem);
+}
+
+XmlPosition1::XmlPosition1(CXmlElement* xmlItem)
 {
    strAccountId = "";
    strExitComment = "";
    strId = "";
    strTakeProfit = "";
    valid = ParsePositionNode(xmlItem);
-   xmlFile = xml_file;
 }
 
 
-CXmlDocument* XmlPosition::ReadXmlFile(void)
+CXmlDocument* XmlPosition1::ReadXmlFile(void)
 {
    CXmlDocument* doc = new CXmlDocument();
    string err;
-   if(!doc.CreateFromFile(Settings.GetActivePosXml(), err))
+   if(!doc.CreateFromFile(xmlFile, err))
    {
-      LogWriter("XML file " + Settings.GetActivePosXml() + " is broked. Check sintax error.", MESSAGE_TYPE_WARNING);
+      LogWriter("XML file " + xmlFile + " is broked. Check sintax error.", MESSAGE_TYPE_WARNING);
       delete doc;
       return NULL;
    }
    return doc;
 }
 
-void XmlPosition::RefreshValues(CXmlElement* xmlItem)
+void XmlPosition1::RefreshValues(CXmlElement* xmlItem)
 {
    ParsePositionNode(xmlItem);
 }
 
 
-string XmlPosition::GetAttributeName(ENUM_ATTRIBUTE_POS attr)
+string XmlPosition1::GetAttributeName(ENUM_ATTRIBUTE_POS attr)
 {
    switch(attr)
    {
@@ -233,7 +279,7 @@ string XmlPosition::GetAttributeName(ENUM_ATTRIBUTE_POS attr)
 }
 
 
-bool XmlPosition::ParsePositionNode(CXmlElement* xmlItem)
+bool XmlPosition1::ParsePositionNode(CXmlElement* xmlItem)
 {
    if(xmlItem.GetName() != "Position")
       return false;
@@ -296,40 +342,7 @@ bool XmlPosition::ParsePositionNode(CXmlElement* xmlItem)
    return true;
 }
 
-///
-/// Синхранизирует узел xml описывающий позицию с текущей позицией.
-///
-/*void XmlPosition::SyncronizeXml(void)
-{
-   CXmlDocument doc;
-   string err;
-   if(!doc.CreateFromFile(Settings.GetActivePosXml(), err))
-   {
-      LogWriter("XML file " + Settings.GetActivePosXml() + " is broked. Check sintax error.", MESSAGE_TYPE_WARNING);
-      return;
-   }
-   for(int i = 0; i < doc.FDocumentElement.GetChildCount(); i++)
-   {
-      CXmlElement* xmlItem = doc.FDocumentElement.GetChild(i);
-      if(xmlItem.GetName() != "Position")continue;
-      XmlPosition* xmlPos = new XmlPosition(Settings.GetActivePosXml(), xmlItem);
-      
-      if(xmlPos.AccountId() != accountId ||
-         xmlPos.Id() != id)
-      {
-         delete xmlPos;
-         continue;
-      }
-      delete xmlPos;
-      SyncronizeXmlAttr(xmlItem);
-   }
-   if(!doc.SaveToFile(Settings.GetActivePosXml()))
-   {
-      LogWriter("Save changes failed. Error: " + (string)GetLastError(), MESSAGE_TYPE_WARNING);
-   }
-}*/
-
-bool XmlPosition::SaveToFile(void)
+bool XmlPosition1::SaveToFile(void)
 {
    CXmlElement* oldNode;
    do
@@ -346,7 +359,7 @@ bool XmlPosition::SaveToFile(void)
    
 }
 
-CXmlElement* XmlPosition::FindXmlNode(void)
+CXmlElement* XmlPosition1::FindXmlNode(void)
 {
    string err;
    CXmlDocument* doc = ReadXmlFile();
@@ -355,7 +368,13 @@ CXmlElement* XmlPosition::FindXmlNode(void)
    {
       CXmlElement* xmlItem = doc.FDocumentElement.GetChild(i);
       if(xmlItem.GetName() != "Position")continue;
-      XmlPosition* xmlPos = new XmlPosition(Settings.GetActivePosXml(), xmlItem);
+      XmlPosition1* xmlPos = new XmlPosition1(xmlItem);
+      if(!xmlPos.IsValid())
+      {
+         doc.FDocumentElement.ChildDelete(i);
+         i--;
+         continue;
+      }
       if(xmlPos.AccountId() != accountId ||
          xmlPos.Id() != id)
       {
@@ -368,7 +387,7 @@ CXmlElement* XmlPosition::FindXmlNode(void)
    return NULL;
 }
 
-CXmlElement* XmlPosition::CreateXmlNode(void)
+CXmlElement* XmlPosition1::CreateXmlNode(void)
 {
    CXmlElement* element = new CXmlElement();
    // Идентификатор счета
@@ -395,12 +414,12 @@ CXmlElement* XmlPosition::CreateXmlNode(void)
    return element;
 }
 
-bool XmlPosition::DeleteXmlNode(void)
+bool XmlPosition1::DeleteXmlNode(void)
 {
    string err;
    CXmlDocument* doc = ReadXmlFile();
    if(doc == NULL)return false;
-   for(int i = 0; i < doc.FDocumentElement.GetChildCount(); i++)
+   /*for(int i = 0; i < doc.FDocumentElement.GetChildCount(); i++)
    {
       CXmlElement* xmlItem = doc.FDocumentElement.GetChild(i);
       if(xmlItem.GetName() != "Position")continue;
@@ -414,62 +433,31 @@ bool XmlPosition::DeleteXmlNode(void)
       delete xmlPos;
       doc.FDocumentElement.ChildDelete(i);
       return doc.SaveToFile(Settings.GetActivePosXml());
-   }
+   }*/
    return NULL;
 }
 
-
-///
-/// Синхранизирует аттрибуты xml узла связанного с текущей xml-позицией с
-/// строковыми данными данной позиции.
-///
-/*void XmlPosition::SyncronizeXmlAttr(CXmlElement* xmlItem)
+bool XmlPosition1::ChangedValues(void)
 {
-   if(strId != NULL && strId != "")
+   CXmlElement* xmlItem = FindXmlNode();
+   if(xmlItem)return true;
+   XmlPosition1* xPos = new XmlPosition1(xmlItem);
+   if(!xPos.IsValid())
    {
-      
+      DeleteXmlNode();
+      SaveToFile();
+      return true;
    }
-   //Синхранизируем комментарий.
-   if(strExitComment != NULL && strExitComment != "")
-   {
-      
-      CXmlAttribute* attr = xmlItem.GetAttribute(GetAttributeName(ATTR_EXIT_COMMENT));
-      if(attr == NULL)
-      {
-         CXmlAttribute* comm = new CXmlAttribute();
-         comm.SetName(GetAttributeName(ATTR_EXIT_COMMENT));
-         comm.SetValue(strExitComment);
-         xmlItem.AttributeAdd(comm);
-      }
-      else
-      {
-         if(strExitComment != attr.GetValue())
-            attr.SetValue(strExitComment);
-      }
-   }
-   
-      attr = xmlItem.GetAttribute(GetAttributeName(ATTR_TAKE_PROFIT));
-      if(attr == NULL)
-      {
-         CXmlAttribute* profit = new CXmlAttribute();
-         string value = DoubleToString(takeProfit, 4);
-         profit.SetName(GetAttributeName(ATTR_TAKE_PROFIT));
-         profit.SetValue(value);
-         xmlItem.AttributeAdd(profit);
-      }
-      else
-      {
-         string value = DoubleToString(takeProfit, 4);
-         if(value != attr.GetValue())
-            attr.SetValue(value);
-      }
-   }
-}*/
-///
-///
-///
-void XmlPosition::SyncronizeXmlAttr(CXmlElement* xmlItem)
+   if(xPos.ExitComment() != strExitComment ||
+      Math::DoubleEquals(xPos.TakeProfit(), takeProfit))
+      return true;
+   return false;
+}
+void XmlPosition1::CheckModify(void)
 {
-   
+   if(file.IsModify() && ChangedValues())
+   {
+      //Отправляем событие об изменении параметров.
+   }   
 }
 
