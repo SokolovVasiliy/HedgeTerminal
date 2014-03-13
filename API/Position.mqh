@@ -6,7 +6,8 @@
 #include "Tasks.mqh"
 #include <Trade\SymbolInfo.mqh>
 //#include "..\XML\XmlPosition.mqh"
-#include "..\XML\XmlPosition1.mqh"
+//#include "..\XML\XmlPosition1.mqh"
+#include "..\XML\XmlPos.mqh"
  
 class Position;
 
@@ -127,6 +128,8 @@ class Position : public Transaction
       Order* FindOrderById(ulong id);
       void TaskChanged();
    private:
+      
+      void OnRefresh(void);
       ///
       /// Класс, для совершения торговых операций.
       ///
@@ -203,6 +206,7 @@ class Position : public Transaction
       bool IsItMyPendingStop(Order* order);
       void OnXmlRefresh(EventXmlActPosRefresh* event);
       bool CheckValidTP(double tp);
+      
       ///
       /// Инициирующий позицию ордер.
       ///
@@ -248,7 +252,12 @@ class Position : public Transaction
       ///
       /// Содержит XML представление активной позиции.
       ///
-      XmlPosition1* activeXmlPos;
+      XmlPos* activeXmlPos;
+      //XmlPos* xPos;
+      ///
+      /// Истина, если текущая позиция была отображена. 
+      ///
+      bool showed;
 };
 ///
 /// Деинициализирует позицию.
@@ -256,6 +265,8 @@ class Position : public Transaction
 Position::~Position()
 {
    DeleteAllOrders();
+   if(CheckPointer(activeXmlPos) != POINTER_INVALID)
+      delete activeXmlPos;
 }
 ///
 /// Создает неактивную позицию со статусом POSITION_NULL.
@@ -1029,6 +1040,9 @@ void Position::Event(Event* event)
       case EVENT_XML_ACTPOS_REFRESH:
          OnXmlRefresh(event);
          break;
+      case EVENT_REFRESH:
+         OnRefresh();
+         break;
    }
 }
 
@@ -1057,22 +1071,9 @@ void Position::OnRequestNotice(EventRequestNotice* notice)
 
 void Position::OnXmlRefresh(EventXmlActPosRefresh *event)
 {
-   XmlPosition* xPos = event.GetXmlPosition();
+   XmlPos* xPos = event.GetXmlPosition();
    exitComment = xPos.ExitComment();
-   double tp = xPos.TakeProfit();
-   //infoSymbol.Name(symbol);
-   tp = NormalizeDouble(tp, 4);
-   bool neq = !Math::DoubleEquals(tp, xPos.TakeProfit());
-   bool valid = CheckValidTP(tp);
-   if(valid)
-      takeProfit = tp;
-   if(!valid || neq)
-   {
-      xPos.TakeProfit(takeProfit);
-      //xPos.SyncronizeXml();
-   }
-   if(valid)
-      SendEventChangedPos(POSITION_REFRESH);
+   SendEventChangedPos(POSITION_REFRESH);
 }
 
 ///
@@ -1140,6 +1141,30 @@ bool Position::IsValidNewVolume(double setVol)
 ///
 void Position::SendEventChangedPos(ENUM_POSITION_CHANGED_TYPE type)
 {
+   if(!showed && type != POSITION_SHOW)
+      return;
+   showed = true;
+   if(Status() == POSITION_ACTIVE)
+   {
+      if(type == POSITION_SHOW)
+      {
+         if(CheckPointer(activeXmlPos) != POINTER_INVALID)
+            delete activeXmlPos;
+         activeXmlPos = new XmlPos(GetPointer(this));
+      }
+      else if(type == POSITION_HIDE && CheckPointer(activeXmlPos) != POINTER_INVALID)
+      {
+         activeXmlPos.DeleteXmlNode();
+         delete activeXmlPos;
+      }
+      else if(type == POSITION_REFRESH && CheckPointer(activeXmlPos) != POINTER_INVALID)
+      {
+         activeXmlPos.TakeProfit(takeProfit);
+         activeXmlPos.ExitComment(exitComment);
+         /*activeXmlPos.StringTakeProfit(DoubleToString(takeProfit));
+         activeXmlPos.RefreshXmlNode();*/
+      }
+   }
    //Только для визуальной панели.
    #ifdef HEDGE_PANEL
       if(type != POSITION_SHOW && positionLine == NULL)
@@ -1237,4 +1262,9 @@ bool Position::CheckValidTP(double tp)
       return false;
    if(tp < 0.0)return false;
    return true;
+}
+
+void Position::OnRefresh(void)
+{
+   activeXmlPos.CheckModify();
 }

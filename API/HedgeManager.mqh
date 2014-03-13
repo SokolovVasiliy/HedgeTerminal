@@ -22,13 +22,13 @@ class HedgeManager
          {
             case EVENT_REFRESH:
                OnRefresh();
-               xmlInfo.Event(event);
+               RefreshActPos(event);
                break;
             case EVENT_REQUEST_NOTICE:
                OnRequestNotice(event);
                break;
             case EVENT_XML_ACTPOS_REFRESH:
-               OnXmlActPosRefresh(event);
+               //OnXmlActPosRefresh(event);
                break;
          }
       }
@@ -46,9 +46,7 @@ class HedgeManager
          long tick = GetTickCount();
          OnRefresh();
          isInit = true;
-         #ifdef HEDGE_PANEL
          ShowPosition();
-         #endif
          PrintPerfomanceParsing(tick);
       }
       
@@ -78,8 +76,21 @@ class HedgeManager
          TrackingHistoryDeals();
          TrackingHistoryOrders();
          TrackingPendingOrders();
+         
       }
    private:
+      ///
+      /// Посылает уведомление о изменении каждой активной позиции.
+      ///
+      void RefreshActPos(EventRefresh* event)
+      {
+         if(!isInit)return;
+         for(int i = 0; i < ActivePos.Total(); i++)
+         {
+            Position* pos = ActivePos.At(i);
+            pos.Event(event);
+         }
+      }
       ///
       /// Отслеживает поступление новых трейдов в истории трейдов.
       ///
@@ -275,7 +286,7 @@ class HedgeManager
       ///
       /// Вызывается при изменении xml позиции.
       ///
-      void OnXmlActPosRefresh(EventXmlActPosRefresh* event)
+      /*void OnXmlActPosRefresh(EventXmlActPosRefresh* event)
       {
          XmlPosition* xPos = event.GetXmlPosition();
          ulong login = AccountInfoInteger(ACCOUNT_LOGIN);
@@ -291,7 +302,7 @@ class HedgeManager
          Position* pos = ActivePos.At(index);
          pos.Event(event);
          //printf("Свойства XML позиции изменились. ExitComment=" + xPos.ExitComment());
-      }
+      }*/
       ///
       /// Истина, если список ticketOrders содержит тикет с данным модификатором.
       /// Ложь в противном случае.
@@ -325,7 +336,6 @@ class HedgeManager
       ///
       /// Вызывается сразу после инициализации и отображает активные сделки.
       ///
-      #ifdef HEDGE_PANEL
       void ShowPosition()
       {
          for(int i = 0; i < ActivePos.Total(); i++)
@@ -339,7 +349,6 @@ class HedgeManager
             pos.SendEventChangedPos(POSITION_SHOW);
          }
       }
-      #endif
       
       ///
       /// Интегрирует новую сделку в систему позиций.

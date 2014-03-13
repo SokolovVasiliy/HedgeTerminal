@@ -146,8 +146,8 @@ void XmlInfo::SendXmlChanger(XmlPosition* xPos)
 {
    if(CheckPointer(api) != POINTER_INVALID)
    {
-      EventXmlActPosRefresh* event = new EventXmlActPosRefresh(xPos);
-      api.Event(event);
-      delete event;
+      //EventXmlActPosRefresh* event = new EventXmlActPosRefresh(xPos);
+      //api.Event(event);
+      //delete event;
    }
 }

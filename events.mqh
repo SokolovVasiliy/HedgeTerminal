@@ -1020,25 +1020,25 @@ class EventAddDeal : public Event
       ulong orderId;
 };
 
-class XmlPosition;
+class XmlPos;
 ///
 /// —обытие xml данные активной позиции изменились.
 ///
 class EventXmlActPosRefresh : Event
 {
    public:
-      XmlPosition* GetXmlPosition(void){return xPos;}
+      XmlPos* GetXmlPosition(void){return xPos;}
       virtual Event* Clone()
       {
          return new EventXmlActPosRefresh(xPos);
       }
-      EventXmlActPosRefresh(XmlPosition* xmlPos):
+      EventXmlActPosRefresh(XmlPos* xmlPos):
       Event(EVENT_FROM_UP, EVENT_XML_ACTPOS_REFRESH, "TERMINAL_WINDOW")
       {
          xPos = xmlPos;
       }
    private:
-      XmlPosition* xPos;
+      XmlPos* xPos;
 };
 
 ///
