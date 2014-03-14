@@ -3,8 +3,7 @@
 
 #include "Order.mqh"
 #include "..\Events.mqh"
-#include "..\XML\XmlInfo.mqh"
-#include "..\XML\XmlPosition.mqh"
+#include "..\XML\XmlGarbage.mqh"
 ///
 ///  ласс позиции
 ///
@@ -45,6 +44,7 @@ class HedgeManager
          ticketOrders.Sort();
          long tick = GetTickCount();
          OnRefresh();
+         xmlGarbage.ClearActivePos(Settings.GetActivePosXml(), ActivePos);
          isInit = true;
          ShowPosition();
          PrintPerfomanceParsing(tick);
@@ -77,6 +77,28 @@ class HedgeManager
          TrackingHistoryOrders();
          TrackingPendingOrders();
          
+      }
+      ///
+      /// For API: ¬озвращает количество активных позиций
+      ///
+      int ActivePosTotal()
+      {
+         return ActivePos.Total();
+      }
+      ///
+      /// For API: ¬озвращает количество исторических позиций.
+      ///
+      int HistoryPosTotal()
+      {
+         return HistoryPos.Total();
+      }
+      ///
+      /// For API: ¬озвращает активную позицию под номером n из списка позиций.
+      ///
+      Position* ActivePosAt(int n)
+      {
+         Position* pos = ActivePos.At(n);
+         return pos;
       }
    private:
       ///
@@ -467,28 +489,7 @@ class HedgeManager
          if(isInit)
             histPos.SendEventChangedPos(POSITION_SHOW);         
       }
-      ///
-      /// For API: ¬озвращает количество активных позиций
-      ///
-      int ActivePosTotal()
-      {
-         return ActivePos.Total();
-      }
-      ///
-      /// For API: ¬озвращает количество исторических позиций.
-      ///
-      int HistoryPosTotal()
-      {
-         return HistoryPos.Total();
-      }
-      ///
-      /// For API: ¬озвращает активную позицию под номером n из списка позиций.
-      ///
-      Position* ActivePosAt(int n)
-      {
-         Position* pos = ActivePos.At(n);
-         return pos;
-      }
+      
       
       ///
       /// ѕосылает поступившее событие каждому заданию из списка заданий.
@@ -609,7 +610,7 @@ class HedgeManager
       ///
       CArrayObj tasks;
       ///
-      ///  онтур xml данных.
+      /// —борщик неиспользованных узлов.
       ///
-      XmlInfo xmlInfo;
+      XmlGarbage xmlGarbage;
 };

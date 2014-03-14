@@ -12,7 +12,7 @@
 #include "..\Globals.mqh"
 
 #include "..\Prototypes.mqh"
-HedgeManager hedge;
+HedgeManager api;
 
 
 
@@ -27,7 +27,7 @@ int ExitOrderDealsTotal(){return 0;}
 
 int lastError;
 ///
-/// Type of last hedge error.
+/// Type of last api error.
 ///
 ENUM_HEDGE_ERR hedgeErr;
 ///
@@ -41,22 +41,22 @@ int HedgeGetLastError() export
 }
 ///
 /// Return count active and pending positions.
-/// \return Count of active and pending hedge position.
+/// \return Count of active and pending api position.
 ///
 int HedgePositionTotal()export
 {
-   hedge.OnRefresh();
-   return hedge.ActivePosTotal();
+   api.OnRefresh();
+   return api.ActivePosTotal();
 }
 
 ///
 /// Return count history positions.
-/// \return Count of history hedge position.
+/// \return Count of history api position.
 ///
 int HedgeHistoryPositionTotal() export
 {
-   hedge.OnRefresh();
-   return hedge.HistoryPosTotal();
+   api.OnRefresh();
+   return api.HistoryPosTotal();
 }
 
 ///
@@ -70,7 +70,7 @@ int HedgeHistoryPositionTotal() export
 bool HedgePositionClose(double volume, string comment, bool asynchMode=false)
 {
    bool res = true;
-   if(CheckPointer(CurrentPosition) != POINTER_INVALID)
+   /*if(CheckPointer(CurrentPosition) != POINTER_INVALID)
    {
       hedgeErr = HEDGE_ERR_POS_NOTSELECT;
       res = false;
@@ -97,7 +97,7 @@ bool HedgePositionClose(double volume, string comment, bool asynchMode=false)
          res = CurrentPosition.AsynchClose(volume, comment);
       else
          res = CurrentPosition.AsynchClose(volume, comment);
-   }
+   }*/
    return res;
 }
 
@@ -107,17 +107,17 @@ bool HedgePositionClose(double volume, string comment, bool asynchMode=false)
 ///
 bool HedgePositionSelect(int index, ENUM_MODE_SELECT select = SELECT_BY_POS, ENUM_MODE_TRADES pool=MODE_ACTIVE)export
 {
-   hedge.OnRefresh();
+   api.OnRefresh();
    if(pool == MODE_ACTIVE)
    {
       if(select == SELECT_BY_POS)
       {
-         if(index >= hedge.ActivePosTotal())
+         if(index >= api.ActivePosTotal())
          {
             hedgeErr = HEDGE_ERR_POS_NOTFIND;
             return false;
          }
-         CurrentPosition = hedge.ActivePosAt(index);
+         CurrentPosition = api.ActivePosAt(index);
          if(CheckPointer(CurrentPosition) == POINTER_INVALID)
          {
             hedgeErr = HEDGE_ERR_POS_NOTCOMPATIBLE;
@@ -320,6 +320,6 @@ bool ClosePos(HedgeTradeRequest& request, MqlTradeResult& result)
       result.comment = "Volume must be less or equal volume of position.";
       return false;
    }
-   CurrentPosition.AsynchClose(request.volume, request.comment);
+   //CurrentPosition.AsynchClose(request.volume, request.comment);
    return true;
 }

@@ -17,8 +17,11 @@ void OnInit(void)
 { 
    trade.SetExpertMagicNumber(MAGIC);
    EventSetMillisecondTimer(5000);
+   uint tiks = GetTickCount();
+   int total = HedgePositionTotal();
+   printf("Tiks: " + string(GetTickCount()-tiks));
 }
-void OnTick(void)
+/*void OnTick(void)
 {
    int myPositions = 0;
    int total = HedgePositionTotal();
@@ -54,5 +57,5 @@ void OnTick(void)
       trade.Buy(vol, NULL, 0.0, 0.0, 0.0, "new rand signal");
    else
       trade.Sell(vol, NULL, 0.0, 0.0, 0.0, "new rand signal");   
-}
+}*/
 

@@ -77,6 +77,7 @@ class Position : public Transaction
       
       string EntryComment(void);
       string ExitComment(void);
+      void ExitComment(string comment);
       
       long EntryExecutedTime(void);
       long ExitExecutedTime(void);
@@ -253,7 +254,6 @@ class Position : public Transaction
       /// Содержит XML представление активной позиции.
       ///
       XmlPos* activeXmlPos;
-      //XmlPos* xPos;
       ///
       /// Истина, если текущая позиция была отображена. 
       ///
@@ -774,6 +774,19 @@ string Position::ExitComment(void)
 }
 
 ///
+/// Устанавливает исходящий комментарий для активной позиции.
+///
+void Position::ExitComment(string comment)
+{
+   if(status != POSITION_ACTIVE)return;
+   if(exitComment == comment)return;
+   exitComment = comment;
+   if(CheckPointer(activeXmlPos) != POINTER_INVALID)
+      activeXmlPos.ExitComment(exitComment);
+   if(UsingStopLoss())
+      AddTask(new TaskChangeCommentStopLoss(GetPointer(this), true));
+}
+///
 /// Возвращает точное время установки позиции, в виде
 /// количества тиков прошедших с 01.01.1970 года.
 ///
@@ -941,6 +954,11 @@ double Position::TakeProfitLevel(void)
 ///
 void Position::TakeProfitLevel(double level)
 {
+   if(Math::DoubleEquals(takeProfit, level))
+      return;
+   if(CheckValidTP(level))
+      takeProfit = level;
+   SendEventChangedPos(POSITION_REFRESH);
 }
 
 ///
@@ -1073,6 +1091,9 @@ void Position::OnXmlRefresh(EventXmlActPosRefresh *event)
 {
    XmlPos* xPos = event.GetXmlPosition();
    exitComment = xPos.ExitComment();
+   TakeProfitLevel(xPos.TakeProfit());
+   if(!Math::DoubleEquals(xPos.TakeProfit(), takeProfit))
+      xPos.TakeProfit(takeProfit);
    SendEventChangedPos(POSITION_REFRESH);
 }
 
@@ -1144,7 +1165,7 @@ void Position::SendEventChangedPos(ENUM_POSITION_CHANGED_TYPE type)
    if(!showed && type != POSITION_SHOW)
       return;
    showed = true;
-   if(Status() == POSITION_ACTIVE)
+   if(Status() == POSITION_ACTIVE || status == POSITION_NULL)
    {
       if(type == POSITION_SHOW)
       {
@@ -1161,8 +1182,6 @@ void Position::SendEventChangedPos(ENUM_POSITION_CHANGED_TYPE type)
       {
          activeXmlPos.TakeProfit(takeProfit);
          activeXmlPos.ExitComment(exitComment);
-         /*activeXmlPos.StringTakeProfit(DoubleToString(takeProfit));
-         activeXmlPos.RefreshXmlNode();*/
       }
    }
    //Только для визуальной панели.
@@ -1256,9 +1275,9 @@ Order* Position::FindOrderById(ulong id)
 ///
 bool Position::CheckValidTP(double tp)
 {
-   if(tp > CurrentPrice() && Direction() == DIRECTION_SHORT)
-      return false;
    if(tp < CurrentPrice() && Direction() == DIRECTION_LONG)
+      return false;
+   if(tp > CurrentPrice() && Direction() == DIRECTION_SHORT)
       return false;
    if(tp < 0.0)return false;
    return true;
@@ -1266,5 +1285,6 @@ bool Position::CheckValidTP(double tp)
 
 void Position::OnRefresh(void)
 {
-   activeXmlPos.CheckModify();
+   if(CheckPointer(activeXmlPos) != POINTER_INVALID)
+      activeXmlPos.CheckModify();
 }

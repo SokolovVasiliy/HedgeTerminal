@@ -2,6 +2,7 @@
 #include "..\Math.mqh"
 #include "Node.mqh"
 #include "TextNode.mqh"
+#include "..\Settings.mqh"
 
 ///
 /// Абстрактный класс одной из строк таблицы. Строка может быть заголовком, позицией или сделкой.
@@ -145,9 +146,6 @@ class AbstractLine : public Line
          for(int i = 0; i < total; i++)
          {
             TextNode* value = NULL;
-            int dbg = 5;
-            if(CheckPointer(scolumns.At(i)) == POINTER_INVALID)
-               dbg = 4;
             DefColumn* el = scolumns.At(i);
             ENUM_COLUMN_TYPE cType = el.ColumnType();
             tnode* node = GetColumn(el);
@@ -328,10 +326,17 @@ class PosLine : public AbstractLine
                case 1:
                   clType = COLUMN_SL;
                   break;
+               case 2:
+                  clType = COLUMN_EXIT_COMMENT;
+                  break;
+               case 3:
+                  clType = COLUMN_TP;
+                  break;
                default:
                   return;
             }
             ProtoNode* node = GetCell(clType);
+            if(node == NULL)return;
             if(ch_node == node)
             {
                switch(clType)
@@ -341,6 +346,12 @@ class PosLine : public AbstractLine
                      break;
                   case COLUMN_SL:
                      OnStopLossModify(event.Node());
+                     break;
+                  case COLUMN_TP:
+                     OnTakeProfitModify(event.Node());
+                     break;
+                  case COLUMN_EXIT_COMMENT:
+                     OnCommentModify(event.Node());
                      break;
                }
             }
@@ -387,6 +398,14 @@ class PosLine : public AbstractLine
       }
       
       ///
+      /// Модификация исходящего коммента в исходящем комментарии.
+      ///
+      void OnCommentModify(EditNode* editNode)
+      {
+         string comment = editNode.Text();
+         pos.ExitComment(comment);
+      }
+      ///
       /// Отрпавляет приказ на создание/модификацию уровня стоп-лосс.
       ///
       void OnStopLossModify(EditNode* editNode)
@@ -417,7 +436,14 @@ class PosLine : public AbstractLine
          //TaskModifySL* sl = new TaskModifySL(pos, setPrice, pos.ExitComment());
          //pos.AddTask(sl);
       }
-      
+      ///
+      /// Обработчик модификации уровня тейк-профита.
+      ///
+      void OnTakeProfitModify(EditNode* editNode)
+      {
+         double setPrice = StringToDouble(editNode.Text());
+         pos.TakeProfitLevel(setPrice);
+      }
       ///
       /// Обрабатывает событие блокировки позиции.
       ///
@@ -508,7 +534,9 @@ class PosLine : public AbstractLine
                delete comby;
                comby = GetProfitEl(el);
                break;
+            case COLUMN_TP:
             case COLUMN_VOLUME:
+            case COLUMN_EXIT_COMMENT:
                comby.element = GetDefaultEditEl(el);
                comby.value = comby.element;
                break;
@@ -710,6 +738,14 @@ class PosLine : public AbstractLine
       virtual void OnRefreshValue(ENUM_COLUMN_TYPE cType)
       {
          if(cType != COLUMN_PROFIT)return;
+         HighlightingSL();
+         HighlightingTP();
+      }
+      ///
+      /// Подсвечивание ячейки стоп-лосса.
+      ///
+      void HighlightingSL()
+      {
          double sl = pos.StopLossLevel();
          if(Math::DoubleEquals(sl, 0.0))return;
          double delta = MathAbs(pos.CurrentPrice() - sl);
@@ -733,6 +769,13 @@ class PosLine : public AbstractLine
             }
             node.BackgroundColor(restoreClr);
          }
+      }
+      ///
+      /// Подсвечивание ячейки тейк-профита.
+      ///
+      void HighlightingTP()
+      {
+         ;
       }
       ///
       /// Указатель на позицию, которую представляет данная строка.

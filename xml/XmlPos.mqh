@@ -43,11 +43,15 @@ class XmlPos
       ///
       /// Устанавливает новое значение исходящиго комментария.
       ///
-      void ExitComment(string comm){strExitComment = comm;}
+      void ExitComment(string comm);
       ///
       /// Конструктор.
       ///
       XmlPos(Position* pos);
+      ///
+      /// Создает новый экземпляр XmlPos на основе xml елемента.
+      ///
+      XmlPos(CXmlElement* xEl);
       ///
       /// Диструктор.
       ///
@@ -65,10 +69,7 @@ class XmlPos
       ///
       void DeleteXmlNode();
    private:
-      ///
-      /// Создает новый экземпляр XmlPos на основе xml елемента.
-      ///
-      XmlPos(CXmlElement* xEl);
+      
       ///
       /// Находит в 'doc' XML узел, связанный с текущей xml-позицией и возвращает указатель на него.
       /// Если узел не был найден возвращает NULL.
@@ -86,6 +87,12 @@ class XmlPos
       /// Создает xml-узел, соответствующий текущей позиции.
       ///
       CXmlElement* CreateXmlNode();
+      
+      ///
+      /// Изменяет xml-узел в соответствии с данными текущей xml-позиции.
+      /// \return Истина, если изменение узла прошло успешно и ложь в противном случае.
+      ///
+      void LazyWriter(void);
       ///
       /// Атрибуты позиции.
       ///
@@ -108,6 +115,12 @@ class XmlPos
          ///
          ATTR_TAKE_PROFIT
       };
+      ///
+      /// Задает новое значение аттрибута.
+      /// \param attrType - Тип аттрибута, чье значение нужно изменить.
+      /// \param value - Новое значение аттрибута.
+      ///
+      void ChangeAttribute(ENUM_ATTRIBUTE_POS attrType, string value);
       ///
       /// Вовзращает название аттрибута в зависимости от его типа.
       /// \param typeAttr - Перечеслитель, определяющий тип аттрибута.
@@ -180,6 +193,15 @@ class XmlPos
       /// Позиция, к которой принадлежит текущее XML представление.
       ///
       Position* position;
+      ///
+      /// Истина, если состояние xml-позиции было измененно и требуется обновить
+      /// лежащий в ее основе xml-узел.
+      ///
+      bool isChanged;
+      ///
+      /// Счетчик попыток отложенной записи.
+      ///
+      int lazyCount;
 };
 
 XmlPos::XmlPos(Position* pos)
@@ -189,6 +211,8 @@ XmlPos::XmlPos(Position* pos)
    position = pos;
    accountId = AccountInfoInteger(ACCOUNT_LOGIN);
    id = pos.GetId();
+   strAccountId = IntegerToString(accountId);
+   strId = IntegerToString(id);
    strExitComment = pos.ExitComment();
    if(strExitComment == NULL)strExitComment = "";
    takeProfit = pos.TakeProfitLevel();
@@ -212,12 +236,14 @@ void XmlPos::CheckModify(void)
    if(file.IsModify())
       synchronize = false;
    if(!synchronize)
-      ReloadXmlDoc();      
+      ReloadXmlDoc();
+   LazyWriter();
 }
 
 void XmlPos::ReloadXmlDoc(void)
 {
    string error;
+   doc.Clear();
    bool res = doc.CreateFromFile(xmlFile, error);
    if(!res && !failedOpen)
    {
@@ -234,6 +260,7 @@ void XmlPos::ReloadXmlDoc(void)
          XmlPos* xPos = new XmlPos(xmlItem);
          strExitComment = xPos.ExitComment();
          takeProfit = xPos.TakeProfit();
+         delete xPos;
          EventXmlActPosRefresh* event = new EventXmlActPosRefresh(GetPointer(this));
          position.Event(event);
          delete event;
@@ -259,6 +286,8 @@ CXmlElement* XmlPos::FindXmlNode(void)
       delete xmlPos;
       return xmlItem;  
    }
+   if(CheckPointer(xmlPos) != POINTER_INVALID)
+      delete xmlPos;
    return NULL;
 }
 
@@ -275,12 +304,9 @@ bool XmlPos::IsSynchNode(void)
       }
    }
    XmlPos* xPos = new XmlPos(xmlItem);
-   if(xPos.ExitComment() != strExitComment ||
-      !Math::DoubleEquals(xPos.TakeProfit(), takeProfit))
-   {
-      return false;
-   }
-   return true;
+   bool notEquals = xPos.ExitComment() != strExitComment || !Math::DoubleEquals(xPos.TakeProfit(), takeProfit);
+   delete xPos;
+   return !notEquals;
 }
 
 bool XmlPos::IsValid(void)
@@ -413,5 +439,30 @@ void XmlPos::TakeProfit(double tp)
    if(strTakeProfit != stp)
    {
       strTakeProfit = stp;
+      ChangeAttribute(ATTR_TAKE_PROFIT, strTakeProfit);
    }
 }
+
+void XmlPos::ExitComment(string comm)
+{
+   if(strExitComment == comm)return;
+   strExitComment = comm;
+   ChangeAttribute(ATTR_EXIT_COMMENT, strExitComment);
+}
+
+void XmlPos::LazyWriter(void)
+{
+   if(isChanged && lazyCount++%5 == 0)
+      isChanged = !doc.SaveToFile(xmlFile);
+}
+
+void XmlPos::ChangeAttribute(ENUM_ATTRIBUTE_POS attrType, string value)
+{
+   if(CheckPointer(xmlItem) == POINTER_INVALID)
+      return;
+   string attrName = GetAttributeName(attrType);
+   CXmlAttribute* attr = xmlItem.GetAttribute(attrName);
+   attr.SetValue(value);
+   isChanged = true;
+}
+

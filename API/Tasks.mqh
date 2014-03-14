@@ -239,6 +239,41 @@ class TaskDeleteStopLoss : public Task2
          AddTarget(new TargetDeletePendingOrder(stopId, asynch_mode));
       }  
 };
+///
+/// Удаляет стоп-лосс позиции.
+///
+class TaskChangeCommentStopLoss : public Task2
+{
+   public:
+      TaskChangeCommentStopLoss(Position* pos, bool asynch_mode) : Task2(pos)
+      {
+         ulong stopId = 0;
+         Order* stopOrder;
+         if(pos.UsingStopLoss())
+         {
+            stopOrder = pos.StopOrder();
+            stopId = stopOrder.GetId();
+         }
+         else
+         {
+            LogWriter("Position not use stop-order.", MESSAGE_TYPE_ERROR);
+            status = TASK_STATUS_FAILED;
+            return;
+         }
+         double price = stopOrder.PriceSetup();
+         AddTarget(new TargetDeletePendingOrder(stopId, asynch_mode));
+         ENUM_ORDER_TYPE orderType = ORDER_TYPE_SELL;
+         if(pos.Direction() == DIRECTION_LONG)
+            orderType = ORDER_TYPE_SELL_STOP;
+         if(pos.Direction() == DIRECTION_SHORT)
+            orderType = ORDER_TYPE_BUY_STOP;
+         Order* initOrder = pos.EntryOrder();
+         ulong magic = initOrder.GetMagic(MAGIC_TYPE_SL);
+         AddTarget(new TargetSetPendingOrder(pos.Symbol(), orderType, pos.VolumeExecuted(), price, pos.ExitComment(), magic, true));
+      }  
+      private:
+         string oldComment;
+};
 
 class TaskSetStopLoss : Task2
 {
