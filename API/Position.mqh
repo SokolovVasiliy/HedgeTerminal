@@ -128,6 +128,7 @@ class Position : public Transaction
       void AddTask(Task2* task);
       Order* FindOrderById(ulong id);
       void TaskChanged();
+      
    private:
       
       void OnRefresh(void);
@@ -207,7 +208,9 @@ class Position : public Transaction
       bool IsItMyPendingStop(Order* order);
       void OnXmlRefresh(EventXmlActPosRefresh* event);
       bool CheckValidTP(double tp);
-      
+      bool CheckHistSL(double sl);
+      bool CheckHistTP(double tp);
+      void SaveVirtualOrder(ENUM_VIRTUAL_ORDER_TYPE type, double level);
       ///
       /// Инициирующий позицию ордер.
       ///
@@ -930,7 +933,15 @@ ulong Position::ExitMagic(void)
 double Position::StopLossLevel(void)
 {
    if(UsingStopLoss())
+   {
       return slOrder.PriceSetup();
+   }
+   if(status == POSITION_HISTORY && Math::DoubleEquals(takeProfit, 0.0))
+   {
+      double sl = Settings.GetLevelVirtualOrder(GetId(), VIRTUAL_STOP_LOSS);
+      if(CheckHistSL(sl))
+         slLevel = sl;
+   }
    return slLevel;
 }
 
@@ -946,6 +957,12 @@ void Position::StopLossLevel(double level)
 ///
 double Position::TakeProfitLevel(void)
 {
+   if(status == POSITION_HISTORY && Math::DoubleEquals(takeProfit, 0.0))
+   {
+       double tp = Settings.GetLevelVirtualOrder(GetId(), VIRTUAL_TAKE_PROFIT);
+       if(CheckHistTP(tp))
+         takeProfit = tp;
+   }
    return takeProfit;
 }
 
@@ -1096,6 +1113,14 @@ void Position::OnXmlRefresh(EventXmlActPosRefresh *event)
       xPos.TakeProfit(takeProfit);
    SendEventChangedPos(POSITION_REFRESH);
 }
+
+///
+/// Сохраняет виртиуальный ордер в xml файле виртуальных ордеров.
+///
+/*void Position::SaveVirtualOrder(int ENUM_VIRTUAL_ORDER_TYPE)
+{
+   
+}*/
 
 ///
 /// Обрабатывает ситуацию, когда запрос был отклонен.
@@ -1281,6 +1306,46 @@ bool Position::CheckValidTP(double tp)
       return false;
    if(tp < 0.0)return false;
    return true;
+}
+
+///
+/// Проверяет валидность виртуального стоп-лосса для исторической позиции.
+///
+bool Position::CheckHistSL(double sl)
+{
+   if(status != POSITION_HISTORY)return false;
+   if(Direction() == DIRECTION_LONG)
+   {
+      if(sl > ExitExecutedPrice())
+         return false;
+      else return true;
+   }
+   else
+   {
+      if(sl > ExitExecutedPrice())
+         return true;
+      else return false;
+   }
+}
+
+///
+/// Проверяет валидность виртуального тейк-профита для исторической позиции.
+///
+bool Position::CheckHistTP(double tp)
+{
+   if(status != POSITION_HISTORY)return false;
+   if(Direction() == DIRECTION_LONG)
+   {
+      if(tp > ExitExecutedPrice())
+         return true;
+      else return false;
+   }
+   else
+   {
+      if(tp > ExitExecutedPrice())
+         return false;
+      else return true;
+   }
 }
 
 void Position::OnRefresh(void)

@@ -1,7 +1,13 @@
 #include <Arrays\ArrayObj.mqh>
 #include "XmlBase.mqh"
+#include "XmlDocument.mqh"
+#include "XmlElement.mqh"
+#include "XmlAttribute.mqh"
+
+
 #include "..\Log.mqh"
 #include "..\Settings.mqh"
+#include "XmlHistPos.mqh"
 ///
 /// Загружает настройки из XML файла.
 ///
@@ -11,6 +17,9 @@ class XmlLoader
       XmlLoader();
       CArrayObj* GetActiveColumns(){return GetPointer(activeTab);}
       CArrayObj* GetHistoryColumns(){return GetPointer(historyTab);}
+      string GetNameExpertByMagic(ulong magic);
+      double GetLevelVirtualOrder(ulong id, ENUM_VIRTUAL_ORDER_TYPE type);
+      void SaveXmlAttr(ulong id, ENUM_VIRTUAL_ORDER_TYPE type, double level);
    private:
       ///
       /// Известные секции настроек.
@@ -48,7 +57,45 @@ class XmlLoader
       /// Список колонок для исторических позиций.
       ///
       CArrayObj historyTab;
-      
+      ///
+      /// Содежрит строковые псевдонимы экспертов.
+      ///
+      CArrayObj Aliases;
+      ///
+      /// Исторические позиции.
+      ///
+      CArrayObj HistPos;
+      ///
+      /// XML документ с информацией о позицияях.
+      ///
+      CXmlDocument XmlHistFile;
+      ///
+      /// Строковый псевдоноим для стратегии.
+      ///
+      class Aliase : public CObject
+      {
+         public:
+            ulong Magic(void){return magic;}
+            void Magic(ulong mg){magic = mg;}
+            string Name(void){return name;}
+            void Name(string n){name = n;}
+            Aliase(){name = "";}
+            Aliase(ulong ex_magic, string ex_name)
+            {
+               magic = ex_magic;
+               name = ex_name;
+            }
+         private:
+            virtual int Compare(const CObject* node, const int mode=0)const
+            {
+               const Aliase* aliase = node;
+               if(magic > aliase.Magic())return 1;
+               if(magic < aliase.Magic())return -1;
+               return 0;
+            }
+            ulong magic;
+            string name;
+      };
       ENUM_SET_SECTIONS GetTypeSection(string nameNode);
       void ParseColumnsSettings(CXmlElement* xmlItem);
       void ParseColumns(CXmlElement* activeTab, ENUM_TAB_TYPE tabType);
@@ -56,6 +103,11 @@ class XmlLoader
       ENUM_COLUMN_TYPE GetColumnType(string columnId);
       bool CheckCompatibleType(ENUM_COLUMN_TYPE, ENUM_TAB_TYPE tabType);
       bool CheckValidColumn(CXmlElement* xmlColumn);
+      void LoadSettings(void);
+      void LoadAliases(void);
+      void LoadHistOrders(void);
+      void TryParseAliase(CXmlElement* xmlItem);
+      
 };
 
 ///
@@ -63,6 +115,13 @@ class XmlLoader
 /// \param path - путь к файлу.
 ///
 XmlLoader::XmlLoader()
+{
+   LoadSettings();
+   LoadAliases();
+   LoadHistOrders();
+}
+
+void XmlLoader::LoadSettings(void)
 {
    CXmlDocument doc;
    string err;
@@ -82,6 +141,126 @@ XmlLoader::XmlLoader()
             break;
       }
    }
+}
+
+void XmlLoader::LoadAliases(void)
+{
+   CXmlDocument doc;
+   string err;
+   string path = "ExpertAliases.xml";
+   if(!doc.CreateFromFile(path, err))
+   {
+      printf(err);
+      return;
+   }
+   for(int i = 0; i < doc.FDocumentElement.GetChildCount(); i++)
+   {
+      CXmlElement* xmlItem = doc.FDocumentElement.GetChild(i);
+      TryParseAliase(xmlItem);
+   }
+}
+
+void XmlLoader::SaveXmlAttr(ulong id, ENUM_VIRTUAL_ORDER_TYPE type, double level)
+{
+   CXmlElement* xmlItem;
+   XmlHistPos* hpos = new XmlHistPos(id);
+   int index = HistPos.Search(hpos);
+   if(index == -1)
+   {
+      xmlItem = new CXmlElement();
+      ulong accountId = AccountInfoInteger(ACCOUNT_LOGIN);
+      CXmlAttribute* attr = new CXmlAttribute();
+      attr.SetName("AccountID");
+      attr.SetValue((string)accountId);
+      xmlItem.AttributeAdd(attr);
+      attr = new CXmlAttribute();
+      attr.SetName("ID");
+      attr.SetValue((string)id);
+      xmlItem.AttributeAdd(attr);
+      attr = new CXmlAttribute();
+      string st = "";
+      if(type == VIRTUAL_STOP_LOSS)
+         st = "VirtualStopLoss";
+      else
+         st = "VirtualTakeProfit";
+      attr.SetName(st);
+      attr.SetValue((string)level);
+      //XmlHistPos.FDocumentElement.
+   }
+}
+
+void XmlLoader::LoadHistOrders(void)
+{
+   if(HistPos.SortMode() == -1)
+      HistPos.Sort();
+   
+   string err;
+   string path = "HistoryPositions.xml";
+   if(!XmlHistFile.CreateFromFile(path, err))
+   {
+      printf(err);
+      return;
+   }
+   for(int i = 0; i < XmlHistFile.FDocumentElement.GetChildCount(); i++)
+   {
+      CXmlElement* xmlItem = XmlHistFile.FDocumentElement.GetChild(i);
+      XmlHistPos* xmlPos = new XmlHistPos(xmlItem);
+      if(!xmlPos.IsValid())
+         delete xmlPos;
+      HistPos.InsertSort(xmlPos);
+   }
+}
+
+double XmlLoader::GetLevelVirtualOrder(ulong id, ENUM_VIRTUAL_ORDER_TYPE type)
+{
+   XmlHistPos* hpos = new XmlHistPos(id);
+   int index = HistPos.Search(hpos);
+   delete hpos;
+   if(index == -1)
+      return 0.0;
+   hpos = HistPos.At(index);
+   double value = 0.0;
+   int dbg = 5;
+   if(type == VIRTUAL_STOP_LOSS)
+      value = hpos.StopLoss();
+   if(type == VIRTUAL_TAKE_PROFIT)
+      value = hpos.TakeProfit();
+   return value;
+}
+
+string XmlLoader::GetNameExpertByMagic(ulong magic)
+{
+   if(Aliases.SortMode() == -1)
+      Aliases.Sort();
+   int dbg = 5;
+   if(magic == 123847)
+      dbg = 6;
+   Aliase* aliase = new Aliase(magic, "");
+   int index = Aliases.Search(aliase);
+   delete aliase;
+   if(index == -1)
+      return IntegerToString(magic);
+   else
+   {
+      aliase = Aliases.At(index);
+      return aliase.Name();
+   }
+}
+
+void XmlLoader::TryParseAliase(CXmlElement* xmlItem)
+{
+   if(xmlItem.GetName() != "Expert")return;
+   CXmlAttribute* xmlName = xmlItem.GetAttribute("Name");
+   if(xmlName == NULL)return;
+   string ex_name = xmlName.GetValue();
+   CXmlAttribute* xmlMagic = xmlItem.GetAttribute("Magic");
+   if(xmlMagic == NULL)return;
+   ulong ex_magic = StringToInteger(xmlMagic.GetValue());
+   if(ex_magic == 0)return;
+   if(ex_name == "")return;
+   if(Aliases.SortMode() == -1)
+      Aliases.Sort();
+   Aliases.InsertSort(new Aliase(ex_magic, ex_name));
 }
 
 ///
@@ -268,17 +447,4 @@ bool XmlLoader::CheckCompatibleType(ENUM_COLUMN_TYPE colType, ENUM_TAB_TYPE tabT
    return false;
 }
 
-///
-///
-///
-/*void XmlLoader::Event(Event* event)
-{
-   switch(event.EventId())
-   {
-      case EVENT_REFRESH:
-         OnEventRefresh(event);
-         break;
-      default:
-         break;
-   }
-}*/
+

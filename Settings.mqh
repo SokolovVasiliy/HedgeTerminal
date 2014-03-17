@@ -201,6 +201,22 @@ class PanelSettings
       {
          return "ActivePositions.xml";
       }
+      ///
+      /// Вовзращает строковый псевдоноим для маджика эксперта.
+      ///
+      string GetNameExpertByMagic(ulong magic)
+      {
+         return loader.GetNameExpertByMagic(magic);
+      }
+      double GetLevelVirtualOrder(ulong id, ENUM_VIRTUAL_ORDER_TYPE type)
+      {
+         return loader.GetLevelVirtualOrder(id, type);
+      }
+      
+      /*void SaveVirtualOrder(int ENUM_VIRTUAL_ORDER_TYPE)
+      {
+         ;
+      }*/
    private:        
       static PanelSettings* set;
       ///

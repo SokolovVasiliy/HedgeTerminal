@@ -76,7 +76,6 @@ class HedgeManager
          TrackingHistoryDeals();
          TrackingHistoryOrders();
          TrackingPendingOrders();
-         
       }
       ///
       /// For API: Возвращает количество активных позиций
@@ -305,26 +304,7 @@ class HedgeManager
             addOrderTicket = trans.order;
          }
       }
-      ///
-      /// Вызывается при изменении xml позиции.
-      ///
-      /*void OnXmlActPosRefresh(EventXmlActPosRefresh* event)
-      {
-         XmlPosition* xPos = event.GetXmlPosition();
-         ulong login = AccountInfoInteger(ACCOUNT_LOGIN);
-         if(login != xPos.AccountId())return;
-         TransId* trans = new TransId(xPos.Id());
-         int index = ActivePos.Search(trans);
-         delete trans;
-         if(index == -1)
-         {
-            //SendEventDelXmlPos(xPos);
-            return;
-         }
-         Position* pos = ActivePos.At(index);
-         pos.Event(event);
-         //printf("Свойства XML позиции изменились. ExitComment=" + xPos.ExitComment());
-      }*/
+      
       ///
       /// Истина, если список ticketOrders содержит тикет с данным модификатором.
       /// Ложь в противном случае.

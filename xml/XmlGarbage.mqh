@@ -23,10 +23,11 @@ void XmlGarbage::ClearActivePos(string fileName, CArrayObj *posList)
       return;
    ulong accountId = AccountInfoInteger(ACCOUNT_LOGIN);
    bool res = false;
+   XmlPos* xPos;
    for(int i = 0; i < doc.FDocumentElement.GetChildCount(); i++)
    {
       CXmlElement* xmlItem = doc.FDocumentElement.GetChild(i);
-      XmlPos* xPos = new XmlPos(xmlItem);
+      xPos = new XmlPos(xmlItem);
       if(!xPos.IsValid())
       {
          doc.FDocumentElement.ChildDelete(i);
@@ -45,6 +46,7 @@ void XmlGarbage::ClearActivePos(string fileName, CArrayObj *posList)
             res = true;
          }
       }
+      delete xPos;
    }
    if(res)
       doc.SaveToFile(fileName);

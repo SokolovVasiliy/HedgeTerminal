@@ -649,7 +649,7 @@ class PosLine : public AbstractLine
          {
             case COLUMN_MAGIC:
                if(!pos.Unmanagment())
-                  value = (string)pos.EntryMagic();
+                  value = Settings.GetNameExpertByMagic(pos.EntryMagic());
                else
                   value = "UNMANAGMENT";
                break;
