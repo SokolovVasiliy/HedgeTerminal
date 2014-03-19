@@ -19,7 +19,7 @@ class XmlLoader
       CArrayObj* GetHistoryColumns(){return GetPointer(historyTab);}
       string GetNameExpertByMagic(ulong magic);
       double GetLevelVirtualOrder(ulong id, ENUM_VIRTUAL_ORDER_TYPE type);
-      void SaveXmlAttr(ulong id, ENUM_VIRTUAL_ORDER_TYPE type, double level);
+      void SaveXmlAttr(ulong id, ENUM_VIRTUAL_ORDER_TYPE type, string level);
    private:
       ///
       /// Известные секции настроек.
@@ -160,14 +160,16 @@ void XmlLoader::LoadAliases(void)
    }
 }
 
-void XmlLoader::SaveXmlAttr(ulong id, ENUM_VIRTUAL_ORDER_TYPE type, double level)
+void XmlLoader::SaveXmlAttr(ulong id, ENUM_VIRTUAL_ORDER_TYPE type, string level)
 {
    CXmlElement* xmlItem;
    XmlHistPos* hpos = new XmlHistPos(id);
    int index = HistPos.Search(hpos);
+   delete hpos;
    if(index == -1)
    {
       xmlItem = new CXmlElement();
+      xmlItem.SetName("Position");
       ulong accountId = AccountInfoInteger(ACCOUNT_LOGIN);
       CXmlAttribute* attr = new CXmlAttribute();
       attr.SetName("AccountID");
@@ -184,9 +186,14 @@ void XmlLoader::SaveXmlAttr(ulong id, ENUM_VIRTUAL_ORDER_TYPE type, double level
       else
          st = "VirtualTakeProfit";
       attr.SetName(st);
-      attr.SetValue((string)level);
-      //XmlHistPos.FDocumentElement.
+      attr.SetValue(level);
+      xmlItem.AttributeAdd(attr);
+      XmlHistFile.FDocumentElement.ChildAdd(xmlItem);
+      XmlHistFile.SaveToFile("HistoryPositions.xml");
+      string err;
+      XmlHistFile.CreateFromFile("HistoryPositions.xml", err);
    }
+   
 }
 
 void XmlLoader::LoadHistOrders(void)

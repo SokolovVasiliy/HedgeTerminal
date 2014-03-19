@@ -371,7 +371,7 @@ class PosLine : public AbstractLine
          //pos.AsynchClose(pos.VolumeExecuted(), value);
          //Проверяем, можем ли мы закрыть позицию.
          //...
-         TaskClosePosition* cPos = new TaskClosePosition(pos);
+         TaskClosePosition* cPos = new TaskClosePosition(pos, MAGIC_TYPE_MARKET);
          pos.AddTask(cPos);
          //TaskClosePos* closePos = new TaskClosePos(pos, value);
          //pos.AddTask(closePos);
@@ -535,6 +535,9 @@ class PosLine : public AbstractLine
                comby = GetProfitEl(el);
                break;
             case COLUMN_TP:
+               comby.element = GetTPNode(el);
+               comby.value = comby.element;
+               break;
             case COLUMN_VOLUME:
             case COLUMN_EXIT_COMMENT:
                comby.element = GetDefaultEditEl(el);
@@ -591,6 +594,19 @@ class PosLine : public AbstractLine
             int dir = pos.Direction() == DIRECTION_LONG ? 1 : -1;
             double slipage = (exitOrder.EntryExecutedPrice() - exitOrder.PriceSetup() * dir);
             enode.Tooltip("slipage: " + pos.PriceToString(slipage));
+         }
+         return enode;
+      }
+      
+      TextNode* GetTPNode(DefColumn* el)
+      {
+         EditNode* enode = GetDefaultEditEl(el);
+         if(pos.Status() != POSITION_HISTORY)
+            return enode;
+         Order* exitOrder = pos.ExitOrder();
+         if(exitOrder.IsTakeProfit())
+         {
+            enode.SetBlockBgColor(clrLightGreen);         
          }
          return enode;
       }
@@ -754,7 +770,7 @@ class PosLine : public AbstractLine
          int steps = Settings.GetPriceStepCount();
          if(stepValue < 0.00001)
             stepValue = SymbolInfoDouble(pos.Symbol(), SYMBOL_TRADE_TICK_SIZE);
-         if(delta < steps*stepValue)
+         if(delta <= steps*stepValue)
             node.BackgroundColor(clrPink);
          //Пытаемся восстановить цвет
          else if(node.BackgroundColor() == clrPink)
@@ -775,7 +791,29 @@ class PosLine : public AbstractLine
       ///
       void HighlightingTP()
       {
-         ;
+         double tp = pos.TakeProfitLevel();
+         if(Math::DoubleEquals(tp, 0.0))return;
+         double delta = MathAbs(pos.CurrentPrice() - tp);
+         TextNode* node = GetCell(COLUMN_TP);
+         if(node == NULL)return;
+         int steps = Settings.GetPriceStepCount();
+         if(stepValue < 0.00001)
+            stepValue = SymbolInfoDouble(pos.Symbol(), SYMBOL_TRADE_TICK_SIZE);
+         if(delta <= steps*stepValue)
+            node.BackgroundColor(clrLightGreen);
+         //Пытаемся восстановить цвет
+         else if(node.BackgroundColor() == clrLightGreen)
+         {
+            color restoreClr = clrWhite;
+            //Берем первый попавшийся цвет.
+            for(int i = 0; i < childNodes.Total(); i++)
+            {
+               ProtoNode* anyNode = childNodes.At(i);
+               restoreClr = anyNode.BackgroundColor();
+               break;
+            }
+            node.BackgroundColor(restoreClr);
+         }
       }
       ///
       /// Указатель на позицию, которую представляет данная строка.

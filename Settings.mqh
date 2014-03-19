@@ -213,10 +213,10 @@ class PanelSettings
          return loader.GetLevelVirtualOrder(id, type);
       }
       
-      /*void SaveVirtualOrder(int ENUM_VIRTUAL_ORDER_TYPE)
+      void SaveXmlAttr(ulong id, ENUM_VIRTUAL_ORDER_TYPE type, string level)
       {
-         ;
-      }*/
+         loader.SaveXmlAttr(id, type, level);
+      }
    private:        
       static PanelSettings* set;
       ///

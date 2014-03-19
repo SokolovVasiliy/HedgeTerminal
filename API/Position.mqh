@@ -210,7 +210,7 @@ class Position : public Transaction
       bool CheckValidTP(double tp);
       bool CheckHistSL(double sl);
       bool CheckHistTP(double tp);
-      void SaveVirtualOrder(ENUM_VIRTUAL_ORDER_TYPE type, double level);
+      void CloseByVirtualOrder(void);
       ///
       /// »нициирующий позицию ордер.
       ///
@@ -551,6 +551,12 @@ void Position::AddClosingOrder(Order* outOrder, InfoIntegration* info)
 {
    info.IsSuccess = true;
    info.HistoryPosition = OrderManager(initOrder, outOrder);
+   if(initOrder.Status() == ORDER_NULL)
+   {
+      if(!Math::DoubleEquals(TakeProfitLevel(), 0.0))
+         Settings.SaveXmlAttr(GetId(), VIRTUAL_TAKE_PROFIT, PriceToString(TakeProfitLevel()));
+      info.HistoryPosition.TakeProfitLevel(TakeProfitLevel());
+   }
    if(outOrder.Status() != ORDER_NULL)
    {
       info.ActivePosition = new Position(outOrder);
@@ -671,12 +677,7 @@ Position* Position::OrderManager(Order* inOrder, Order* outOrder)
    //преобразовани€ двух ордеров.
    //histInOrder.CompressDeals();
    //histOutOrder.CompressDeals();
-   ulong id = histOutOrder.GetId();
-   int dbg;
-   if(id == 1009531471)
-      dbg = 5;
    Position* histPos = new Position(histInOrder, histOutOrder);
-   
    //Ќеуправл€ема€ позици€ продолжает быть неуправл€емой в историческом состо€нии.
    if(unmanagment)
       histPos.Unmanagment(true);
@@ -1314,6 +1315,7 @@ bool Position::CheckValidTP(double tp)
 bool Position::CheckHistSL(double sl)
 {
    if(status != POSITION_HISTORY)return false;
+   bool eq = Math::DoubleEquals(sl, ExitExecutedPrice());
    if(Direction() == DIRECTION_LONG)
    {
       if(sl > ExitExecutedPrice())
@@ -1322,7 +1324,7 @@ bool Position::CheckHistSL(double sl)
    }
    else
    {
-      if(sl > ExitExecutedPrice())
+      if(eq || sl > ExitExecutedPrice())
          return true;
       else return false;
    }
@@ -1334,9 +1336,10 @@ bool Position::CheckHistSL(double sl)
 bool Position::CheckHistTP(double tp)
 {
    if(status != POSITION_HISTORY)return false;
+   bool eq = Math::DoubleEquals(tp, ExitExecutedPrice());
    if(Direction() == DIRECTION_LONG)
    {
-      if(tp > ExitExecutedPrice())
+      if(eq || tp > ExitExecutedPrice())
          return true;
       else return false;
    }
@@ -1350,6 +1353,23 @@ bool Position::CheckHistTP(double tp)
 
 void Position::OnRefresh(void)
 {
+   CloseByVirtualOrder();
    if(CheckPointer(activeXmlPos) != POINTER_INVALID)
       activeXmlPos.CheckModify();
+}
+
+///
+/// ѕровер€ет уровни виртуальных ордеров и закрывает позицию, если уровень одного из них.
+/// соответствует текущей цене.
+///
+void Position::CloseByVirtualOrder(void)
+{
+   if(Math::DoubleEquals(takeProfit, 0.0))return;
+   if(Direction() == DIRECTION_LONG)
+   {
+      double cur_price = CurrentPrice();
+      bool res = Math::DoubleEquals(takeProfit, cur_price) || takeProfit < cur_price;
+      if(res)
+         AddTask(new TaskClosePosition(GetPointer(this), MAGIC_TYPE_TP));
+   }
 }

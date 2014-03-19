@@ -43,7 +43,9 @@ class HedgeManager
          HistoryPos.Sort(SORT_ORDER_ID);
          ticketOrders.Sort();
          long tick = GetTickCount();
+         //printf(tick + " " + HistoryPos.Total());
          OnRefresh();
+         //printf(tick + " " + HistoryPos.Total());
          xmlGarbage.ClearActivePos(Settings.GetActivePosXml(), ActivePos);
          isInit = true;
          ShowPosition();
@@ -357,6 +359,7 @@ class HedgeManager
       ///
       void AddNewDeal(ulong ticket)
       {
+         //printf("Deal #" + (string)ticket);
          Deal* deal = new Deal(ticket);
          if(deal.Status() == DEAL_BROKERAGE)
          {

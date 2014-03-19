@@ -9,7 +9,6 @@
 #endif
 
 
-
 class ProtoNode : public CObject
 {
    public:

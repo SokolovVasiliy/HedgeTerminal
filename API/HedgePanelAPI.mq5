@@ -8,13 +8,11 @@
 #property link      "http://www.mql5.com"
 #property version   "1.00"
 
-#define HLIBRARY
+//#define HLIBRARY
 #include "..\Globals.mqh"
 
 #include "..\Prototypes.mqh"
 HedgeManager api;
-
-
 
 ///
 /// Curent position selected HedgePositionSelect function.
@@ -43,7 +41,7 @@ int HedgeGetLastError() export
 /// Return count active and pending positions.
 /// \return Count of active and pending api position.
 ///
-int HedgePositionTotal()export
+int ActivePositionsTotal()export
 {
    api.OnRefresh();
    return api.ActivePosTotal();
@@ -53,7 +51,7 @@ int HedgePositionTotal()export
 /// Return count history positions.
 /// \return Count of history api position.
 ///
-int HedgeHistoryPositionTotal() export
+int HistoryPositionsTotal() export
 {
    api.OnRefresh();
    return api.HistoryPosTotal();
@@ -105,10 +103,10 @@ bool HedgePositionClose(double volume, string comment, bool asynchMode=false)
 /// Select active or history position.
 /// \return True if selected was successful, false otherwise.
 ///
-bool HedgePositionSelect(int index, ENUM_MODE_SELECT select = SELECT_BY_POS, ENUM_MODE_TRADES pool=MODE_ACTIVE)export
+bool HedgePositionSelect(int index, ENUM_MODE_SELECT select = SELECT_BY_POS, ENUM_MODE_TRADES pool=MODE_TRADES)export
 {
    api.OnRefresh();
-   if(pool == MODE_ACTIVE)
+   if(pool == MODE_TRADES)
    {
       if(select == SELECT_BY_POS)
       {
@@ -158,7 +156,13 @@ ulong HedgePositionGetInteger(ENUM_HEDGE_POSITION_PROP_INTEGER property) export
       case HEDGE_POSITION_EXIT_TIME_SETUP:
          return CurrentPosition.ExitExecutedTime(); 
       case HEDGE_POSITION_EXIT_TIME_EXECUTED:
-         return CurrentPosition.ExitExecutedTime(); 
+         return CurrentPosition.ExitExecutedTime();
+      case HEDGE_POSITION_TYPE:
+      {
+         Order* inOrder = CurrentPosition.EntryOrder();
+         if(inOrder != NULL)
+            return inOrder.OrderType();
+      }
    }
    return 0;
 }

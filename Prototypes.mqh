@@ -6,6 +6,11 @@
 #property copyright "Copyright 2013, Vasiliy Sokolov"
 #property link      "https://login.mql5.com/ru/users/c-4"
 
+/*enum ENUM_POSITION_DIRECTION
+{
+
+}*/
+
 ///
 /// Define type of parameter 'index' in function HedgePositionSelect().
 ///
@@ -27,11 +32,11 @@ enum ENUM_MODE_SELECT
 enum ENUM_MODE_TRADES
 {
    ///
-   /// Order selected from trading pool(opened and pending orders).
+   /// Position selected from trading pool.
    ///
-   MODE_ACTIVE,
+   MODE_TRADES,
    ///
-   /// Order selected from history pool (closed and canceled order).
+   /// Position selected from history pool (closed and canceled order).
    ///
    MODE_HISTORY
 };
@@ -189,14 +194,14 @@ struct HedgeTradeRequest
    datetime expiration;
    string comment;
 };
+//HedgePositionSelect(0, MODE_
 
-
-#import "\API\HedgePanelAPI.ex5"
-   int HedgePositionTotal(void);
-   int HedgeHistoryPositionTotal(void);
+#import ".\API\HedgePanelAPI.ex5"
+   int ActivePositionsTotal(void);
+   int HistoryPositionsTotal(void);
    ulong HedgePositionGetInteger(ENUM_HEDGE_POSITION_PROP_INTEGER property);
    double HedgePositionGetDouble(ENUM_HEDGE_POSITION_PROP_DOUBLE property);
    string HedgePositionGetString(ENUM_HEDGE_POSITION_PROP_STRING property);
-   bool HedgePositionSelect(int index, ENUM_MODE_SELECT select = SELECT_BY_POS, ENUM_MODE_TRADES pool=MODE_ACTIVE);
+   bool HedgePositionSelect(int index, ENUM_MODE_SELECT select = SELECT_BY_POS, ENUM_MODE_TRADES pool=MODE_TRADES);
    bool HedgeOrderSend(HedgeTradeRequest& hrequest, MqlTradeResult& result);
 #import

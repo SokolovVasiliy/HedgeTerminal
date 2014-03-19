@@ -18,6 +18,7 @@ class Position;
 ///
 class EventExchange
 {
+   
    public:
       static void PushEvent(Event* myEvent)
       {
@@ -41,9 +42,15 @@ class EventExchange
       {
          api = myHedge;
       }
+      #ifdef HEDGE_PANEL
       static void Add(ProtoNode* node)
       {
          panel = node;
+      }
+      #endif
+      static HedgeManager* GetAPI(void)
+      {
+         return api;
       }
    private:
       void ExecuteEvent()
@@ -52,7 +59,9 @@ class EventExchange
       }
       static Event* event;
       static HedgeManager* api;
+      #ifdef HEDGE_PANEL
       static ProtoNode* panel;
+      #endif
 };
 
 enum ENUM_EVENT_DIRECTION
@@ -229,7 +238,9 @@ class Event
       /// сгенерировавшего его узла (например все системыне события OnChartEvent), или
       /// узел может не дать ссылку на себя. В этом случае, метод вернет значение NULL.
       ///
+      #ifdef HEDGE_PANEL
       ProtoNode* Node(){return node;}
+      #endif 
       ///
       /// Создает точную копию события и возвращает ссылку для него.
       ///
@@ -262,7 +273,7 @@ class Event
       /// \param myEventId - идентификатор события.
       /// \param myNode - значимый указатель на узел, сгенерировавший событие.
       ///
-      
+      #ifdef HEDGE_PANEL
       Event(ENUM_EVENT_DIRECTION myDirection, ENUM_EVENT myEventId, ProtoNode* myNode)
       {
          eventDirection = myDirection;
@@ -273,7 +284,7 @@ class Event
          node = myNode;
          tickCount = GetTickCount();
       }
-      
+      #endif
    private:
       ///
       /// Направление события.
@@ -294,7 +305,9 @@ class Event
       ///
       /// Указатель на экземпляр узла, сгенерировавший событие.
       ///
+      #ifdef HEDGE_PANEL
       ProtoNode* node;
+      #endif
 };
 
 /* TERMINAL EVENTS*/
@@ -357,6 +370,7 @@ class EventBlockPosition : public Event
 ///
 /// Событие EVENT_NODE_VISIBLE
 ///
+#ifdef HEDGE_PANEL
 class EventVisible : public Event
 {
    public:
@@ -378,6 +392,7 @@ class EventVisible : public Event
    private:
       bool isVisible;
 };
+#endif
 ///
 /// Событие EVENT_NODE_RESIZE
 ///
@@ -767,6 +782,7 @@ class EventOrderPending : public Event
       Order* order;
 };
 
+#ifdef HEDGE_PANEL
 class EventCollapseTree : public Event
 {
    public:
@@ -800,6 +816,7 @@ class EventCollapseTree : public Event
       ///
       int n_line;
 };
+#endif
 ///
 /// Команда на обновление графического узла функцией ChartRedraw();
 ///
@@ -925,13 +942,14 @@ class EventCheckBoxChanged : public Event
 /// Это событие посылает графический объект после того, как был нажат
 /// (реализация по-умолчанию в ProtoNode.OnPush())
 ///
+#ifdef HEDGE_PANEL
 class EventNodeClick : public Event
 {
    public:
       EventNodeClick(ENUM_EVENT_DIRECTION dirEvent, ProtoNode* myNode) : Event(dirEvent, EVENT_NODE_CLICK, myNode){;}
       Event* Clone(){return new EventNodeClick(Direction(), Node());}
 };
-
+#endif
 ///
 /// Событие, сигнализирующее о смене цвета.
 ///

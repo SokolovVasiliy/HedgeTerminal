@@ -30,30 +30,31 @@ void OnInit(void)
    //Settings* set = Settings::GetSettings1();
    Settings = PanelSettings::Init();
    EventSetMillisecondTimer(RefreshRate);
+   #ifdef HEDGE_PANEL
    HedgePanel = new MainForm();
    EventExchange::Add(HedgePanel);
    EventRefresh* refresh = new EventRefresh(EVENT_FROM_UP, "TERMINAL REFRESH");
    HedgePanel.Event(refresh);
    delete refresh;
+   #endif
    api = new HedgeManager();
    EventExchange::Add(api);
-   
-   //EventRedraw* redraw = new EventRedraw(EVENT_FROM_UP, "TERMINAL WINDOW");
-   //HedgePanel.Event(redraw);
-   //delete redraw;
    ChartSetInteger(0, CHART_EVENT_MOUSE_MOVE, true);
-   //OnTimer();
 }
 
 void OnDeinit(const int reason)
 {
+   int memory = MQLInfoInteger(MQL_MEMORY_USED);
+   //printf("Using memory: " + (string)memory);
    int size = sizeof(HedgePanel);
-   //printf("HedgePanelSize: " + (string)size);
    EventDeinit* ed = new EventDeinit();
+   #ifdef HEDGE_PANEL
    HedgePanel.Event(ed);
+   delete HedgePanel;
+   #endif 
    api.Event(ed);
    delete ed;
-   delete HedgePanel;
+   
    delete api;
    EventKillTimer();
    delete Settings;
@@ -67,7 +68,9 @@ void OnTimer(void)
 {
    EventRefresh* refresh = new EventRefresh(EVENT_FROM_UP, "TERMINAL REFRESH");
    api.Event(refresh);
+   #ifdef HEDGE_PANEL
    HedgePanel.Event(refresh);
+   #endif
    //EventExchange::PushEvent(refresh);
    delete refresh;
    ChartRedraw(MAIN_WINDOW);
@@ -111,6 +114,7 @@ void OnChartEvent(const int id,
                   const double &dparam,
                   const string &sparam)
 {
+   #ifdef HEDGE_PANEL
    chartEventCount++;
    //Координаты мыши или комбинация нажатых кнопок мыши изменились.
    if(id == CHARTEVENT_MOUSE_MOVE)
@@ -153,5 +157,6 @@ void OnChartEvent(const int id,
       delete endEdit;
    }
    ChartRedraw(MAIN_WINDOW);
+   #endif 
 }
 

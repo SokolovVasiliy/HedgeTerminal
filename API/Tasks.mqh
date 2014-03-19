@@ -161,13 +161,15 @@ class Task2 : CObject
       
       Task2()
       {
-         api.AddTask(GetPointer(this));
+         HedgeManager* hm = EventExchange::GetAPI();
+         hm.AddTask(GetPointer(this));
       }
       
       Task2(Position* pos)
       {
          position = pos;
-         api.AddTask(GetPointer(this));
+         HedgeManager* hm = EventExchange::GetAPI();
+         hm.AddTask(GetPointer(this));
       }
       ///
       /// Добавляет новое задание в конец списка подзаданий.
@@ -328,11 +330,11 @@ class TaskModifyStop : Task2
 class TaskClosePosition : Task2
 {
    public:
-      TaskClosePosition(Position* pos) : Task2(pos)
+      TaskClosePosition(Position* pos, ENUM_MAGIC_TYPE type) : Task2(pos)
       {
          ENUM_DIRECTION_TYPE dir = pos.Direction() == DIRECTION_LONG ? DIRECTION_SHORT: DIRECTION_LONG;
          Order* initOrder = pos.EntryOrder();
-         ulong magic = initOrder.GetMagic(MAGIC_TYPE_MARKET);
+         ulong magic = initOrder.GetMagic(type);
          AddTarget(new TargetTradeByMarket(pos.Symbol(), dir, pos.VolumeExecuted(), pos.ExitComment(), magic, true));
          if(pos.UsingStopLoss())
          {
