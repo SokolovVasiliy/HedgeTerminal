@@ -55,6 +55,13 @@ enum ENUM_TARGET_STATUS
 class Target : public CObject
 {
    public:
+      ///
+      /// Возвращает последний код операции.
+      ///
+      uint Retcode(void)
+      {
+         return retcode;
+      }
       bool Execute()
       {
          //if(status != TARGET_STATUS_WAITING)
@@ -141,6 +148,10 @@ class Target : public CObject
       /// Статус таргета.
       ///
       ENUM_TARGET_STATUS status;
+      ///
+      /// Код последней операции.
+      ///
+      uint retcode;
    private:
       ///
       /// Идентификатор события.
@@ -192,6 +203,7 @@ class TargetDeletePendingOrder : public Target
             status = TARGET_STATUS_EXECUTING;
          else
             status = TARGET_STATUS_FAILED;
+         retcode = method.Retcode();
          return res;
       }
       ///
@@ -230,7 +242,10 @@ class TargetDeletePendingOrder : public Target
          TradeResult* result = event.GetResult();
          //Запрос был отвергнут - подзадача завершена неудачно.
          if(result.IsRejected())
+         {
             status = TARGET_STATUS_FAILED;
+            retcode = result.retcode;
+         }
       }
       
       ///
@@ -240,7 +255,10 @@ class TargetDeletePendingOrder : public Target
       {
          Order* order = event.Order();
          if(order.GetId() == method.OrderId())
+         {
             status = TARGET_STATUS_COMLETE;
+            retcode = TRADE_RETCODE_DONE;
+         }
       }
       ///
       /// Метод удаления ордера.
@@ -289,12 +307,18 @@ class TargetSetPendingOrder : public Target
       virtual bool OnExecute()
       {
          bool res = false;
-         if(!IsSuccess())
+         if(IsSuccess())
+         {
+            status = TARGET_STATUS_COMLETE;
+            return true;
+         }
+         else
             res = pendingOrder.Execute();
          if(res)
             status = TARGET_STATUS_EXECUTING;
          else
             status = TARGET_STATUS_FAILED;
+         retcode = pendingOrder.Retcode();
          return res;
       }
       ///
@@ -323,7 +347,10 @@ class TargetSetPendingOrder : public Target
          TradeResult* result = event.GetResult();
          //Запрос был отвергнут - подзадача завершена неудачно.
          if(result.IsRejected())
+         {
             status = TARGET_STATUS_FAILED;
+            retcode = result.retcode;
+         }
       }
       
       ///
@@ -333,9 +360,11 @@ class TargetSetPendingOrder : public Target
       {
          Order* order = event.Order();
          if(order.Magic() == pendingOrder.Magic())
+         {
             status = TARGET_STATUS_COMLETE;
+            retcode = TRADE_RETCODE_DONE;
+         }
       }
-      
       ///
       /// Метод устанавливающий отложенный ордер.
       ///
@@ -369,12 +398,18 @@ class TargetModifyPendingOrder : Target
       virtual bool OnExecute()
       {
          bool res = false;
-         if(!IsSuccess())
+         if(IsSuccess())
+         {
+            status = TARGET_STATUS_COMLETE;
+            return true;
+         }
+         else
             res = orderModify.Execute();
          if(res)
             status = TARGET_STATUS_EXECUTING;
          else
             status = TARGET_STATUS_FAILED;
+         retcode = orderModify.Retcode();
          return res;
       }
       ///
@@ -415,6 +450,7 @@ class TargetModifyPendingOrder : Target
          if(trans.order != orderModify.OrderId())
             return;
          status = TARGET_STATUS_COMLETE;
+         retcode = TRADE_RETCODE_DONE;
       }
       ///
       /// Обрабатывает ответ торгового сервера на запрос.
@@ -424,15 +460,10 @@ class TargetModifyPendingOrder : Target
          if(request.order != orderModify.OrderId())
             return;
          if(result.IsRejected())
+         {
             status = TARGET_STATUS_FAILED;
-      }
-      ///
-      /// Обрабатываем событие.
-      ///
-      void OnPosChanged()
-      {
-         if(IsSuccess())
-            status = TARGET_STATUS_COMLETE;
+            retcode = TRADE_RETCODE_DONE;
+         }
       }
       ///
       /// Метод модификации отложенного ордера.
@@ -473,6 +504,7 @@ class TargetTradeByMarket : Target
             status = TARGET_STATUS_EXECUTING;
          else
             status = TARGET_STATUS_FAILED;
+         retcode = tradeMarket.Retcode();
          return res;
       }
       
@@ -501,7 +533,10 @@ class TargetTradeByMarket : Target
             result.request_id == tradeMarket.RequestId())
          {
             if(result.IsRejected())
+            {
                status = TARGET_STATUS_FAILED;
+               retcode = result.retcode;
+            }
             else
                orderId = request.order;
          }
@@ -517,9 +552,10 @@ class TargetTradeByMarket : Target
             status = TARGET_STATUS_COMLETE;
          else if(tradeMarket.Magic() == order.Magic())
             status = TARGET_STATUS_COMLETE;
+         if(status == TARGET_STATUS_COMLETE)
+            retcode = TRADE_RETCODE_DONE;
       }
       MethodTradeByMarket* tradeMarket;
-      
       ///
       /// Идентификатор транзакции.
       ///

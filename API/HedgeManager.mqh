@@ -484,6 +484,9 @@ class HedgeManager
             Task2* task = tasks.At(i);
             if(task.IsFinished())
             {
+               //Position* pos = task.GetPosition();
+               //if(CheckPointer(pos) != POINTER_INVALID)
+               //   pos.SendEventChangedPos(POSITION_REFRESH);
                tasks.Delete(i);
                i--;
                continue;

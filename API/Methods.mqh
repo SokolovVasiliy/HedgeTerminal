@@ -7,6 +7,13 @@
 class Method : public CObject
 {
    public:
+      ///
+      /// ¬озвращает код последней операции.
+      ///
+      uint Retcode(void)
+      {
+         return trade.ResultRetcode();
+      }
       bool Execute()
       {
          trade.SetAsyncMode(asynchMode);
@@ -14,9 +21,13 @@ class Method : public CObject
          return OnExecute();
       }
    protected:
-      Method(){;}
+      Method()
+      {
+         trade.LogLevel(LOG_LEVEL_NO);
+      }
       Method(string symbol_op, ENUM_DIRECTION_TYPE direction, double volume, double price_order, string comment_op, ulong magic_op, bool asynch_mode)
       {
+         trade.LogLevel(LOG_LEVEL_NO);
          dirType = direction;
          vol = volume;
          magic = magic_op;
@@ -34,6 +45,10 @@ class Method : public CObject
          string err = trade.ResultRetcodeDescription();
          LogWriter(msg + " Reason: " + err, MESSAGE_TYPE_ERROR);
       }
+      ///
+      /// —одержит код последней операции.
+      ///
+      uint retcode;
       ///
       /// —тандартный модуль совершени€ торговых операций.
       ///
@@ -108,7 +123,7 @@ class MethodTradeByMarket : public Method
          else
             res = trade.Sell(vol, symbol, 0.0, 0.0, 0.0, comment);
          if(!res)
-            SendError("Trade on market: rejected operation.");
+            SendError("Rejected trade on market.");
          return res;
       }
 };
@@ -255,6 +270,7 @@ class MethodDeletePendingOrder : public Method
       ///
       virtual bool OnExecute()
       {
+         trade.SetAsyncMode(asynchMode);
          if(!OrderSelect(orderId))
          {
             LogWriter("Pending order #" + (string)orderId + " not find.", MESSAGE_TYPE_ERROR);

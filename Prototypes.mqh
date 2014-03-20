@@ -172,29 +172,49 @@ enum ENUM_HEDGE_ERR
    HEDGE_ERR_WRONG_VOLUME
 };
 ///
-/// The Trade Request Structure used by HedgeOrderSend function.
-/// This structure is analog of MqlTradeRequest structure and using
-/// for managment hedge open position.
+/// This enum mark closing order as special order type.
 ///
-struct HedgeTradeRequest
+enum ENUM_CLOSE_TYPE
 {
-   ENUM_HEDGE_REQUEST_ACTIONS action;
-   bool asynch_mode;
-   uint magic;
-   ulong order;
-   string symbol;
-   double volume;
-   double price;
-   double sl;
-   double tp;
-   ulong deviation;
-   ENUM_ORDER_TYPE type;
-   ENUM_ORDER_TYPE_FILLING type_filling;
-   ENUM_ORDER_TYPE_TIME type_time;
-   datetime expiration;
-   string comment;
+   ///
+   /// Mark closing position as market.
+   ///
+   CLOSE_AS_MARKET,
+   ///
+   /// Mark closing position as stop-loss.
+   ///
+   CLOSE_AS_STOP_LOSS,
+   ///
+   /// Mark closing position as take-profit.
+   ///
+   CLOSE_AS_TAKE_PROFIT,
 };
-//HedgePositionSelect(0, MODE_
+
+///
+/// This structure used by HedgePositionClose function.
+/// This structure define params which need for closing hedge position.
+///
+struct HedgeClosingRequest
+{
+   ///
+   /// Volume of position to be closed. May be less or equal than executed volume position.
+   /// If equal 0.0 closing all executed volume position.
+   ///
+   double volume;
+   ///
+   /// Outgoing comment.
+   ///
+   string exit_comment;
+   ///
+   /// Marker of closing order. See ENUM_CLOSE_TYPE description.
+   ///
+   ENUM_CLOSE_TYPE type_marker;
+   ///
+   /// True if the closure is performed asynchronously, otherwise false.
+   ///
+   bool asynch_mode;
+};
+
 
 #import ".\API\HedgePanelAPI.ex5"
    int ActivePositionsTotal(void);
@@ -203,5 +223,14 @@ struct HedgeTradeRequest
    double HedgePositionGetDouble(ENUM_HEDGE_POSITION_PROP_DOUBLE property);
    string HedgePositionGetString(ENUM_HEDGE_POSITION_PROP_STRING property);
    bool HedgePositionSelect(int index, ENUM_MODE_SELECT select = SELECT_BY_POS, ENUM_MODE_TRADES pool=MODE_TRADES);
-   bool HedgeOrderSend(HedgeTradeRequest& hrequest, MqlTradeResult& result);
+   ///
+   /// Return true if position was selected, otherwise false.
+   ///
+   bool HedgePositionSelect(void);
+   ///
+   /// Closing selected hedge position.
+   /// \param request - define params which need for closing hedge position.
+   ///
+   bool HedgePositionClose(HedgeClosingRequest& requese);
+   
 #import

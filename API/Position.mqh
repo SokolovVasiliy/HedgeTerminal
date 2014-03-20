@@ -125,7 +125,7 @@ class Position : public Transaction
       bool Unmanagment(void);
       bool VirtualStopLoss(){return isVirtualStopLoss;}
       
-      void AddTask(Task2* task);
+      bool AddTask(Task2* task);
       Order* FindOrderById(ulong id);
       void TaskChanged();
       
@@ -211,6 +211,7 @@ class Position : public Transaction
       bool CheckHistSL(double sl);
       bool CheckHistTP(double tp);
       void CloseByVirtualOrder(void);
+      bool CheckBaseParams();
       ///
       /// Инициирующий позицию ордер.
       ///
@@ -1235,8 +1236,11 @@ bool Position::Unmanagment()
 {
    return unmanagment;
 }
-
-void Position::AddTask(Task2 *ctask)
+///
+/// Забирает задачу на выполнение и запускает ее.
+/// \return Ложь, если статус задачи после первого выполнения
+///
+bool Position::AddTask(Task2 *ctask)
 {
    if(CheckPointer(task2) != POINTER_INVALID)
    {
@@ -1248,6 +1252,11 @@ void Position::AddTask(Task2 *ctask)
    }
    task2 = ctask;
    task2.Execute();
+   if(CheckPointer(task2) == POINTER_INVALID || task2.Status() == TASK_STATUS_FAILED)
+      return false;
+   else
+      return true;
+   
 }
 
 ///
@@ -1267,9 +1276,11 @@ void Position::NoticeTask(void)
 ///
 void Position::TaskChanged(void)
 {
-   if(CheckPointer(task2) == POINTER_INVALID)
+   /*if(CheckPointer(task2) == POINTER_INVALID)
+   {
       return;
-   if(task2.IsFinished())
+   }*/
+   if(CheckPointer(task2) == POINTER_INVALID ||task2.IsFinished())
    {
       task2 = NULL;
       ResetBlocked();
@@ -1372,4 +1383,30 @@ void Position::CloseByVirtualOrder(void)
       if(res)
          AddTask(new TaskClosePosition(GetPointer(this), MAGIC_TYPE_TP));
    }
+   if(Direction() == DIRECTION_SHORT)
+   {
+      double cur_price = CurrentPrice();
+      bool res = Math::DoubleEquals(takeProfit, cur_price) || takeProfit > cur_price;
+      if(res)
+         AddTask(new TaskClosePosition(GetPointer(this), MAGIC_TYPE_TP));
+   }
+}
+///
+/// Проверяет базовые возможности для выполнения торговых действий.
+///
+bool Position::CheckBaseParams()
+{
+   //Торговля запрещена - выходим.
+   if(!AccountInfoInteger(ACCOUNT_TRADE_ALLOWED))
+      return false;
+   // Виртуальные ордера не могут существовать, когда текущий объем позиции меньше 
+   double vol = SymbolInfoDouble(Symbol(), SYMBOL_VOLUME_MIN);
+   double posVol;
+   if(!PositionSelect(Symbol()))
+      posVol = 0.0;
+   else
+      posVol = PositionGetDouble(POSITION_VOLUME);
+   if(posVol < vol)
+   //PositionGetDouble(
+   return true;
 }

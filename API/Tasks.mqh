@@ -1,5 +1,6 @@
 #include "Targets.mqh"
 #include <Arrays\List.mqh>
+#include <Arrays\ArrayInt.mqh>
 ///
 /// Содержит текущий статус выполнения задания.
 ///
@@ -22,6 +23,11 @@ enum ENUM_TASK_STATUS
    ///
    TASK_STATUS_FAILED
 };
+
+enum ENUM_LAST_OPERATION_STATUS
+{
+   //DELETE_STOP_LOSS
+};
 /*
   Task2 - включает совокупность задач и определяет их алгоритм исполнения.
   Также включает объект, над которым будут выполнены эти задачи.
@@ -42,6 +48,11 @@ class Task2 : CObject
    public:
       void Execute()
       {
+         if(targets.Total() == 0)
+         {
+            TaskChanged();
+            return;
+         }
          if(!isContinue && targets.Total())
          {
             currTarget = targets.GetFirstNode();
@@ -60,6 +71,7 @@ class Task2 : CObject
                return;
             if(target.Status() == TARGET_STATUS_COMLETE)
             {
+               retcodes.Add(target.Retcode());
                //Все задания закончились.
                if(targets.GetNextNode() == NULL)
                {
@@ -73,6 +85,7 @@ class Task2 : CObject
             else if(target.Status() == TARGET_STATUS_WAITING)
             {
                bool res = target.Execute();
+               retcodes.Add(target.Retcode());
                if(!res)
                {
                   OnCrashed();
@@ -113,7 +126,6 @@ class Task2 : CObject
             }
          }
       }
-      
       ///
       /// Статус задания.
       ///
@@ -136,7 +148,16 @@ class Task2 : CObject
             return true;
          return false;
       }
+      ///
+      /// Возвращает указатель на позицию, которая ассоциирована с данным заданием.
+      /// Существование позиции не гарантируется.
+      ///
+      Position* GetPosition(){return position;}
    protected:
+      ///
+      /// Последовательность кодов результатов выполнения операций.
+      ///
+      CArrayInt retcodes;
       ///
       /// Содержит сценарий действия в случае сбоя подзадачи.
       ///
@@ -146,15 +167,18 @@ class Task2 : CObject
       ///
       virtual void TaskChanged()
       {
-         if(currTarget.Status() == TARGET_STATUS_COMLETE &&
-            currTarget.Next() == NULL)
-            status = TASK_STATUS_COMPLETE;
-         else if(currTarget.Status() == TARGET_STATUS_WAITING)
-            status = TASK_STATUS_WAITING;
-         else if(currTarget.Status() == TARGET_STATUS_EXECUTING)
-            status = TASK_STATUS_EXECUTING;
-         else if(currTarget.Status() == TARGET_STATUS_FAILED)
-            status = TASK_STATUS_FAILED;
+         if(CheckPointer(currTarget) != POINTER_INVALID)
+         {
+            if(currTarget.Status() == TARGET_STATUS_COMLETE &&
+               currTarget.Next() == NULL)
+               status = TASK_STATUS_COMPLETE;
+            else if(currTarget.Status() == TARGET_STATUS_WAITING)
+               status = TASK_STATUS_WAITING;
+            else if(currTarget.Status() == TARGET_STATUS_EXECUTING)
+               status = TASK_STATUS_EXECUTING;
+            else if(currTarget.Status() == TARGET_STATUS_FAILED)
+               status = TASK_STATUS_FAILED;
+         }
          if(CheckPointer(position) != POINTER_INVALID)
             position.TaskChanged();
       }
@@ -360,7 +384,7 @@ class TaskClosePartPosition : Task2
          if(volume > pos.VolumeExecuted())
          {
             status = TASK_STATUS_FAILED;
-            LogWriter("Incorrect volume", MESSAGE_TYPE_ERROR);
+            LogWriter("Incorrect volume.", MESSAGE_TYPE_ERROR);
             return;
          }
          Order* slOrder;

@@ -7,12 +7,20 @@
 #property link      "http://www.mql5.com"
 #property version   "1.00"
 #include "Prototypes.mqh"
-
+#include <Trade\Trade.mqh>
+#include <Arrays\ArrayInt.mqh>
 #define MAGIC  20131111
+
+input int periodFastSma = 1;   //Period fast SMA
+input int periodSlowSma = 3;   //Period slow SMA
 ///
-/// Handle of indicator iMA.
+/// Handle of indicator fast iMA.
 ///
-int handleMA;
+int handleFastMA;
+///
+/// Handle of indicator fast iMA.
+///
+int handleSlowMA;
 ///
 /// Count of all positions.
 ///
@@ -33,23 +41,44 @@ datetime lastShortBar;
 /// Include last time bar.
 ///
 datetime timeLastBar;
-
+///
+/// Minimum lot of deal. 
+///
+double minLot;
+///
+/// Class for easy entry into the market.
+///
+CTrade trade;
+///
+/// Contains an index of long positions.
+///
+CArrayInt indexMyLongPos;
+///
+/// Contains an index of short positions
+///
+CArrayInt indexMyShortPos;
+///
+/// Initialize handles of MA indicators.
+///
 void OnInit()
 {
-   handleMA = iMA(Symbol(), PERIOD_M1, 3, 0, MODE_SMA, PRICE_CLOSE);
+   handleFastMA = iMA(Symbol(), PERIOD_M1, 3, 0, MODE_SMA, PRICE_CLOSE);
+   handleSlowMA = iMA(Symbol(), PERIOD_M1, 3, 0, MODE_SMA, PRICE_CLOSE);
 }
-
+///
+/// Check the conditions of each tick.
+///
 void OnTick(void)
 {
    if(DetectNewBar() == false)return;
    if(MyShortPositionsCount())
-      CheckCloseShortPos();
+      TryCloseShortPos();
    else
-      CheckOpenShortPos();
+      TryOpenShortPos();
    if(MyLongPositionsCount())
-      CheckCloseLongPos();
+      TryCloseLongPos();
    else
-      CheckOpenLongPos();
+      TryOpenLongPos();
 }
 ///
 /// Return count positions has long direction type.
@@ -58,6 +87,8 @@ void RecalcCountPosition()
 {
    longsPos=0;
    shortsPos = 0;
+   indexMyLongPos.Clear();
+   indexMyShortPos.Clear();
    for(int i = 0; i < HistoryPositionsTotal(); i++)
    {
       if(HedgePositionSelect(i, SELECT_BY_POS, MODE_TRADES) == false)
@@ -67,9 +98,15 @@ void RecalcCountPosition()
       if (magic != MAGIC || symbol != Symbol())continue;
       ENUM_ORDER_TYPE orderType = (ENUM_ORDER_TYPE)HedgePositionGetInteger(HEDGE_POSITION_TYPE);
       if(orderType%2 == 0)
+      {
+         indexMyLongPos.Add(i);  //Remember indexes positions for quick access.
          longsPos++;
+      }
       else
+      {
+         indexMyShortPos.Add(i); //Remember indexes positions for quick access.
          shortsPos++;
+      }
    }
 }
 
@@ -98,33 +135,45 @@ int MyLongPositionsCount()
    return shortsPos;
 }
 
-void CheckOpenShortPos()
+///
+/// Return true if long entry is executed, otherwise false.
+///
+bool TryOpenShortPos()
 {
-   double values[2];
-   CopyBuffer(handleMA, 0, 0, 2, values);
-   double currentPrice = SymbolInfoDouble(Symbol(), SYMBOL_ASK);
-   if(currentPrice < values[0])
-      //SendShortPosition;
+   bool res = false;
+   if(CrossUnder())
+      res = trade.Sell(minLot, NULL, 0.0, 0.0, 0.0, "");
+   return res;
+}
+///
+/// Return true if short entry is executed, otherwise false.
+///
+bool TryOpenLongPos()
+{
+   bool res = false;
+   if(CrossOver())
+      res = trade.Buy(minLot, NULL, 0.0, 0.0, 0.0, "");
+   return res;
+}
+///
+/// 
+///
+void TryCloseShortPos()
+{
+   for(int i = 0; i < indexMyShortPos.Total(); i++)
+   {
+      //if(HedgePositionSelect(indexMyShortPos.At(i) == false))continue;
+      //TryCloseCurrentPos();
+   }
+}
+///
+/// 
+///
+void TryCloseLongPos()
+{
+   
 }
 
-void CheckCloseShortPos()
-{
-
-}
-
-void CheckCloseLongPos()
-{
-
-}
-
-void CheckOpenLongPos()
-{
-   double values[2];
-   CopyBuffer(handleMA, 0, 0, 2, values);
-   double currentPrice = SymbolInfoDouble(Symbol(), SYMBOL_ASK);
-   if(currentPrice > values[0])
-      //SendShortPosition;
-}
 
 ///
 /// Return true if new bar detected, otherwise false.
@@ -139,5 +188,47 @@ bool DetectNewBar()
       return true;
    }
    return false;
+}
+
+///
+/// Return true if fast sma cross over slow sma, otherwise false.
+///
+bool CrossOver()
+{
+   if(handleFastMA == -1 || handleSlowMA == -1)
+      return false;
+   double fastSma[2];
+   CopyBuffer(handleFastMA, 0, 0, 2, fastSma);
+   double slowSma[2];
+   CopyBuffer(handleSlowMA, 0, 0, 2, slowSma);
+   if(fastSma[0] < slowSma[0] &&
+      fastSma[1] > slowSma[1])
+      return true;
+   return false;
+}
+
+///
+/// Return true if fast sma cross under slow sma, otherwise true;
+///
+bool CrossUnder()
+{
+   if(handleFastMA == -1 || handleSlowMA == -1)
+      return false;
+   return !CrossOver();
+}
+///
+/// Return lot of deal.
+///
+double GetLot()
+{
+   return minLot;
+}
+///
+/// Try close selected position.
+///
+bool TryCloseCurrPos()
+{
+   //_LastError = 65938;
+   return true;   
 }
 

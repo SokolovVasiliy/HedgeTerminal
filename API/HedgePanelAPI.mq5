@@ -65,37 +65,19 @@ int HistoryPositionsTotal() export
 /// True if you are want using asynchronous mode, false otherwise.
 /// \return True if operation complete successfully, false otherwise.
 ///
-bool HedgePositionClose(double volume, string comment, bool asynchMode=false)
+bool HedgePositionClose(HedgeClosingRequest& request)
 {
-   bool res = true;
-   /*if(CheckPointer(CurrentPosition) != POINTER_INVALID)
+   if(request.volume < 0.0 || request.volume > CurrentPosition.VolumeExecuted())
    {
-      hedgeErr = HEDGE_ERR_POS_NOTSELECT;
-      res = false;
+      LogWriter("request failed. Volume must be more 0.0 and less executed volume", MESSAGE_TYPE_ERROR);
+      return false;
    }
-   if(CurrentPosition.Status() == POSITION_NULL ||
-      CurrentPosition.Status() == POSITION_HISTORY)
-   {
-      hedgeErr = HEDGE_ERR_POS_NOTCOMPATIBLE;
-      res = false;
-   }
-   double posVol = CurrentPosition.VolumeExecuted();
-   bool isRejected = Math::DoubleEquals(posVol, volume) ||
-                   Math::DoubleEquals(volume, 0.0)||
-                   volume < 0.0 ||
-                   volume > posVol;
-   if(isRejected)
-   {
-      hedgeErr = HEDGE_ERR_WRONG_VOLUME;
-      res = false;
-   }
-   if(res)
-   {
-      if(asynchMode)
-         res = CurrentPosition.AsynchClose(volume, comment);
-      else
-         res = CurrentPosition.AsynchClose(volume, comment);
-   }*/
+   double vol;
+   if(Math::DoubleEquals(request.volume, 0.0) || Math::DoubleEquals(request.volume, CurrentPosition.VolumeExecuted()))
+      vol = CurrentPosition.VolumeExecuted();
+   else vol = request.volume;
+   //CurrentPosition.AddTask(new TaskClosePartPosition();
+   bool res = false;
    return res;
 }
 
@@ -128,14 +110,14 @@ bool HedgePositionSelect(int index, ENUM_MODE_SELECT select = SELECT_BY_POS, ENU
    }
    return false;
 }
-
 ///
-/// Select order in selected position
+/// Return true if position was selected, otherwise false.
 ///
-///
-bool HedgeOrderSelect()
+bool HedgePositionSelect(void)export
 {
-   return true;
+   if(CheckPointer(CurrentPosition)!= POINTER_INVALID)
+      return true;
+   return false;
 }
 
 ulong HedgePositionGetInteger(ENUM_HEDGE_POSITION_PROP_INTEGER property) export
@@ -166,11 +148,7 @@ ulong HedgePositionGetInteger(ENUM_HEDGE_POSITION_PROP_INTEGER property) export
    }
    return 0;
 }
-ulong GetTiks(CTime* time)
-{
-   if(time == NULL)return 0;
-   return time.Tiks();
-}
+
 
 double HedgePositionGetDouble(ENUM_HEDGE_POSITION_PROP_DOUBLE property) export
 {
@@ -226,104 +204,4 @@ CObject* EntryDeals() export
 {
    CObject* deals = new CObject();
    return deals;
-}
-
-
-
-bool HedgeOrderSend(HedgeTradeRequest& hRequest, MqlTradeResult& result) export
-{
-   printf(EnumToString(hRequest.action));
-   switch(hRequest.action)
-   {
-      case HEDGE_ACTION_SLTP:
-         break;
-      case HEDGE_ACTION_CLOSE:
-         return ClosePos(hRequest, result);
-      default:
-      {
-         MqlTradeRequest mRequest;
-         HedgeToMqlRequest(hRequest, mRequest);
-         OrderSend(mRequest, result);
-         if(result.retcode > 0)
-            printf(result.comment);
-      }
-   }
-   return true;
-}
-
-void HedgeToMqlRequest(HedgeTradeRequest& hRequest, MqlTradeRequest& mRequest)
-{
-   switch(hRequest.action)
-   {
-      case HEDGE_ACTION_DEAL:
-         mRequest.action = TRADE_ACTION_DEAL;
-         break;
-      case HEDGE_ACTION_MODIFY:
-         mRequest.action = TRADE_ACTION_MODIFY;
-         break;
-      case HEDGE_ACTION_PENDING:
-         mRequest.action = TRADE_ACTION_PENDING;
-         break;
-      case HEDGE_ACTION_REMOVE:
-         mRequest.action = TRADE_ACTION_REMOVE;
-         break;
-      case HEDGE_ACTION_SLTP:
-         mRequest.action = TRADE_ACTION_SLTP;
-         break;
-   }
-   mRequest.magic = hRequest.magic;
-   mRequest.order = hRequest.order;
-   mRequest.symbol = hRequest.symbol;
-   mRequest.volume = hRequest.volume;
-   mRequest.price = hRequest.price;
-   mRequest.sl = hRequest.sl;
-   mRequest.tp = hRequest.tp;
-   mRequest.deviation = hRequest.deviation;
-   mRequest.type = hRequest.type;
-   mRequest.type_filling = hRequest.type_filling;
-   mRequest.type_time = hRequest.type_time;
-   mRequest.expiration = hRequest.expiration;
-   mRequest.comment = hRequest.comment;
-}
-
-bool ClosePos(HedgeTradeRequest& request, MqlTradeResult& result)
-{
-   if(request.action != HEDGE_ACTION_CLOSE)
-   {
-      result.retcode = TRADE_RETCODE_INVALID_ORDER;
-      result.comment = "Incorrect or prohibited action";
-      return false;
-   }
-   /*if(request.type != ORDER_TYPE_BUY ||
-      request.type != ORDER_TYPE_SELL)
-   {
-      result.retcode = TRADE_RETCODE_INVALID_ORDER;
-      result.comment = "Incorrect or prohibited order type";
-      return false;
-   }*/
-   if(CheckPointer(CurrentPosition) == POINTER_INVALID)
-   {
-      result.retcode = TRADE_RETCODE_ERROR;
-      result.comment = "Hedge position not selected.";
-      return false;
-   }
-   if(CurrentPosition.Status() == POSITION_NULL)
-   {
-      result.retcode = TRADE_RETCODE_LOCKED;
-      result.comment = "Hedge position is locked.";
-      return false;
-   }
-   if(CurrentPosition.Status() == POSITION_HISTORY)
-   {
-      result.retcode = TRADE_RETCODE_POSITION_CLOSED;
-      result.comment = "Position has already been closed.";
-   }
-   if(request.volume > CurrentPosition.VolumeExecuted())
-   {
-      result.retcode = TRADE_RETCODE_INVALID_VOLUME;
-      result.comment = "Volume must be less or equal volume of position.";
-      return false;
-   }
-   //CurrentPosition.AsynchClose(request.volume, request.comment);
-   return true;
 }
