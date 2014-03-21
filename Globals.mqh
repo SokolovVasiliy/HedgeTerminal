@@ -4,6 +4,7 @@ class PanelSettings;
 #define IMG_MENU "::img\\button_img.bmp"
 #resource "img\\button_img.bmp"
 
+#include "Prototypes.mqh"
 PanelSettings* Settings;
 
 enum ENUM_COLOR_TYPE

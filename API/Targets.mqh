@@ -1,30 +1,8 @@
+#include "TaskLog.mqh"
 #include "Transaction.mqh"
 #include "Methods.mqh"
 #include "Order.mqh"
 #include "MqlTransactions.mqh"
-
-///
-/// Идентификаторы таргетов
-///
-enum ENUM_TARGET_TYPE
-{
-   ///
-   /// Удаление отложенного ордера.
-   ///
-   TARGET_DELETE_PENDING_ORDER,
-   ///
-   /// Установка отложенного ордера.
-   ///
-   TARGET_SET_PENDING_ORDER,
-   ///
-   /// Изменение цены отложенного ордера.
-   ///
-   TARGET_MODIFY_PENDING_ORDER,
-   ///
-   /// Совершение сделок по рыночным ценам.
-   ///
-   TARGET_TRADE_BY_MARKET
-};
 
 ///
 /// Статус выполнения подзадачи (таргета).
@@ -55,13 +33,6 @@ enum ENUM_TARGET_STATUS
 class Target : public CObject
 {
    public:
-      ///
-      /// Возвращает последний код операции.
-      ///
-      uint Retcode(void)
-      {
-         return retcode;
-      }
       bool Execute()
       {
          //if(status != TARGET_STATUS_WAITING)
@@ -124,9 +95,17 @@ class Target : public CObject
          if((TimeCurrent() - timeBegin) > timeoutSec)
          {
             status = TARGET_STATUS_FAILED;
+            AddTaskLog(TRADE_RETCODE_TIMEOUT);
             return true;
          }
          return false;
+      }
+      ///
+      /// Устанавливает ссылку на лог задания, куда необходимо записывать результат операций.
+      ///
+      void SetTaskLog(TaskLog* task)
+      {
+         taskLog = task;
       }
    protected:
       Target(ENUM_TARGET_TYPE target_type)
@@ -135,6 +114,15 @@ class Target : public CObject
          type = target_type;
          //По-умолчанию выделяется три минуты на выполнение.
          timeoutSec = 3*60;
+      }
+      ///
+      /// Добавляет результат операции в лог.
+      ///
+      void AddTaskLog(uint retcode)
+      {
+         if(CheckPointer(taskLog) == POINTER_INVALID)
+            return;
+         taskLog.AddRedcode(type, retcode);
       }
       ///
       ///
@@ -148,10 +136,6 @@ class Target : public CObject
       /// Статус таргета.
       ///
       ENUM_TARGET_STATUS status;
-      ///
-      /// Код последней операции.
-      ///
-      uint retcode;
    private:
       ///
       /// Идентификатор события.
@@ -173,6 +157,10 @@ class Target : public CObject
       /// Время в секундах, которое дается на выполнение подзадачи.
       ///
       int timeoutSec;
+      ///
+      /// Ссылка на лог заданий.
+      ///
+      TaskLog* taskLog;
 };
 
 ///
@@ -203,7 +191,7 @@ class TargetDeletePendingOrder : public Target
             status = TARGET_STATUS_EXECUTING;
          else
             status = TARGET_STATUS_FAILED;
-         retcode = method.Retcode();
+         AddTaskLog(method.Retcode());
          return res;
       }
       ///
@@ -244,7 +232,7 @@ class TargetDeletePendingOrder : public Target
          if(result.IsRejected())
          {
             status = TARGET_STATUS_FAILED;
-            retcode = result.retcode;
+            AddTaskLog(result.retcode);
          }
       }
       
@@ -257,7 +245,7 @@ class TargetDeletePendingOrder : public Target
          if(order.GetId() == method.OrderId())
          {
             status = TARGET_STATUS_COMLETE;
-            retcode = TRADE_RETCODE_DONE;
+            AddTaskLog(TRADE_RETCODE_DONE);
          }
       }
       ///
@@ -310,6 +298,7 @@ class TargetSetPendingOrder : public Target
          if(IsSuccess())
          {
             status = TARGET_STATUS_COMLETE;
+            AddTaskLog(TRADE_RETCODE_NO_CHANGES);
             return true;
          }
          else
@@ -318,7 +307,7 @@ class TargetSetPendingOrder : public Target
             status = TARGET_STATUS_EXECUTING;
          else
             status = TARGET_STATUS_FAILED;
-         retcode = pendingOrder.Retcode();
+         AddTaskLog(pendingOrder.Retcode());
          return res;
       }
       ///
@@ -349,7 +338,7 @@ class TargetSetPendingOrder : public Target
          if(result.IsRejected())
          {
             status = TARGET_STATUS_FAILED;
-            retcode = result.retcode;
+            AddTaskLog(result.retcode);
          }
       }
       
@@ -362,7 +351,7 @@ class TargetSetPendingOrder : public Target
          if(order.Magic() == pendingOrder.Magic())
          {
             status = TARGET_STATUS_COMLETE;
-            retcode = TRADE_RETCODE_DONE;
+            AddTaskLog(TRADE_RETCODE_DONE);
          }
       }
       ///
@@ -401,6 +390,7 @@ class TargetModifyPendingOrder : Target
          if(IsSuccess())
          {
             status = TARGET_STATUS_COMLETE;
+            AddTaskLog(TRADE_RETCODE_NO_CHANGES);
             return true;
          }
          else
@@ -409,7 +399,7 @@ class TargetModifyPendingOrder : Target
             status = TARGET_STATUS_EXECUTING;
          else
             status = TARGET_STATUS_FAILED;
-         retcode = orderModify.Retcode();
+         AddTaskLog(orderModify.Retcode());
          return res;
       }
       ///
@@ -450,7 +440,7 @@ class TargetModifyPendingOrder : Target
          if(trans.order != orderModify.OrderId())
             return;
          status = TARGET_STATUS_COMLETE;
-         retcode = TRADE_RETCODE_DONE;
+         AddTaskLog(TRADE_RETCODE_DONE);
       }
       ///
       /// Обрабатывает ответ торгового сервера на запрос.
@@ -462,7 +452,7 @@ class TargetModifyPendingOrder : Target
          if(result.IsRejected())
          {
             status = TARGET_STATUS_FAILED;
-            retcode = TRADE_RETCODE_DONE;
+            AddTaskLog(TRADE_RETCODE_DONE);
          }
       }
       ///
@@ -504,7 +494,7 @@ class TargetTradeByMarket : Target
             status = TARGET_STATUS_EXECUTING;
          else
             status = TARGET_STATUS_FAILED;
-         retcode = tradeMarket.Retcode();
+         AddTaskLog(tradeMarket.Retcode());
          return res;
       }
       
@@ -535,7 +525,7 @@ class TargetTradeByMarket : Target
             if(result.IsRejected())
             {
                status = TARGET_STATUS_FAILED;
-               retcode = result.retcode;
+               AddTaskLog(result.retcode);
             }
             else
                orderId = request.order;
@@ -553,7 +543,7 @@ class TargetTradeByMarket : Target
          else if(tradeMarket.Magic() == order.Magic())
             status = TARGET_STATUS_COMLETE;
          if(status == TARGET_STATUS_COMLETE)
-            retcode = TRADE_RETCODE_DONE;
+            AddTaskLog(TRADE_RETCODE_DONE);
       }
       MethodTradeByMarket* tradeMarket;
       ///

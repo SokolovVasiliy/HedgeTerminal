@@ -128,7 +128,18 @@ class Position : public Transaction
       bool AddTask(Task2* task);
       Order* FindOrderById(ulong id);
       void TaskChanged();
-      
+      ///
+      /// Возвращает указатель на лог задания.
+      ///
+      TaskLog* GetTaskLog(){return GetPointer(taskLog);}
+      ///
+      /// Копирует сторонний лог задач.
+      ///
+      void CopyTaskLog(TaskLog* logs);
+      ///
+      /// Печатает текущее состояние лога задач.
+      ///
+      void PrintTaskLog();
    private:
       
       void OnRefresh(void);
@@ -159,8 +170,6 @@ class Position : public Transaction
          ///
          CHANGED_ORDER_CLOSED
       };
-      
-      
       
       ///
       /// Флаг блокировки, истина, если позиция находится в процессе изменения.
@@ -211,7 +220,8 @@ class Position : public Transaction
       bool CheckHistSL(double sl);
       bool CheckHistTP(double tp);
       void CloseByVirtualOrder(void);
-      bool CheckBaseParams();
+      bool AbilityTrade();
+      int GetSecondsDelay(uint retcode);
       ///
       /// Инициирующий позицию ордер.
       ///
@@ -262,6 +272,10 @@ class Position : public Transaction
       /// Истина, если текущая позиция была отображена. 
       ///
       bool showed;
+      ///
+      /// Лог выполнения задания.
+      ///
+      TaskLog taskLog;
 };
 ///
 /// Деинициализирует позицию.
@@ -557,6 +571,7 @@ void Position::AddClosingOrder(Order* outOrder, InfoIntegration* info)
       if(!Math::DoubleEquals(TakeProfitLevel(), 0.0))
          Settings.SaveXmlAttr(GetId(), VIRTUAL_TAKE_PROFIT, PriceToString(TakeProfitLevel()));
       info.HistoryPosition.TakeProfitLevel(TakeProfitLevel());
+      info.HistoryPosition.CopyTaskLog(GetPointer(taskLog));
    }
    if(outOrder.Status() != ORDER_NULL)
    {
@@ -1106,6 +1121,9 @@ void Position::OnRequestNotice(EventRequestNotice* notice)
    //   ResetBlocked();
 }
 
+///
+/// Обрабатывает обновления xml хранилища активных позиций.
+///
 void Position::OnXmlRefresh(EventXmlActPosRefresh *event)
 {
    XmlPos* xPos = event.GetXmlPosition();
@@ -1250,6 +1268,7 @@ bool Position::AddTask(Task2 *ctask)
          LogWriter("Position is blocked. Try letter.", MESSAGE_TYPE_ERROR);
       }
    }
+   taskLog.Clear();
    task2 = ctask;
    task2.Execute();
    if(CheckPointer(task2) == POINTER_INVALID || task2.Status() == TASK_STATUS_FAILED)
@@ -1276,15 +1295,12 @@ void Position::NoticeTask(void)
 ///
 void Position::TaskChanged(void)
 {
-   /*if(CheckPointer(task2) == POINTER_INVALID)
-   {
-      return;
-   }*/
    if(CheckPointer(task2) == POINTER_INVALID ||task2.IsFinished())
    {
       task2 = NULL;
-      ResetBlocked();
+      ResetBlocked();      
       SendEventChangedPos(POSITION_REFRESH);
+      //PrintTaskLog();
    }
    else if((task2.Status() == TASK_STATUS_EXECUTING) && !blocked)
       SetBlock();
@@ -1376,6 +1392,7 @@ void Position::OnRefresh(void)
 void Position::CloseByVirtualOrder(void)
 {
    if(Math::DoubleEquals(takeProfit, 0.0))return;
+   if(!AbilityTrade())return;
    if(Direction() == DIRECTION_LONG)
    {
       double cur_price = CurrentPrice();
@@ -1392,21 +1409,71 @@ void Position::CloseByVirtualOrder(void)
    }
 }
 ///
-/// Проверяет базовые возможности для выполнения торговых действий.
+/// Функция ограничивает количество транзакций в еденицу времени в случае возникновения ошибок.
+/// \param seconds - Количество секунд, через которое можно будет повторить попытку.
+/// \return Истина, если условия по таймауту соблюдены и ложь в противном случае.
 ///
-bool Position::CheckBaseParams()
+bool Position::AbilityTrade(void)
 {
-   //Торговля запрещена - выходим.
    if(!AccountInfoInteger(ACCOUNT_TRADE_ALLOWED))
       return false;
-   // Виртуальные ордера не могут существовать, когда текущий объем позиции меньше 
-   double vol = SymbolInfoDouble(Symbol(), SYMBOL_VOLUME_MIN);
-   double posVol;
-   if(!PositionSelect(Symbol()))
-      posVol = 0.0;
-   else
-      posVol = PositionGetDouble(POSITION_VOLUME);
-   if(posVol < vol)
-   //PositionGetDouble(
+   if(!MQLInfoInteger(MQL_TRADE_ALLOWED))
+      return false;
+   if(CheckPointer(task2)!=POINTER_INVALID && task2.IsActive())
+      return false;
+   if(taskLog.Total() > 0)
+   {
+      ENUM_TARGET_TYPE ttype;
+      uint retcode;
+      taskLog.GetRetcode(taskLog.Total()-1,  ttype, retcode);
+      datetime fr = taskLog.FirstRecord();
+      if(TimeCurrent() - fr < GetSecondsDelay(retcode))
+         return false;
+   }
    return true;
+}
+///
+/// Возвращает время задержки которое необходимо подождать, прежде чем
+/// можно будет начинать следущую попытку совершить транзакцию. Время задержки
+/// зависит от результата выполнения последней операции и может быть от нуля до 5 минут.
+/// \param retcode - Код последней завершенной операции.
+///
+int Position::GetSecondsDelay(uint retcode)
+{
+   switch(retcode)
+   {
+      case TRADE_RETCODE_PLACED:
+      case TRADE_RETCODE_DONE:
+      case TRADE_RETCODE_DONE_PARTIAL:
+         return 0;
+      case TRADE_RETCODE_REQUOTE:
+      case TRADE_RETCODE_PRICE_CHANGED:
+      case TRADE_RETCODE_ORDER_CHANGED:
+      case TRADE_RETCODE_TOO_MANY_REQUESTS:
+         return 5;
+      case TRADE_RETCODE_INVALID:
+      case TRADE_RETCODE_TRADE_DISABLED:
+      case TRADE_RETCODE_MARKET_CLOSED:
+      case TRADE_RETCODE_INVALID_PRICE: 
+         return 3600;
+      default:
+         return 300; 
+   }
+   return 0;
+}
+
+void Position::CopyTaskLog(TaskLog* task_log)
+{
+   taskLog.AddLogs(task_log);
+}
+
+void Position::PrintTaskLog(void)
+{
+   for(uint i = 0; i < taskLog.Total(); i++)
+   {
+      ENUM_TARGET_TYPE typeTarget;
+      uint retcode;
+      taskLog.GetRetcode(i, typeTarget, retcode);
+      printf("Step " + (string)i + ": " + EnumToString(typeTarget) + " - " + (string)retcode);
+   }
 }

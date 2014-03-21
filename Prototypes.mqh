@@ -6,10 +6,32 @@
 #property copyright "Copyright 2013, Vasiliy Sokolov"
 #property link      "https://login.mql5.com/ru/users/c-4"
 
-/*enum ENUM_POSITION_DIRECTION
+///
+/// Targets ID.
+///
+enum ENUM_TARGET_TYPE
 {
-
-}*/
+   ///
+   /// Not define target.
+   ///
+   TARGET_NDEF,
+   ///
+   /// Delete pending order.
+   ///
+   TARGET_DELETE_PENDING_ORDER,
+   ///
+   /// Set pending order.
+   ///
+   TARGET_SET_PENDING_ORDER,
+   ///
+   /// Change price of pending order.
+   ///
+   TARGET_MODIFY_PENDING_ORDER,
+   ///
+   /// Trade by market.
+   ///
+   TARGET_TRADE_BY_MARKET
+};
 
 ///
 /// Define type of parameter 'index' in function HedgePositionSelect().
@@ -208,7 +230,7 @@ struct HedgeClosingRequest
    ///
    /// Marker of closing order. See ENUM_CLOSE_TYPE description.
    ///
-   ENUM_CLOSE_TYPE type_marker;
+   ENUM_CLOSE_TYPE close_type;
    ///
    /// True if the closure is performed asynchronously, otherwise false.
    ///
@@ -222,15 +244,31 @@ struct HedgeClosingRequest
    ulong HedgePositionGetInteger(ENUM_HEDGE_POSITION_PROP_INTEGER property);
    double HedgePositionGetDouble(ENUM_HEDGE_POSITION_PROP_DOUBLE property);
    string HedgePositionGetString(ENUM_HEDGE_POSITION_PROP_STRING property);
+   ///
+   /// Select hedge position from hedge terminal history.
+   ///
    bool HedgePositionSelect(int index, ENUM_MODE_SELECT select = SELECT_BY_POS, ENUM_MODE_TRADES pool=MODE_TRADES);
    ///
    /// Return true if position was selected, otherwise false.
    ///
    bool HedgePositionSelect(void);
    ///
-   /// Closing selected hedge position.
+   /// Closing hedge position. The position should be selected.
    /// \param request - define params which need for closing hedge position.
    ///
-   bool HedgePositionClose(HedgeClosingRequest& requese);
-   
+   bool HedgePositionClose(HedgeClosingRequest& request);
+   ///
+   /// Return count actions of last task, if task was executed. Current position should be selected.
+   /// This function is used for the analysis of trade and the possible errors.
+   /// \return Count of last task;
+   ///
+   uint TotalActionsTask(void);
+   ///
+   /// Get result of target by it's index 'index'. The values returned by reference.
+   /// Current position should be selected. This function is used for the analysis of trade and the possible errors.
+   /// \param index - Index of target in last task.
+   /// \param target_type - Type of target.
+   /// \param retcode - Result of executed target. This value return codes of the Trade Server in MetaTrader 5.
+   /// You can see the constant code in documentation 'http://www.mql5.com/en/docs/constants/errorswarnings/enum_trade_return_codes'
+   void GetResultTarget(uint index, ENUM_TARGET_TYPE &target_type, uint& retcode);
 #import

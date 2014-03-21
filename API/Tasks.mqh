@@ -60,8 +60,8 @@ class Task2 : CObject
             //Раз проваленую задачу больше не исполняем.
             if(status == TASK_STATUS_FAILED)
             {
-               return;
                TaskChanged();
+               return;
             }
          }
          while(targets.Total())
@@ -71,7 +71,6 @@ class Task2 : CObject
                return;
             if(target.Status() == TARGET_STATUS_COMLETE)
             {
-               retcodes.Add(target.Retcode());
                //Все задания закончились.
                if(targets.GetNextNode() == NULL)
                {
@@ -85,7 +84,6 @@ class Task2 : CObject
             else if(target.Status() == TARGET_STATUS_WAITING)
             {
                bool res = target.Execute();
-               retcodes.Add(target.Retcode());
                if(!res)
                {
                   OnCrashed();
@@ -200,6 +198,7 @@ class Task2 : CObject
       ///
       void AddTarget(Target* target)
       {
+         target.SetTaskLog(position.GetTaskLog());
          targets.Add(target);
       }
       ///
@@ -232,6 +231,10 @@ class Task2 : CObject
       /// Позиция, для которой будет выполняться задача.
       ///
       Position* position;
+      ///
+      /// Лог выполнения задания.
+      ///
+      TaskLog* taskLog;
    private:
       ///
       /// Список подзаданий, который необходимо выполнить.
@@ -325,7 +328,7 @@ class TaskSetStopLoss : Task2
             orderType = ORDER_TYPE_BUY_STOP;
          Order* initOrder = pos.EntryOrder();
          ulong magic = initOrder.GetMagic(MAGIC_TYPE_SL);
-         AddTarget(new TargetSetPendingOrder(pos.Symbol(), orderType, pos.VolumeExecuted(), price, pos.ExitComment(), magic, true));
+         AddTarget(new TargetSetPendingOrder(pos.Symbol(), orderType, pos.VolumeExecuted(), price, pos.ExitComment(), magic, asynch_mode));
       }
 };
 
@@ -359,12 +362,12 @@ class TaskClosePosition : Task2
          ENUM_DIRECTION_TYPE dir = pos.Direction() == DIRECTION_LONG ? DIRECTION_SHORT: DIRECTION_LONG;
          Order* initOrder = pos.EntryOrder();
          ulong magic = initOrder.GetMagic(type);
-         AddTarget(new TargetTradeByMarket(pos.Symbol(), dir, pos.VolumeExecuted(), pos.ExitComment(), magic, true));
          if(pos.UsingStopLoss())
          {
             Order* slOrder = pos.StopOrder();
             AddTarget(new TargetDeletePendingOrder(slOrder.GetId(), true));
          }
+         AddTarget(new TargetTradeByMarket(pos.Symbol(), dir, pos.VolumeExecuted(), pos.ExitComment(), magic, true));
       }
 };
 

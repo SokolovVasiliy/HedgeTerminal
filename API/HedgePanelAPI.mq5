@@ -11,7 +11,6 @@
 //#define HLIBRARY
 #include "..\Globals.mqh"
 
-#include "..\Prototypes.mqh"
 HedgeManager api;
 
 ///
@@ -204,4 +203,26 @@ CObject* EntryDeals() export
 {
    CObject* deals = new CObject();
    return deals;
+}
+
+uint TotalActionsTask(void)export
+{
+   if(CheckPointer(CurrentPosition) != POINTER_INVALID)
+   {
+      TaskLog* taskLog = CurrentPosition.GetTaskLog();
+      return taskLog.Total();
+   }
+   return 0;
+}
+
+void GetResultTarget(uint index, ENUM_TARGET_TYPE &target_type, uint& retcode)export
+{
+   target_type = TARGET_NDEF;
+   retcode = 0;
+   if(CheckPointer(CurrentPosition) != POINTER_INVALID)
+      return;
+   TaskLog* taskLog = CurrentPosition.GetTaskLog();
+   if(taskLog.Total() >= index)
+      return;
+   taskLog.GetRetcode(index, target_type, retcode);
 }
