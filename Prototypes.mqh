@@ -16,6 +16,10 @@ enum ENUM_TARGET_TYPE
    ///
    TARGET_NDEF,
    ///
+   /// 
+   ///
+   TARGET_CREATE_TASK,
+   ///
    /// Delete pending order.
    ///
    TARGET_DELETE_PENDING_ORDER,
@@ -64,6 +68,28 @@ enum ENUM_MODE_TRADES
 };
 
 ///
+/// Status of last task.
+///
+enum ENUM_TASK_STATUS
+{
+   ///
+   /// No task ot task waiting.
+   ///
+   TASK_STATUS_WAITING,
+   ///
+   /// Position frozen for changes. Task executing.
+   ///
+   TASK_STATUS_EXECUTING,
+   ///
+   /// Last task was executed successfuly. 
+   ///
+   TASK_STATUS_COMPLETE,
+   ///
+   /// Last task failed. 
+   ///
+   TASK_STATUS_FAILED
+};
+///
 /// Define type integer property of hedge position.
 /// This enum is analog ENUM_POSITION_PROPERTY_INTEGER and used by
 /// HedgePositionGetInteger function.
@@ -79,7 +105,9 @@ enum ENUM_HEDGE_POSITION_PROP_INTEGER
    HEDGE_POSITION_ENTRY_ORDER,
    HEDGE_POSITION_EXIT_ORDER,
    HEDGE_POSITION_STATUS,
-   HEDGE_POSITION_DEALS_TOTAL
+   HEDGE_POSITION_DEALS_TOTAL,
+   HEDGE_POSITION_TASK_STATUS,
+   HEDGE_POSITION_ACTIONS_TOTAL
 };
 
 ///
@@ -235,6 +263,10 @@ struct HedgeClosingRequest
    /// True if the closure is performed asynchronously, otherwise false.
    ///
    bool asynch_mode;
+   ///
+   /// Last retcode in executed operation.
+   ///
+   uint retcode;
 };
 
 
@@ -264,11 +296,12 @@ struct HedgeClosingRequest
    ///
    uint TotalActionsTask(void);
    ///
-   /// Get result of target by it's index 'index'. The values returned by reference.
+   /// Get result of action by it's index 'index'. The values returned by reference.
    /// Current position should be selected. This function is used for the analysis of trade and the possible errors.
    /// \param index - Index of target in last task.
    /// \param target_type - Type of target.
    /// \param retcode - Result of executed target. This value return codes of the Trade Server in MetaTrader 5.
    /// You can see the constant code in documentation 'http://www.mql5.com/en/docs/constants/errorswarnings/enum_trade_return_codes'
-   void GetResultTarget(uint index, ENUM_TARGET_TYPE &target_type, uint& retcode);
+   ///
+   void GetActionResult(uint index, ENUM_TARGET_TYPE &target_type, uint& retcode);
 #import

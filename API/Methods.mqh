@@ -46,10 +46,6 @@ class Method : public CObject
          LogWriter(msg + " Reason: " + err, MESSAGE_TYPE_ERROR);
       }
       ///
-      /// —одержит код последней операции.
-      ///
-      uint retcode;
-      ///
       /// —тандартный модуль совершени€ торговых операций.
       ///
       Trade trade;
@@ -122,8 +118,8 @@ class MethodTradeByMarket : public Method
             res = trade.Buy(vol, symbol, 0.0, 0.0, 0.0, comment);
          else
             res = trade.Sell(vol, symbol, 0.0, 0.0, 0.0, comment);
-         if(!res)
-            SendError("Rejected trade on market.");
+         //if(!res)
+         //   SendError("Rejected trade on market.");
          return res;
       }
 };
@@ -179,8 +175,8 @@ class MethodSetPendingOrder : public Method
                res = trade.SellLimit(vol, price, symbol, 0.0, 0.0, ORDER_TIME_GTC, 0, comment);
                break;
          }
-         if(!res)
-            SendError("Installation pending order was fails.");
+         //if(!res)
+         //   SendError("Installation pending order was fails.");
          return res;
       }
       ///
@@ -219,14 +215,14 @@ class MethodModifyPendingOrder : public Method
          //ќрдер должен существовать.
          if(!OrderSelect(orderId))
          {
-            LogWriter("Pending order #" + (string)orderId + " not find.", MESSAGE_TYPE_ERROR);
+            //LogWriter("Pending order #" + (string)orderId + " not find.", MESSAGE_TYPE_ERROR);
             return false;
          }
          //Ќова€ цена должна отличатьс€ от цены отложенного ордера
          double oldPrice = OrderGetDouble(ORDER_PRICE_OPEN);
          if(Math::DoubleEquals(oldPrice, price))
          {
-            LogWriter("New price should be different from the old price.", MESSAGE_TYPE_ERROR);
+            //LogWriter("New price should be different from the old price.", MESSAGE_TYPE_ERROR);
             return false;
          }
          return true;
@@ -239,8 +235,8 @@ class MethodModifyPendingOrder : public Method
       {
          if(!CheckValidPrice())return false;
          bool res = trade.OrderModify(orderId, price, 0.0, 0.0, ORDER_TIME_GTC, 0, 0);
-         if(!res)
-            SendError("Failed order modify.");
+         //if(!res)
+         //   SendError("Failed order modify.");
          return res;
       }
       ///
@@ -273,12 +269,12 @@ class MethodDeletePendingOrder : public Method
          trade.SetAsyncMode(asynchMode);
          if(!OrderSelect(orderId))
          {
-            LogWriter("Pending order #" + (string)orderId + " not find.", MESSAGE_TYPE_ERROR);
+            //LogWriter("Pending order #" + (string)orderId + " not find.", MESSAGE_TYPE_ERROR);
             return false;
          }
          bool res = trade.OrderDelete(orderId);
-         if(!res)
-            SendError("Failed order modify.");
+         //if(!res)
+         //   SendError("Failed order modify.");
          return res;
       }
       ///

@@ -94,7 +94,7 @@ class Target : public CObject
          if(timeBegin <= 0)return false;
          if((TimeCurrent() - timeBegin) > timeoutSec)
          {
-            status = TARGET_STATUS_FAILED;
+            Status(TARGET_STATUS_FAILED);
             AddTaskLog(TRADE_RETCODE_TIMEOUT);
             return true;
          }
@@ -133,10 +133,17 @@ class Target : public CObject
       ///
       virtual void OnEvent(Event* event){;}
       ///
+      /// Устанавливает статус текущего таргета.
+      ///
+      void Status(ENUM_TARGET_STATUS st)
+      {
+         status = st;
+      }
+   private:
+      ///
       /// Статус таргета.
       ///
       ENUM_TARGET_STATUS status;
-   private:
       ///
       /// Идентификатор события.
       ///
@@ -188,9 +195,9 @@ class TargetDeletePendingOrder : public Target
          if(!IsSuccess())
             res = method.Execute();
          if(res)
-            status = TARGET_STATUS_EXECUTING;
+            Status(TARGET_STATUS_EXECUTING);
          else
-            status = TARGET_STATUS_FAILED;
+            Status(TARGET_STATUS_FAILED);
          AddTaskLog(method.Retcode());
          return res;
       }
@@ -231,7 +238,7 @@ class TargetDeletePendingOrder : public Target
          //Запрос был отвергнут - подзадача завершена неудачно.
          if(result.IsRejected())
          {
-            status = TARGET_STATUS_FAILED;
+            Status(TARGET_STATUS_FAILED);
             AddTaskLog(result.retcode);
          }
       }
@@ -244,7 +251,7 @@ class TargetDeletePendingOrder : public Target
          Order* order = event.Order();
          if(order.GetId() == method.OrderId())
          {
-            status = TARGET_STATUS_COMLETE;
+            Status(TARGET_STATUS_COMLETE);
             AddTaskLog(TRADE_RETCODE_DONE);
          }
       }
@@ -297,16 +304,16 @@ class TargetSetPendingOrder : public Target
          bool res = false;
          if(IsSuccess())
          {
-            status = TARGET_STATUS_COMLETE;
+            Status(TARGET_STATUS_COMLETE);
             AddTaskLog(TRADE_RETCODE_NO_CHANGES);
             return true;
          }
          else
             res = pendingOrder.Execute();
          if(res)
-            status = TARGET_STATUS_EXECUTING;
+            Status(TARGET_STATUS_EXECUTING);
          else
-            status = TARGET_STATUS_FAILED;
+            Status(TARGET_STATUS_FAILED);
          AddTaskLog(pendingOrder.Retcode());
          return res;
       }
@@ -337,7 +344,7 @@ class TargetSetPendingOrder : public Target
          //Запрос был отвергнут - подзадача завершена неудачно.
          if(result.IsRejected())
          {
-            status = TARGET_STATUS_FAILED;
+            Status(TARGET_STATUS_FAILED);
             AddTaskLog(result.retcode);
          }
       }
@@ -350,7 +357,7 @@ class TargetSetPendingOrder : public Target
          Order* order = event.Order();
          if(order.Magic() == pendingOrder.Magic())
          {
-            status = TARGET_STATUS_COMLETE;
+            Status(TARGET_STATUS_COMLETE);
             AddTaskLog(TRADE_RETCODE_DONE);
          }
       }
@@ -389,16 +396,16 @@ class TargetModifyPendingOrder : Target
          bool res = false;
          if(IsSuccess())
          {
-            status = TARGET_STATUS_COMLETE;
+            Status(TARGET_STATUS_COMLETE);
             AddTaskLog(TRADE_RETCODE_NO_CHANGES);
             return true;
          }
          else
             res = orderModify.Execute();
          if(res)
-            status = TARGET_STATUS_EXECUTING;
+            Status(TARGET_STATUS_EXECUTING);
          else
-            status = TARGET_STATUS_FAILED;
+            Status(TARGET_STATUS_FAILED);
          AddTaskLog(orderModify.Retcode());
          return res;
       }
@@ -439,7 +446,7 @@ class TargetModifyPendingOrder : Target
       {
          if(trans.order != orderModify.OrderId())
             return;
-         status = TARGET_STATUS_COMLETE;
+         Status(TARGET_STATUS_COMLETE);
          AddTaskLog(TRADE_RETCODE_DONE);
       }
       ///
@@ -451,7 +458,7 @@ class TargetModifyPendingOrder : Target
             return;
          if(result.IsRejected())
          {
-            status = TARGET_STATUS_FAILED;
+            Status(TARGET_STATUS_FAILED);
             AddTaskLog(TRADE_RETCODE_DONE);
          }
       }
@@ -478,7 +485,7 @@ class TargetTradeByMarket : Target
       }
       virtual bool IsSuccess()
       {
-         if(status != TARGET_STATUS_COMLETE)
+         if(Status() != TARGET_STATUS_COMLETE)
             return false;
          return true;
       }
@@ -486,14 +493,14 @@ class TargetTradeByMarket : Target
       virtual bool OnExecute()
       {
          bool res = false;
-         if(status == TARGET_STATUS_WAITING)
+         if(Status() == TARGET_STATUS_WAITING)
             res = tradeMarket.Execute();
          else
             return false;
          if(res)
-            status = TARGET_STATUS_EXECUTING;
+            Status(TARGET_STATUS_EXECUTING);
          else
-            status = TARGET_STATUS_FAILED;
+            Status(TARGET_STATUS_FAILED);
          AddTaskLog(tradeMarket.Retcode());
          return res;
       }
@@ -524,7 +531,7 @@ class TargetTradeByMarket : Target
          {
             if(result.IsRejected())
             {
-               status = TARGET_STATUS_FAILED;
+               Status(TARGET_STATUS_FAILED);
                AddTaskLog(result.retcode);
             }
             else
@@ -539,10 +546,10 @@ class TargetTradeByMarket : Target
          Order* order = event.Order();
          //Можно повсякому идентифицировать исполнение ордера.
          if(orderId != 0 && order.GetId() == orderId)
-            status = TARGET_STATUS_COMLETE;
+            Status(TARGET_STATUS_COMLETE);
          else if(tradeMarket.Magic() == order.Magic())
-            status = TARGET_STATUS_COMLETE;
-         if(status == TARGET_STATUS_COMLETE)
+            Status(TARGET_STATUS_COMLETE);
+         if(Status() == TARGET_STATUS_COMLETE)
             AddTaskLog(TRADE_RETCODE_DONE);
       }
       MethodTradeByMarket* tradeMarket;

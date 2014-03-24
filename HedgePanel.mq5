@@ -48,17 +48,11 @@ void OnDeinit(const int reason)
    //printf("Using memory: " + (string)memory);
    int size = sizeof(HedgePanel);
    EventDeinit* ed = new EventDeinit();
-   #ifdef HEDGE_PANEL
    HedgePanel.Event(ed);
-   delete HedgePanel;
-   #endif 
-   api.Event(ed);
    delete ed;
-   
+   delete HedgePanel;
    delete api;
    EventKillTimer();
-   delete Settings;
-   //printf("Count: " + (string)chartEventCount);
 }
 
 ///

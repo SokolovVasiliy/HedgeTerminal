@@ -262,9 +262,9 @@ class TablePositions : public Table
                DelPosition(event.Position());
                break;
          }
-         EventRefresh* er = new EventRefresh(EVENT_FROM_DOWN, NameID());
-         EventSend(er);
-         delete er;
+         //EventRefresh* er = new EventRefresh(EVENT_FROM_DOWN, NameID());
+         //EventSend(er);
+         //delete er;
       }
       
       

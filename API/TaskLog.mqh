@@ -61,7 +61,16 @@ class TaskLog
       /// Время первой записи.
       ///
       datetime FirstRecord(){return firstRecord;}
+      ///
+      /// Возвращает последний статус задания.
+      ///
+      ENUM_TASK_STATUS Status(){return status;}
+      void Status(ENUM_TASK_STATUS stat){status = stat;}
    private:
+      ///
+      /// Статус задания.
+      ///
+      ENUM_TASK_STATUS status;
       ///
       /// Время первой записи.
       ///

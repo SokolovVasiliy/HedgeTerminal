@@ -52,16 +52,17 @@ class EventExchange
       {
          return api;
       }
+      static HedgeManager* api;
+      #ifdef HEDGE_PANEL
+      static ProtoNode* panel;
+      #endif
    private:
       void ExecuteEvent()
       {
          ;
       }
       static Event* event;
-      static HedgeManager* api;
-      #ifdef HEDGE_PANEL
-      static ProtoNode* panel;
-      #endif
+      
 };
 
 enum ENUM_EVENT_DIRECTION

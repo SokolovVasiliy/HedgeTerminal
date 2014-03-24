@@ -137,6 +137,10 @@ class Position : public Transaction
       ///
       void CopyTaskLog(TaskLog* logs);
       ///
+      /// Очищает текущий таск-лог.
+      ///
+      void ClearTaskLog(void){taskLog.Clear();}
+      ///
       /// Печатает текущее состояние лога задач.
       ///
       void PrintTaskLog();
@@ -1264,8 +1268,9 @@ bool Position::AddTask(Task2 *ctask)
    {
       if(task2.IsActive())
       {
-         delete task2;
-         LogWriter("Position is blocked. Try letter.", MESSAGE_TYPE_ERROR);
+         delete ctask;
+         taskLog.Status(TASK_STATUS_FAILED);
+         taskLog.AddRedcode(TARGET_CREATE_TASK, TRADE_RETCODE_FROZEN);
       }
    }
    taskLog.Clear();
@@ -1275,7 +1280,6 @@ bool Position::AddTask(Task2 *ctask)
       return false;
    else
       return true;
-   
 }
 
 ///
@@ -1300,7 +1304,9 @@ void Position::TaskChanged(void)
       task2 = NULL;
       ResetBlocked();      
       SendEventChangedPos(POSITION_REFRESH);
-      //PrintTaskLog();
+      #ifdef HEDGE_PANEL
+         PrintTaskLog();
+      #endif
    }
    else if((task2.Status() == TASK_STATUS_EXECUTING) && !blocked)
       SetBlock();
@@ -1474,6 +1480,30 @@ void Position::PrintTaskLog(void)
       ENUM_TARGET_TYPE typeTarget;
       uint retcode;
       taskLog.GetRetcode(i, typeTarget, retcode);
+      string strTarget = EnumToString(typeTarget);
+      switch(retcode)
+      {
+         case 0:
+         case TRADE_RETCODE_PLACED:
+         case TRADE_RETCODE_DONE:
+            continue;
+         case TRADE_RETCODE_DONE_PARTIAL:
+            printf("Warning. Task executed partial. Check volume.");
+            continue;
+         case TRADE_RETCODE_POSITION_CLOSED:
+            printf(strTarget + ": Position closed or missing. Change is impossible.");
+            continue;
+         case TRADE_RETCODE_INVALID_STOPS:
+            printf(strTarget + ": Missing stop order or imposible to change it.");
+            continue;
+         case TRADE_RETCODE_INVALID_VOLUME:
+            printf(strTarget + ": Not correct volume. Volume must be bigger or equal 'SYMBOL_VOLUME_MIN' and less of current executed volume. Check it.");
+            continue;
+         default:
+            printf("Erorr executing task: " + strTarget + " - " + (string)retcode);
+            continue;
+         
+      }
       printf("Step " + (string)i + ": " + EnumToString(typeTarget) + " - " + (string)retcode);
    }
 }

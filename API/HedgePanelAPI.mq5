@@ -10,6 +10,7 @@
 
 //#define HLIBRARY
 #include "..\Globals.mqh"
+#include "TaskLog.mqh"
 
 HedgeManager api;
 
@@ -64,19 +65,14 @@ int HistoryPositionsTotal() export
 /// True if you are want using asynchronous mode, false otherwise.
 /// \return True if operation complete successfully, false otherwise.
 ///
-bool HedgePositionClose(HedgeClosingRequest& request)
+bool HedgePositionClose(HedgeClosingRequest& request)export
 {
-   if(request.volume < 0.0 || request.volume > CurrentPosition.VolumeExecuted())
-   {
-      LogWriter("request failed. Volume must be more 0.0 and less executed volume", MESSAGE_TYPE_ERROR);
-      return false;
-   }
    double vol;
    if(Math::DoubleEquals(request.volume, 0.0) || Math::DoubleEquals(request.volume, CurrentPosition.VolumeExecuted()))
       vol = CurrentPosition.VolumeExecuted();
    else vol = request.volume;
-   //CurrentPosition.AddTask(new TaskClosePartPosition();
-   bool res = false;
+   bool res = CurrentPosition.AddTask(new TaskClosePartPosition(CurrentPosition, vol));
+   printf("Create task...");
    return res;
 }
 
@@ -87,10 +83,12 @@ bool HedgePositionClose(HedgeClosingRequest& request)
 bool HedgePositionSelect(int index, ENUM_MODE_SELECT select = SELECT_BY_POS, ENUM_MODE_TRADES pool=MODE_TRADES)export
 {
    api.OnRefresh();
+   //printf("Select " + index + " " + EnumToString(select) + " " + EnumToString(pool));
    if(pool == MODE_TRADES)
    {
       if(select == SELECT_BY_POS)
       {
+         //printf("Active total: " + api.ActivePosTotal());
          if(index >= api.ActivePosTotal())
          {
             hedgeErr = HEDGE_ERR_POS_NOTFIND;
@@ -143,6 +141,16 @@ ulong HedgePositionGetInteger(ENUM_HEDGE_POSITION_PROP_INTEGER property) export
          Order* inOrder = CurrentPosition.EntryOrder();
          if(inOrder != NULL)
             return inOrder.OrderType();
+      }
+      case HEDGE_POSITION_ACTIONS_TOTAL:
+      {
+         TaskLog* taskLog = CurrentPosition.GetTaskLog();
+         return taskLog.Total();
+      }
+      case HEDGE_POSITION_TASK_STATUS:
+      {
+         TaskLog* taskLog = CurrentPosition.GetTaskLog();
+         return taskLog.Status();
       }
    }
    return 0;
@@ -205,14 +213,11 @@ CObject* EntryDeals() export
    return deals;
 }
 
-uint TotalActionsTask(void)export
+void GetActionResult(uint index, ENUM_TARGET_TYPE& target_type, uint& retcode)export
 {
-   if(CheckPointer(CurrentPosition) != POINTER_INVALID)
-   {
-      TaskLog* taskLog = CurrentPosition.GetTaskLog();
-      return taskLog.Total();
-   }
-   return 0;
+   if(CheckPointer(CurrentPosition))return;
+   TaskLog* taskLog = CurrentPosition.GetTaskLog();
+   taskLog.GetRetcode(index, target_type, retcode);
 }
 
 void GetResultTarget(uint index, ENUM_TARGET_TYPE &target_type, uint& retcode)export

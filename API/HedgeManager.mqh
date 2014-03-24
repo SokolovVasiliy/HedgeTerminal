@@ -33,10 +33,12 @@ class HedgeManager
       }
       
       ///
-      ///
+      /// 
       ///
       HedgeManager()
       {
+         if(Settings == NULL)
+            Settings = PanelSettings::Init();
          ActivePos = new CArrayObj();
          HistoryPos = new CArrayObj();
          ActivePos.Sort(SORT_ORDER_ID);
@@ -59,6 +61,8 @@ class HedgeManager
          delete ActivePos;
          HistoryPos.Clear();
          delete HistoryPos;
+         if(CheckPointer(Settings) != POINTER_INVALID)
+            delete Settings;
       }
       
       ///
@@ -121,11 +125,21 @@ class HedgeManager
       {
          int total = HistoryDealsTotal();
          //Перебираем все доступные трейды и формируем на их основе прототипы будущих позиций типа COrder
+         bool res;
          for(; dealsCountNow < total; dealsCountNow++)
          {  
             ulong ticket = HistoryDealGetTicket(dealsCountNow);
             AddNewDeal(ticket);
+            res = true;
          }
+         #ifdef HEDGE_PANEL
+         if(res)
+         {
+            EventRefresh* er = new EventRefresh(EVENT_FROM_DOWN, "Hadge Terminal");
+            EventExchange::panel.Event(er);
+            delete er;
+         }
+         #endif
       }
       
       ///
@@ -133,8 +147,10 @@ class HedgeManager
       ///
       void TrackingHistoryOrders()
       {
+         bool res;
          for(; historyOrdersCount < HistoryOrdersTotal(); historyOrdersCount++)
          {
+            res = true;
             Order* order = CreateCancelOrderOrNull(historyOrdersCount);
             if(order == NULL)continue;
             bool isIntegrate = SendCancelStopAndProfitOrder(order);
@@ -144,6 +160,14 @@ class HedgeManager
             if(!isIntegrate)
                delete order;
          }
+         #ifdef HEDGE_PANEL
+         if(res)
+         {
+            EventRefresh* er = new EventRefresh(EVENT_FROM_DOWN, "Hadge Terminal");
+            EventExchange::panel.Event(er);
+            delete er;
+         }
+         #endif
       }
       
       ///
@@ -151,6 +175,7 @@ class HedgeManager
       ///
       void TrackingPendingOrders()
       {
+         bool res;
          int total = OrdersTotal();
          if(ordersPendingNow > total)
             ordersPendingNow = total;
@@ -167,6 +192,14 @@ class HedgeManager
                delete order;
          }
          ordersPendingNow = OrdersTotal();
+         #ifdef HEDGE_PANEL
+         if(res)
+         {
+            EventRefresh* er = new EventRefresh(EVENT_FROM_DOWN, "Hadge Terminal");
+            EventExchange::panel.Event(er);
+            delete er;
+         }
+         #endif
       }
       
       ///
@@ -540,7 +573,7 @@ class HedgeManager
          int oTotal = HistoryOrdersTotal();
          string seconds = (string)isec + "." + srest;
          string line = "We are begin. Parsing of history deals (" + (string)dTotal +
-         ") and orders (2x" + (string)oTotal + ") completed for " + seconds + " sec.";
+         ") and orders (" + (string)oTotal + ") completed for " + seconds + " sec.";
          printf(line);
       }
       ///

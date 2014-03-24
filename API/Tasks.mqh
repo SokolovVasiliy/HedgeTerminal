@@ -4,7 +4,7 @@
 ///
 /// Содержит текущий статус выполнения задания.
 ///
-enum ENUM_TASK_STATUS
+/*enum ENUM_TASK_STATUS
 {
    ///
    /// Задание в режиме ожидания.
@@ -22,7 +22,7 @@ enum ENUM_TASK_STATUS
    /// Задание провалилось.
    ///
    TASK_STATUS_FAILED
-};
+};*/
 
 enum ENUM_LAST_OPERATION_STATUS
 {
@@ -190,8 +190,10 @@ class Task2 : CObject
       Task2(Position* pos)
       {
          position = pos;
-         HedgeManager* hm = EventExchange::GetAPI();
-         hm.AddTask(GetPointer(this));
+         taskLog = pos.GetTaskLog();
+         taskLog.Clear();
+         //HedgeManager* hm = EventExchange::GetAPI();
+         api.AddTask(GetPointer(this));
       }
       ///
       /// Добавляет новое задание в конец списка подзаданий.
@@ -222,6 +224,20 @@ class Task2 : CObject
       {
          currTarget = targets.GetCurrentNode();
          return currTarget;
+      }
+      ///
+      /// Истина, если позиция активна, и ложь в противном случае.
+      ///
+      bool FailedIfNotActivePos()
+      {
+         if(position == NULL || (position.Status() != POSITION_ACTIVE))
+         {
+            status = TASK_STATUS_FAILED;
+            taskLog.Status(status);
+            taskLog.AddRedcode(TARGET_CREATE_TASK, TRADE_RETCODE_POSITION_CLOSED);   
+            return true;
+         }
+         return false;
       }
       ///
       /// Статус всего задания.
@@ -260,12 +276,20 @@ class TaskDeleteStopLoss : public Task2
       {
          ulong stopId = 0;
          Order* stopOrder;
+         if(FailedIfNotActivePos())
+            return;
          if(pos.UsingStopLoss())
          {
             stopOrder = pos.StopOrder();
             stopId = stopOrder.GetId();
+            AddTarget(new TargetDeletePendingOrder(stopId, asynch_mode));
          }
-         AddTarget(new TargetDeletePendingOrder(stopId, asynch_mode));
+         else
+         {
+            status = TASK_STATUS_FAILED;
+            taskLog.Status(status);
+            taskLog.AddRedcode(TARGET_CREATE_TASK, TRADE_RETCODE_INVALID_STOPS);
+         }
       }  
 };
 ///
@@ -278,6 +302,8 @@ class TaskChangeCommentStopLoss : public Task2
       {
          ulong stopId = 0;
          Order* stopOrder;
+         if(FailedIfNotActivePos())
+            return;
          if(pos.UsingStopLoss())
          {
             stopOrder = pos.StopOrder();
@@ -285,8 +311,9 @@ class TaskChangeCommentStopLoss : public Task2
          }
          else
          {
-            LogWriter("Position not use stop-order.", MESSAGE_TYPE_ERROR);
             status = TASK_STATUS_FAILED;
+            taskLog.Status(status);
+            taskLog.AddRedcode(TARGET_CREATE_TASK, TRADE_RETCODE_INVALID_STOPS);
             return;
          }
          double price = stopOrder.PriceSetup();
@@ -309,16 +336,20 @@ class TaskSetStopLoss : Task2
    public:
       TaskSetStopLoss(Position* pos, double price, bool asynch_mode) : Task2(pos)
       {
+         if(FailedIfNotActivePos())
+            return;
          if(pos.UsingStopLoss())
          {
-            LogWriter("Position already using stop-order. Delete old stop-order and set new.", MESSAGE_TYPE_ERROR);
             status = TASK_STATUS_FAILED;
+            taskLog.Status(status);
+            taskLog.AddRedcode(TARGET_CREATE_TASK, TRADE_RETCODE_INVALID_STOPS);
             return;
          }
-         if(pos.Status() != POSITION_ACTIVE)
+         else
          {
-            LogWriter("Position not active. Execute task not posiible.", MESSAGE_TYPE_ERROR);
             status = TASK_STATUS_FAILED;
+            taskLog.Status(status);
+            taskLog.AddRedcode(TARGET_CREATE_TASK, TRADE_RETCODE_INVALID_STOPS);
             return;
          }
          ENUM_ORDER_TYPE orderType = ORDER_TYPE_SELL;
@@ -342,12 +373,20 @@ class TaskModifyStop : Task2
       {
          ulong stopId = 0;
          Order* stopOrder;
+         if(FailedIfNotActivePos())
+            return;
          if(pos.UsingStopLoss())
          {
             stopOrder = pos.StopOrder();
             stopId = stopOrder.GetId();
+            AddTarget(new TargetModifyPendingOrder(stopId, newPrice, asynchMode));
          }
-         AddTarget(new TargetModifyPendingOrder(stopId, newPrice, asynchMode));
+         else
+         {
+            status = TASK_STATUS_FAILED;
+            taskLog.Status(status);
+            taskLog.AddRedcode(TARGET_CREATE_TASK, TRADE_RETCODE_INVALID_STOPS);
+         }
       }
 };
 
@@ -362,6 +401,8 @@ class TaskClosePosition : Task2
          ENUM_DIRECTION_TYPE dir = pos.Direction() == DIRECTION_LONG ? DIRECTION_SHORT: DIRECTION_LONG;
          Order* initOrder = pos.EntryOrder();
          ulong magic = initOrder.GetMagic(type);
+         if(FailedIfNotActivePos())
+            return;
          if(pos.UsingStopLoss())
          {
             Order* slOrder = pos.StopOrder();
@@ -384,10 +425,13 @@ class TaskClosePartPosition : Task2
       ///
       TaskClosePartPosition(Position* pos, double volume) : Task2(pos)
       {
+         if(FailedIfNotActivePos())
+            return;
          if(volume > pos.VolumeExecuted())
          {
             status = TASK_STATUS_FAILED;
-            LogWriter("Incorrect volume.", MESSAGE_TYPE_ERROR);
+            taskLog.Status(status);
+            taskLog.AddRedcode(TARGET_CREATE_TASK, TRADE_RETCODE_INVALID_VOLUME);
             return;
          }
          Order* slOrder;
