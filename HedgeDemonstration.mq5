@@ -7,6 +7,10 @@
 #property link      "http://www.mql5.com"
 #property version   "1.00"
 #include <Arrays\ArrayObj.mqh>
+///
+/// if this const define using Hedge API library, otherwise using classic mode for only one expert.
+///
+#define HEDGES
 #include "MovingAverageExpert.mqh"
 ///
 /// Array of experts.
@@ -19,6 +23,7 @@ CArrayObj Experts;
 int OnInit()
 {
    MAExpert* maexp = new MAExpert();
+   maexp.SetSlowMA(3);
    Experts.Add(maexp);
    return(INIT_SUCCEEDED);
 }
@@ -26,7 +31,6 @@ int OnInit()
 void OnDeinit(const int reason)
 {
    Experts.Clear();
-   //Shutdown();
 }
 ///
 /// Run experts every tick.

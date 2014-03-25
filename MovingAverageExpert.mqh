@@ -6,8 +6,9 @@
 //+------------------------------------------------------------------+
 #include <Trade\Trade.mqh>
 #include <Arrays\ArrayInt.mqh>
-#include "Prototypes.mqh"  //Include export functions and enums for using HedgeTerminal API.
-
+#ifdef HEDGES
+   #include "Prototypes.mqh"  //Include export functions and enums for using HedgeTerminal API.
+#endif 
 ///
 /// Moving Average Expert.
 ///
@@ -232,6 +233,7 @@ MAExpert::MAExpert()
    typeMA = MODE_SMA;
    applyPrice = PRICE_CLOSE;
    expertName = "MA Expert";
+   shift = 0;
    RebuildIndicators();
 }
 
@@ -354,7 +356,7 @@ bool MAExpert::DetectNewBar(void)
    if(bars[0].time != timeLastBar)
    {
       timeLastBar = bars[0].time;
-      //printf(expertName + " new bar detected.");
+      printf(expertName + " new bar detected: " + TimeToString(bars[0].time));
       return true;
    }
    return false;
@@ -364,6 +366,7 @@ void MAExpert::RecalcCountPosition()
 {
    longsPos=0;
    shortsPos = 0;
+   #ifdef HEDGES
    indexMyLongPos.Clear();
    indexMyShortPos.Clear();
    for(int i = 0; i < ActivePositionsTotal(); i++)
@@ -385,18 +388,29 @@ void MAExpert::RecalcCountPosition()
          shortsPos++;
       }
    }
+   #endif
+   #ifndef HEDGES
+   if(PositionSelect(symbol))
+   {
+      ENUM_POSITION_TYPE posType = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
+      if(posType == POSITION_TYPE_BUY)
+         longsPos++;
+      else
+         shortsPos++;
+   }
+   #endif
 }
 
 bool MAExpert::CrossOver(void)
 {
    if(!CheckHandles())
       return false;
-   double fastSma[2];
-   CopyBuffer(handleFastMA, 0, 0, 2, fastSma);
-   double slowSma[2];
-   CopyBuffer(handleSlowMA, 0, 0, 2, slowSma);
-   printf((string)fastSma[1] + " - " + (string)slowSma[1]);
-   if(fastSma[1] > slowSma[1])
+   double fastSma[1];
+   CopyBuffer(handleFastMA, 0, 1, 1, fastSma);
+   double slowSma[1];
+   CopyBuffer(handleSlowMA, 0, 1, 1, slowSma);
+   printf((string)fastSma[0] + " - " + (string)slowSma[0]);
+   if(fastSma[0] > slowSma[0])
       return true;
    return false;
 }
@@ -416,47 +430,58 @@ double MAExpert::GetLot(void)
    return SymbolInfoDouble(symbol, SYMBOL_VOLUME_MIN);
 }
 
-void MAExpert::TryCloseAllShortPos(void)
-{
-   //printf(expertName + " Try close short position.");
-   for(int i = 0; i < indexMyShortPos.Total(); i++)
-   {
-      if(!HedgePositionSelect(indexMyShortPos.At(i)))continue;
-      if(CrossOver())
-         TryCloseCurrentPos();
-   }
-}
-
-void MAExpert::TryCloseAllLongPos(void)
-{
-   //printf(expertName + " Try close long position.");
-   for(int i = 0; i < indexMyShortPos.Total(); i++)
-   {
-      if(!HedgePositionSelect(indexMyShortPos.At(i)))continue;
-      if(CrossUnder())
-         TryCloseCurrentPos();
-   }
-}
-
-void MAExpert::TryOpenLongPos(void)
-{
-   //printf(expertName + " Try open long position.");
-   if(CrossOver())
-      if(!trade.Buy(GetLot(), symbol, 0.0, 0.0, 0.0, "Entry long by cross over."))
-         printf(trade.ResultRetcodeDescription());
-}
-
 void MAExpert::TryOpenShortPos(void)
 {
-   //printf(expertName + " Try open short position.");
    if(CrossUnder())
       if(!trade.Sell(GetLot(), symbol, 0.0, 0.0, 0.0, "Entry short by cross over."))
          printf(trade.ResultRetcodeDescription());
 }
 
+void MAExpert::TryCloseAllShortPos(void)
+{
+   if(CrossUnder())return;
+   #ifdef HEDGES
+      for(int i = 0; i < indexMyShortPos.Total(); i++)
+      {
+         if(!HedgePositionSelect(indexMyShortPos.At(i)))continue;
+            TryCloseCurrentPos();
+      }
+   #endif
+   #ifndef HEDGES
+      TryCloseCurrentPos();
+   #endif 
+}
+
+void MAExpert::TryOpenLongPos(void)
+{
+   if(CrossOver())
+   {
+      if(!trade.Buy(GetLot(), symbol, 0.0, 0.0, 0.0, "Entry long by cross over."))
+         printf(trade.ResultRetcodeDescription());
+   }
+}
+
+void MAExpert::TryCloseAllLongPos(void)
+{
+   
+   if(CrossOver())return;
+   #ifdef HEDGES
+      for(int i = 0; i < indexMyLongPos.Total(); i++)
+      {
+         if(!HedgePositionSelect(indexMyLongPos.At(i)))continue;
+            TryCloseCurrentPos();
+      }
+   #endif
+   #ifndef HEDGES
+      TryCloseCurrentPos();
+   #endif 
+}
+
 void MAExpert::TryCloseCurrentPos()
 {
-   printf("Закрываю текущую позицию.");
+   //printf("Закрываю текущую позицию.");
+   #ifdef HEDGES
+   printf("close hedge position.");
    if(!HedgePositionSelect())
    {
       printf(expertName + " " + "Hedge position not seleted.");
@@ -468,8 +493,18 @@ void MAExpert::TryCloseCurrentPos()
    request.close_type = CLOSE_AS_MARKET; 
    if(!HedgePositionClose(request))
       PrintStackActions();
+   #endif 
+   #ifndef HEDGES
+   PositionSelect(symbol);
+   ENUM_POSITION_TYPE posType = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
+   if(posType == POSITION_TYPE_BUY)
+      trade.Sell(GetLot(), NULL, 0.0, 0.0, 0.0, "Exit from buy");
+   else
+      trade.Buy(GetLot(), NULL, 0.0, 0.0, 0.0, "Exit from sell");
+   #endif
 }
 
+#ifdef HEDGES
 void MAExpert::PrintStackActions(void)
 {
    if(!HedgePositionSelect())return;
@@ -483,6 +518,7 @@ void MAExpert::PrintStackActions(void)
       printf("Step " + (string)i + ": " + EnumToString(type) + " - " + (string)retcode);
    }
 }
+#endif
 
 void MAExpert::Run(void)
 {
@@ -495,6 +531,6 @@ void MAExpert::Run(void)
    if(shortsPos > 0)
       TryCloseAllShortPos();
    else
-      TryOpenShortPos(); 
+      TryOpenShortPos();
 }
 
