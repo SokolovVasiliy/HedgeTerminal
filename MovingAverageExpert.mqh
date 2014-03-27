@@ -479,29 +479,31 @@ void MAExpert::TryCloseAllLongPos(void)
 
 void MAExpert::TryCloseCurrentPos()
 {
-   //printf("Закрываю текущую позицию.");
-   #ifdef HEDGES
+   //#ifdef HEDGES
    printf("close hedge position.");
-   if(!HedgePositionSelect())
+   /*if(!HedgePositionSelect())
    {
       printf(expertName + " " + "Hedge position not seleted.");
       return;
-   }
+   }*/
    HedgeClosingRequest request;
    request.asynch_mode = true;
+   //request.volume = 0.1;
    request.exit_comment = "exit by signal";
-   request.close_type = CLOSE_AS_MARKET; 
+   //request.close_type = CLOSE_AS_MARKET; 
+   HedgePositionClose(request);
    if(!HedgePositionClose(request))
-      PrintStackActions();
-   #endif 
-   #ifndef HEDGES
+      printf(EnumToString(GetHedgeError()));
+   //#endif 
+   /*#ifndef HEDGES
    PositionSelect(symbol);
    ENUM_POSITION_TYPE posType = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
    if(posType == POSITION_TYPE_BUY)
       trade.Sell(GetLot(), NULL, 0.0, 0.0, 0.0, "Exit from buy");
    else
       trade.Buy(GetLot(), NULL, 0.0, 0.0, 0.0, "Exit from sell");
-   #endif
+   
+   #endif*/
 }
 
 #ifdef HEDGES

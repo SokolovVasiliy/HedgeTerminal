@@ -10,7 +10,6 @@
 class HedgeManager
 {
    public:
-      
       ///
       /// ¬ режиме работы в панеле подключаем событийную модель.
       ///
@@ -63,6 +62,7 @@ class HedgeManager
          delete HistoryPos;
          if(CheckPointer(Settings) != POINTER_INVALID)
             delete Settings;
+         tasks.Shutdown();
       }
       
       ///
@@ -82,6 +82,20 @@ class HedgeManager
          TrackingHistoryDeals();
          TrackingHistoryOrders();
          TrackingPendingOrders();
+         RefreshPanel();
+      }
+      ///
+      /// ƒелает графическое обновление панели.
+      ///
+      void RefreshPanel()
+      {
+         #ifdef HEDGE_PANEL
+            if(!graphRebuild)return;
+            graphRebuild = false;
+            EventRefreshPanel* refresh = new EventRefreshPanel();
+            HedgePanel.Event(refresh);
+            delete refresh;
+         #endif
       }
       ///
       /// For API: ¬озвращает количество активных позиций
@@ -105,6 +119,22 @@ class HedgeManager
          Position* pos = ActivePos.At(n);
          return pos;
       }
+      ///
+      /// Ќаходит активную позицию в списке активных позиций, чей
+      /// id равен posId.
+      ///
+      Position* FindActivePosById(ulong posId)
+      {
+         if(posId != 0)
+         {
+            Order* inOrder = new Order(posId);
+            int iActive = ActivePos.Search(inOrder);
+            delete inOrder;
+            if(iActive != -1)
+               return ActivePos.At(iActive);
+         }
+         return NULL;
+      }
    private:
       ///
       /// ѕосылает уведомление о изменении каждой активной позиции.
@@ -125,21 +155,12 @@ class HedgeManager
       {
          int total = HistoryDealsTotal();
          //ѕеребираем все доступные трейды и формируем на их основе прототипы будущих позиций типа COrder
-         bool res;
          for(; dealsCountNow < total; dealsCountNow++)
          {  
             ulong ticket = HistoryDealGetTicket(dealsCountNow);
             AddNewDeal(ticket);
-            res = true;
+            graphRebuild = true;
          }
-         #ifdef HEDGE_PANEL
-         if(res)
-         {
-            EventRefresh* er = new EventRefresh(EVENT_FROM_DOWN, "Hadge Terminal");
-            EventExchange::panel.Event(er);
-            delete er;
-         }
-         #endif
       }
       
       ///
@@ -147,10 +168,8 @@ class HedgeManager
       ///
       void TrackingHistoryOrders()
       {
-         bool res;
          for(; historyOrdersCount < HistoryOrdersTotal(); historyOrdersCount++)
          {
-            res = true;
             Order* order = CreateCancelOrderOrNull(historyOrdersCount);
             if(order == NULL)continue;
             bool isIntegrate = SendCancelStopAndProfitOrder(order);
@@ -159,15 +178,8 @@ class HedgeManager
             delete cancelOrder;
             if(!isIntegrate)
                delete order;
+            graphRebuild = true;
          }
-         #ifdef HEDGE_PANEL
-         if(res)
-         {
-            EventRefresh* er = new EventRefresh(EVENT_FROM_DOWN, "Hadge Terminal");
-            EventExchange::panel.Event(er);
-            delete er;
-         }
-         #endif
       }
       
       ///
@@ -175,7 +187,6 @@ class HedgeManager
       ///
       void TrackingPendingOrders()
       {
-         bool res;
          int total = OrdersTotal();
          if(ordersPendingNow > total)
             ordersPendingNow = total;
@@ -190,16 +201,9 @@ class HedgeManager
             delete pendingOrder;
             if(!isIntegrate)
                delete order;
+            graphRebuild = true;
          }
          ordersPendingNow = OrdersTotal();
-         #ifdef HEDGE_PANEL
-         if(res)
-         {
-            EventRefresh* er = new EventRefresh(EVENT_FROM_DOWN, "Hadge Terminal");
-            EventExchange::panel.Event(er);
-            delete er;
-         }
-         #endif
       }
       
       ///
@@ -449,22 +453,7 @@ class HedgeManager
          delete result;
       }
       
-      ///
-      /// Ќаходит активную позицию в списке активных позиций, чей
-      /// id равен posId.
-      ///
-      Position* FindActivePosById(ulong posId)
-      {
-         if(posId != 0)
-         {
-            Order* inOrder = new Order(posId);
-            int iActive = ActivePos.Search(inOrder);
-            delete inOrder;
-            if(iActive != -1)
-               return ActivePos.At(iActive);
-         }
-         return NULL;
-      }
+      
       
       ///
       /// Ќаходит историческую позицию в списке активных позиций, чей
@@ -512,20 +501,35 @@ class HedgeManager
       ///
       void SendTaskEvent(Event* event)
       {
-         for(int i = 0; i < tasks.Total(); i++)
+         for(int i = tasks.Total() - 1; i >= 0;i--)
          {
-            Task2* task = tasks.At(i);
-            if(task.IsFinished())
+            CObject* obj = tasks.At(i);
+            if(CheckPointer(obj) == POINTER_INVALID)
             {
-               //Position* pos = task.GetPosition();
-               //if(CheckPointer(pos) != POINTER_INVALID)
-               //   pos.SendEventChangedPos(POSITION_REFRESH);
                tasks.Delete(i);
-               i--;
                continue;
             }
-            task.Event(event);
+            Task2* task = obj;
+            if(task.IsFinished())
+               tasks.Delete(i);
+            else
+               task.Event(event);
          }
+         /*for(int i = 0; i < tasks.Total();i++)
+         {
+            int total = tasks.Total();
+            CObject* obj = tasks.At(i);
+            Task2* task = obj;
+            if(task.IsFinished())
+            {
+               tasks.Delete(i);
+               //i--;
+               //continue;
+               break;
+            }
+            task.Event(event);
+            //i++;
+         }*/
       }
    
       ///
@@ -632,4 +636,8 @@ class HedgeManager
       /// —борщик неиспользованных узлов.
       ///
       XmlGarbage xmlGarbage;
+      ///
+      /// »стина, если требуетс€ послать уведомление о перестройки графики в HedgePanel.
+      ///
+      bool graphRebuild;
 };

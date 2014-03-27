@@ -210,7 +210,11 @@ enum ENUM_EVENT
    ///
    /// Идентификатор приказа изменения xml аттрибута.
    ///
-   EVENT_CHANGE_XML_ATTR
+   EVENT_CHANGE_XML_ATTR,
+   ///
+   /// Идентификатор события обновления графической панели.
+   ///
+   EVENT_REFRESH_PANEL
 };
 
 
@@ -1043,7 +1047,7 @@ class XmlPos;
 ///
 /// Событие xml данные активной позиции изменились.
 ///
-class EventXmlActPosRefresh : Event
+class EventXmlActPosRefresh : public Event
 {
    public:
       XmlPos* GetXmlPosition(void){return xPos;}
@@ -1060,23 +1064,13 @@ class EventXmlActPosRefresh : Event
       XmlPos* xPos;
 };
 
+#ifdef HEDGE_PANEL
 ///
-/// Создает приказ на изменение xml позиции.
+/// Событие графическое обновление панели.
 ///
-/*class EventChangeXmlAttr : Event
+class EventRefreshPanel : public Event
 {
    public:
-      virtual Event* Clone()
-      {
-         return new EventXmlPosConfig();
-      }
-      ///
-      /// Создает приказ на изменение xml атрибута.
-      /// \param attrName - имя атрибута
-      ///
-      ///
-      EventXmlPosConfig(string attrName, string value) : Event(EVENT_FROM_UP, EVENT_CHANGE_XML_ATTR, "TERMINAL_WINDOW")
-      {
-         ;
-      }
-};*/
+      EventRefreshPanel() : Event(EVENT_FROM_UP, EVENT_REFRESH_PANEL, "HEDGE API"){;}
+};
+#endif

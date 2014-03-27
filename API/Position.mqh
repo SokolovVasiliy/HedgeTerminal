@@ -1264,13 +1264,17 @@ bool Position::Unmanagment()
 ///
 bool Position::AddTask(Task2 *ctask)
 {
+   if(CheckPointer(ctask) == POINTER_INVALID)
+      return false;
    if(CheckPointer(task2) != POINTER_INVALID)
    {
       if(task2.IsActive())
       {
+         ctask.Status(TASK_STATUS_FAILED);
          delete ctask;
-         taskLog.Status(TASK_STATUS_FAILED);
+         //taskLog.Status(TASK_STATUS_FAILED);
          taskLog.AddRedcode(TARGET_CREATE_TASK, TRADE_RETCODE_FROZEN);
+         return false;
       }
    }
    taskLog.Clear();
@@ -1302,7 +1306,7 @@ void Position::TaskChanged(void)
    if(CheckPointer(task2) == POINTER_INVALID ||task2.IsFinished())
    {
       task2 = NULL;
-      ResetBlocked();      
+      ResetBlocked();
       SendEventChangedPos(POSITION_REFRESH);
       #ifdef HEDGE_PANEL
          PrintTaskLog();

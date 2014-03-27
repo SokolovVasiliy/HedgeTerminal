@@ -6,6 +6,7 @@
 #property copyright "Copyright 2013, Vasiliy Sokolov"
 #property link      "https://login.mql5.com/ru/users/c-4"
 
+
 ///
 /// Targets ID.
 ///
@@ -205,22 +206,35 @@ enum ENUM_HEDGE_ORDER_TYPE
 enum ENUM_HEDGE_ERR
 {
    ///
-   /// Request position not find.
+   /// No error.
    ///
-   HEDGE_ERR_POS_NOTFIND,
+   HEDGE_ERR_NOT_ERROR,
+   ///
+   /// Transaction not find or missing.
+   ///
+   HEDGE_ERR_TRANS_NOTFIND,
+   ///
+   /// Index of transaction missing or wrong.
+   ///
+   HEDGE_ERR_WRONG_INDEX,
+   ///
+   /// Set volume for position is wrong.
+   ///
+   HEDGE_ERR_WRONG_VOLUME,
    ///
    /// Position not select.
    ///
-   HEDGE_ERR_POS_NOTSELECT,
+   HEDGE_ERR_TRANS_NOTSELECTED,
    ///
-   /// Selected position not compatible with current operation.
+   /// Parameter of tranastion not supporting or wrong.
    ///
-   HEDGE_ERR_POS_NOTCOMPATIBLE,
+   HEDGE_ERR_WRONG_PARAMETER,
    ///
-   /// Wrong setting of volume.
+   /// Selected position in the change process, and can not be read or modified.
    ///
-   HEDGE_ERR_WRONG_VOLUME
+   HEDGE_ERR_POS_FROZEN
 };
+
 ///
 /// This enum mark closing order as special order type.
 ///
@@ -247,6 +261,10 @@ enum ENUM_CLOSE_TYPE
 struct HedgeClosingRequest
 {
    ///
+   /// True if the closure is performed asynchronously, otherwise false.
+   ///
+   bool asynch_mode;
+   ///
    /// Volume of position to be closed. May be less or equal than executed volume position.
    /// If equal 0.0 closing all executed volume position.
    ///
@@ -260,17 +278,28 @@ struct HedgeClosingRequest
    ///
    ENUM_CLOSE_TYPE close_type;
    ///
-   /// True if the closure is performed asynchronously, otherwise false.
-   ///
-   bool asynch_mode;
-   ///
    /// Last retcode in executed operation.
    ///
    uint retcode;
+   ///
+   /// By default volume equal 0.0
+   ///
+   HedgeClosingRequest()
+   {
+      //volume = 0.0;
+   }
 };
 
-
+#ifndef API_INTRO
 #import ".\API\HedgePanelAPI.ex5"
+   ///
+   /// Return last error of Hedge terminal API.
+   ///
+   ENUM_HEDGE_ERR GetHedgeError(void);
+   ///
+   /// Reset last hedge error.
+   ///
+   void ResetHedgeError(void);
    int ActivePositionsTotal(void);
    int HistoryPositionsTotal(void);
    ulong HedgePositionGetInteger(ENUM_HEDGE_POSITION_PROP_INTEGER property);
@@ -305,3 +334,4 @@ struct HedgeClosingRequest
    ///
    void GetActionResult(uint index, ENUM_TARGET_TYPE &target_type, uint& retcode);
 #import
+#endif

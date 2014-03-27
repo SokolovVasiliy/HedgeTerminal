@@ -43,7 +43,7 @@ enum ENUM_LAST_OPERATION_STATUS
 ///
 /// Task2 - содержит список подзадач и алгоритм их выполнения.
 ///
-class Task2 : CObject
+class Task2 : public CObject
 {
    public:
       void Execute()
@@ -128,6 +128,10 @@ class Task2 : CObject
       /// Статус задания.
       ///
       ENUM_TASK_STATUS Status(){return status;}
+      ///
+      /// Принудительно устанавливает статус задания.
+      ///
+      void Status(ENUM_TASK_STATUS st){status = st;}
       ///
       /// Истина, если текущая задача находится в стадии выполнения и ложь в противном случае.
       ///
@@ -331,7 +335,7 @@ class TaskChangeCommentStopLoss : public Task2
          string oldComment;
 };
 
-class TaskSetStopLoss : Task2
+class TaskSetStopLoss : public Task2
 {
    public:
       TaskSetStopLoss(Position* pos, double price, bool asynch_mode) : Task2(pos)
@@ -366,7 +370,7 @@ class TaskSetStopLoss : Task2
 ///
 /// Модифицирует уровень нового стоп-лосса.
 ///
-class TaskModifyStop : Task2
+class TaskModifyStop : public Task2
 {
    public:
       TaskModifyStop(Position* pos, double newPrice, bool asynchMode) : Task2(pos)
@@ -393,7 +397,7 @@ class TaskModifyStop : Task2
 ///
 /// Закрывает активную позицию.
 ///
-class TaskClosePosition : Task2
+class TaskClosePosition : public Task2
 {
    public:
       TaskClosePosition(Position* pos, ENUM_MAGIC_TYPE type) : Task2(pos)
@@ -415,7 +419,7 @@ class TaskClosePosition : Task2
 ///
 /// Закрывает часть активной позиции.
 ///
-class TaskClosePartPosition : Task2
+class TaskClosePartPosition : public Task2
 {
    public:
       ///

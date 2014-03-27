@@ -133,7 +133,7 @@ class MainForm : public ProtoNode
             }
          }
          //ѕринимаем команды снизу на обновление терминала
-         if(event.Direction() == EVENT_FROM_DOWN)
+         /*if(event.Direction() == EVENT_FROM_DOWN)
          {
             if(event.EventId() == EVENT_REFRESH)
             {
@@ -143,6 +143,13 @@ class MainForm : public ProtoNode
                delete command;
                return;
             }
+         }*/
+         if(event.EventId() == EVENT_REFRESH_PANEL)
+         {
+            EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 5, 40, Width()-10, High()-45);
+            tabs.Event(command);
+            delete command;
+            return;
          }
          EventSend(event);
       }

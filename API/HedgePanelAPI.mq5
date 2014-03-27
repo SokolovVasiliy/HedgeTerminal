@@ -12,6 +12,11 @@
 #include "..\Globals.mqh"
 #include "TaskLog.mqh"
 
+///
+/// 
+///
+//#define 
+ 
 HedgeManager api;
 
 ///
@@ -23,25 +28,23 @@ int EntryOrderDealsTotal(){return 0;}
 
 int ExitOrderDealsTotal(){return 0;}
 
-int lastError;
+//int lastError;
 ///
 /// Type of last api error.
 ///
 ENUM_HEDGE_ERR hedgeErr;
 ///
-/// Return code last error.
+/// Return last hedge error.
 ///
-int HedgeGetLastError() export
+ENUM_HEDGE_ERR GetHedgeError() export
 {
-   int error = lastError;
-   lastError = 0;
-   return error;
+   return hedgeErr;
 }
 ///
 /// Return count active and pending positions.
 /// \return Count of active and pending api position.
 ///
-int ActivePositionsTotal()export
+int ActivePositionsTotal(void)export
 {
    api.OnRefresh();
    return api.ActivePosTotal();
@@ -67,15 +70,45 @@ int HistoryPositionsTotal() export
 ///
 bool HedgePositionClose(HedgeClosingRequest& request)export
 {
-   double vol;
-   if(Math::DoubleEquals(request.volume, 0.0) || Math::DoubleEquals(request.volume, CurrentPosition.VolumeExecuted()))
-      vol = CurrentPosition.VolumeExecuted();
-   else vol = request.volume;
-   bool res = CurrentPosition.AddTask(new TaskClosePartPosition(CurrentPosition, vol));
-   printf("Create task...");
+   if(!CheckRequest(request))return false;
+   CurrentPosition.ExitComment(request.exit_comment);
+   bool res = CurrentPosition.AddTask(new TaskClosePartPosition(CurrentPosition, request.volume));
    return res;
 }
 
+///
+/// True if request valid, otherwise false.
+///
+bool CheckRequest(HedgeClosingRequest& request)
+{
+   if(CheckPointer(CurrentPosition) == POINTER_INVALID)
+   {
+      hedgeErr = HEDGE_ERR_TRANS_NOTSELECTED;
+      return false;
+   }
+   if(request.exit_comment == NULL)
+      request.exit_comment = "";
+   request.volume = NormalizeDouble(request.volume, 3);
+   double exVol = CurrentPosition.VolumeExecuted();
+   bool eqExVol = Math::DoubleEquals(request.volume, exVol);
+   bool eqNull = Math::DoubleEquals(request.volume, 0.0);
+   
+   if((!eqExVol && request.volume > exVol) ||
+      (!eqNull && request.volume < 0.0))
+   {
+      hedgeErr = HEDGE_ERR_WRONG_VOLUME;
+      return false;
+   }
+   if(eqNull || eqExVol)
+      request.volume = exVol;
+   double step = SymbolInfoDouble(CurrentPosition.Symbol(), SYMBOL_VOLUME_STEP);
+   if(request.volume < step)
+   {
+      hedgeErr = HEDGE_ERR_WRONG_VOLUME;
+      return false;
+   }
+   return true;
+}
 ///
 /// Select active or history position.
 /// \return True if selected was successful, false otherwise.
@@ -91,17 +124,26 @@ bool HedgePositionSelect(int index, ENUM_MODE_SELECT select = SELECT_BY_POS, ENU
          //printf("Active total: " + api.ActivePosTotal());
          if(index >= api.ActivePosTotal())
          {
-            hedgeErr = HEDGE_ERR_POS_NOTFIND;
+            hedgeErr = HEDGE_ERR_WRONG_INDEX;
             return false;
          }
          CurrentPosition = api.ActivePosAt(index);
          if(CheckPointer(CurrentPosition) == POINTER_INVALID)
          {
-            hedgeErr = HEDGE_ERR_POS_NOTCOMPATIBLE;
+            hedgeErr = HEDGE_ERR_TRANS_NOTSELECTED;
             CurrentPosition = NULL;
             return false;
          }
          return true;
+      }
+      else if(select == SELECT_BY_TICKET)
+      {
+         CurrentPosition = api.FindActivePosById(index);
+         if(CheckPointer(CurrentPosition) == POINTER_INVALID)
+         {
+            hedgeErr = HEDGE_ERR_TRANS_NOTFIND;
+            return false;
+         }
       }
       return false;
    }
@@ -121,7 +163,7 @@ ulong HedgePositionGetInteger(ENUM_HEDGE_POSITION_PROP_INTEGER property) export
 {
    if(CheckPointer(CurrentPosition) == POINTER_INVALID)
    {
-      hedgeErr = HEDGE_ERR_POS_NOTFIND;
+      hedgeErr = HEDGE_ERR_TRANS_NOTSELECTED;
       return 0;
    }
    switch(property)
