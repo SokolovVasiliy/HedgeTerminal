@@ -78,7 +78,7 @@ class HedgeManager
       ///
       void OnRefresh()
       {
-         HistorySelect(timeBegin, TimeCurrent());
+         HistorySelect(timeBegin, TimeCurrent()+100);
          TrackingHistoryDeals();
          TrackingHistoryOrders();
          TrackingPendingOrders();
@@ -102,6 +102,7 @@ class HedgeManager
       ///
       int ActivePosTotal()
       {
+         //printf("API pos total " + ActivePos.Total());
          return ActivePos.Total();
       }
       ///
@@ -154,8 +155,13 @@ class HedgeManager
       void TrackingHistoryDeals()
       {
          int total = HistoryDealsTotal();
+         /*if(MQLInfoInteger(MQL_TESTER) && dealsCountNow != total)
+         {
+            printf("sleep 1000");
+            Sleep(200);
+         }*/
          //Перебираем все доступные трейды и формируем на их основе прототипы будущих позиций типа COrder
-         for(; dealsCountNow < total; dealsCountNow++)
+         for(; dealsCountNow < HistoryDealsTotal(); dealsCountNow++)
          {  
             ulong ticket = HistoryDealGetTicket(dealsCountNow);
             AddNewDeal(ticket);
@@ -396,7 +402,6 @@ class HedgeManager
       ///
       void AddNewDeal(ulong ticket)
       {
-         //printf("Deal #" + (string)ticket);
          Deal* deal = new Deal(ticket);
          if(deal.Status() == DEAL_BROKERAGE)
          {

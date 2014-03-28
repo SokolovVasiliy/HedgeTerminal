@@ -287,7 +287,7 @@ class Transaction : public CObject
       void LoadHistory(void)
       {
          if(HistoryDealsTotal() < 2)
-            HistorySelect(D'1970.01.01', TimeCurrent());
+            HistorySelect(D'1970.01.01', TimeCurrent()+100);
       }
       ENUM_DIRECTION_TYPE direction;
    private:

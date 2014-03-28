@@ -350,22 +350,34 @@ ENUM_ORDER_STATUS Order::Status(void)
 ///
 ENUM_ORDER_STATUS Order::RefreshStatus()
 {
+   //printf("Check status " + (string)GetId());
    if(IsPending())
    {
       status = ORDER_PENDING;
+      //printf("   ...is pending");
       return status;
    }
    if(IsHistory())
    {
+      //printf("   ...is history");
       if(TimeSetup() == 0)
+      {
          status = ORDER_NULL;
+         //printf("   ...time null");
+      }
       else if(activated && DealsTotal() == 0)
+      {
          status = ORDER_NULL;
+         //printf("   ...deals null");
+      }
       else
          status = ORDER_HISTORY;   
    }
    else
+   {
+      //printf("   ...else");
       status = ORDER_NULL;
+   }
    return status;
 }
 
@@ -453,8 +465,19 @@ int Order::DealsTotal()
 ///
 bool Order::IsHistory()
 {
+   /*bool res = HistoryOrderSelect(GetId());
+   if(res)
+   {
+      LoadHistory();
+      ulong setup = HistoryOrderGetInteger(GetId(), ORDER_TIME_SETUP_MSC);
+      datetime tsetup = HistoryOrderGetInteger(GetId(), ORDER_TIME_SETUP);
+      printf("Order find. Time setup: " + setup + " " + tsetup);
+   }*/
    LoadHistory();
-   if(HistoryOrderGetInteger(GetId(), ORDER_TIME_SETUP) > 0)
+   ulong ticket = GetId();
+   //printf("IsHistory(): find order " + (string)res);
+   //printf("is hitory id=" + ticket + " total=" + HistoryOrdersTotal());
+   if(HistoryOrderGetInteger(ticket, ORDER_TIME_SETUP) > 0)
       return true;
    return false;
 }
@@ -645,6 +668,7 @@ void Order::RecalcValues(void)
    }
    else if((!isCalc && IsHistory()) || IsCanceled())
    {
+      //printf("Calc history order");
       ulong id = GetId();
       priceSetup = HistoryOrderGetDouble(id, ORDER_PRICE_OPEN);
       volumeSetup = HistoryOrderGetDouble(id, ORDER_VOLUME_INITIAL);

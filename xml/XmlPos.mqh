@@ -145,6 +145,10 @@ class XmlPos
       ///
       CXmlDocument doc;
       ///
+      /// Тестовый указатель на XML документ. 
+      ///
+      CXmlDocument tempDoc;
+      ///
       /// Название xml файла, который требуется открыть.
       ///
       string xmlFile;
@@ -206,6 +210,7 @@ class XmlPos
 
 XmlPos::XmlPos(Position* pos)
 {
+   //POSITION_STATUS st = pos.Status();
    xmlFile = Settings.GetActivePosXml();
    file = new FileInfo(xmlFile, FILE_COMMON, 1);
    position = pos;
@@ -243,8 +248,9 @@ void XmlPos::CheckModify(void)
 void XmlPos::ReloadXmlDoc(void)
 {
    string error;
-   doc.Clear();
-   bool res = doc.CreateFromFile(xmlFile, error);
+   //doc.Clear();
+   //tempDoc.CopyTo(doc);
+   bool res = tempDoc.CreateFromFile(xmlFile, error);
    if(!res && !failedOpen)
    {
       LogWriter("Failed read XML file. LastError:" + (string)GetLastError(), MESSAGE_TYPE_WARNING);
@@ -253,6 +259,8 @@ void XmlPos::ReloadXmlDoc(void)
    }
    if(res)
    {
+      doc.Clear();
+      tempDoc.CopyTo(doc);
       synchronize = true;
       failedOpen = false;
       if(!IsSynchNode())
@@ -298,9 +306,11 @@ bool XmlPos::IsSynchNode(void)
       xmlItem = FindXmlNode();
       if(xmlItem == NULL)
       {
+         //ReloadXmlDoc();
          xmlItem = CreateXmlNode();
          doc.FDocumentElement.ChildAdd(xmlItem);
          doc.SaveToFile(xmlFile);
+         ReloadXmlDoc();
       }
    }
    XmlPos* xPos = new XmlPos(xmlItem);
@@ -427,8 +437,10 @@ void XmlPos::DeleteXmlNode(void)
 {
    if(CheckPointer(xmlItem))
    {
+      //ReloadXmlDoc();
       doc.FDocumentElement.ChildDelete(xmlItem);
       doc.SaveToFile(xmlFile);
+      ReloadXmlDoc();
    }
 }
 
@@ -453,7 +465,12 @@ void XmlPos::ExitComment(string comm)
 void XmlPos::LazyWriter(void)
 {
    if(isChanged && lazyCount++%5 == 0)
+   {
+      //ReloadXmlDoc();
       isChanged = !doc.SaveToFile(xmlFile);
+      ReloadXmlDoc();
+      //if(isChanged == false)
+   }
 }
 
 void XmlPos::ChangeAttribute(ENUM_ATTRIBUTE_POS attrType, string value)

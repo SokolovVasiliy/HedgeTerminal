@@ -16,12 +16,15 @@ void OnTick()
    if(total == 0)return;
    if(!HedgePositionSelect(0, SELECT_BY_POS, MODE_TRADES))return;
    HedgeClosingRequest request;
-   request.asynch_mode = true;
+   
+   ulong magic = HedgePositionGetInteger(HEDGE_POSITION_MAGIC);
+   if(magic > 0)return;
+   //request.asynch_mode = true;
    //request.volume = HedgePositionGetDouble(HEDGE_POSITION_VOLUME);
    request.exit_comment = "exit by expert";
    printf("Try closing 0 position");
    if(!HedgePositionClose(request))
-      printf(EnumToString(GetHedgeError()));
+      printf("Test API: " + EnumToString(GetHedgeError()));
 }
 
 

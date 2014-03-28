@@ -11,6 +11,8 @@
 /// if this const define using Hedge API library, otherwise using classic mode for only one expert.
 ///
 #define HEDGES
+#define API_INTRO
+#include "\API\HedgePanelAPI.mq5"
 #include "MovingAverageExpert.mqh"
 ///
 /// Array of experts.

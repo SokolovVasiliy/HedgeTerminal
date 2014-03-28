@@ -356,7 +356,7 @@ bool MAExpert::DetectNewBar(void)
    if(bars[0].time != timeLastBar)
    {
       timeLastBar = bars[0].time;
-      printf(expertName + " new bar detected: " + TimeToString(bars[0].time));
+      //printf(expertName + " new bar detected: " + TimeToString(bars[0].time));
       return true;
    }
    return false;
@@ -409,7 +409,7 @@ bool MAExpert::CrossOver(void)
    CopyBuffer(handleFastMA, 0, 1, 1, fastSma);
    double slowSma[1];
    CopyBuffer(handleSlowMA, 0, 1, 1, slowSma);
-   printf((string)fastSma[0] + " - " + (string)slowSma[0]);
+   //printf((string)fastSma[0] + " - " + (string)slowSma[0]);
    if(fastSma[0] > slowSma[0])
       return true;
    return false;
@@ -439,6 +439,7 @@ void MAExpert::TryOpenShortPos(void)
 
 void MAExpert::TryCloseAllShortPos(void)
 {
+   //printf("Try close all short pos");
    if(CrossUnder())return;
    #ifdef HEDGES
       for(int i = 0; i < indexMyShortPos.Total(); i++)
@@ -463,7 +464,7 @@ void MAExpert::TryOpenLongPos(void)
 
 void MAExpert::TryCloseAllLongPos(void)
 {
-   
+   //printf("Try Close all long pos");
    if(CrossOver())return;
    #ifdef HEDGES
       for(int i = 0; i < indexMyLongPos.Total(); i++)
@@ -479,13 +480,12 @@ void MAExpert::TryCloseAllLongPos(void)
 
 void MAExpert::TryCloseCurrentPos()
 {
-   //#ifdef HEDGES
-   printf("close hedge position.");
-   /*if(!HedgePositionSelect())
+   #ifdef HEDGES
+   if(!HedgePositionSelect())
    {
       printf(expertName + " " + "Hedge position not seleted.");
       return;
-   }*/
+   }
    HedgeClosingRequest request;
    request.asynch_mode = true;
    //request.volume = 0.1;
@@ -493,17 +493,16 @@ void MAExpert::TryCloseCurrentPos()
    //request.close_type = CLOSE_AS_MARKET; 
    HedgePositionClose(request);
    if(!HedgePositionClose(request))
-      printf(EnumToString(GetHedgeError()));
-   //#endif 
-   /*#ifndef HEDGES
+      printf("MAExpert: " + EnumToString(GetHedgeError()) + " " + GetHedgeError());
+   #endif 
+   #ifndef HEDGES
    PositionSelect(symbol);
    ENUM_POSITION_TYPE posType = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
    if(posType == POSITION_TYPE_BUY)
       trade.Sell(GetLot(), NULL, 0.0, 0.0, 0.0, "Exit from buy");
    else
       trade.Buy(GetLot(), NULL, 0.0, 0.0, 0.0, "Exit from sell");
-   
-   #endif*/
+   #endif
 }
 
 #ifdef HEDGES
@@ -524,6 +523,7 @@ void MAExpert::PrintStackActions(void)
 
 void MAExpert::Run(void)
 {
+   //printf(TestLoadApi());
    if(!DetectNewBar())return;
    RecalcCountPosition();
    if(longsPos > 0)

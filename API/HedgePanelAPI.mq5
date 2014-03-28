@@ -70,10 +70,15 @@ int HistoryPositionsTotal() export
 ///
 bool HedgePositionClose(HedgeClosingRequest& request)export
 {
-   if(!CheckRequest(request))return false;
+   if(!CheckRequest(request))
+      return false;
    CurrentPosition.ExitComment(request.exit_comment);
-   bool res = CurrentPosition.AddTask(new TaskClosePartPosition(CurrentPosition, request.volume));
-   return res;
+   ENUM_HEDGE_ERR err = CurrentPosition.AddTask(new TaskClosePartPosition(CurrentPosition, request.volume));
+   hedgeErr = err;
+   if(hedgeErr == HEDGE_ERR_NOT_ERROR)
+      return true;
+   else
+      return false;
 }
 
 ///
@@ -272,4 +277,9 @@ void GetResultTarget(uint index, ENUM_TARGET_TYPE &target_type, uint& retcode)ex
    if(taskLog.Total() >= index)
       return;
    taskLog.GetRetcode(index, target_type, retcode);
+}
+
+int TestLoadApi(void)export
+{
+   return 12382;
 }

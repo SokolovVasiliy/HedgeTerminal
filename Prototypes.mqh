@@ -210,6 +210,10 @@ enum ENUM_HEDGE_ERR
    ///
    HEDGE_ERR_NOT_ERROR,
    ///
+   /// Task was failed.
+   ///
+   HEDGE_ERR_TASK_FAILED,
+   ///
    /// Transaction not find or missing.
    ///
    HEDGE_ERR_TRANS_NOTFIND,
@@ -232,7 +236,7 @@ enum ENUM_HEDGE_ERR
    ///
    /// Selected position in the change process, and can not be read or modified.
    ///
-   HEDGE_ERR_POS_FROZEN
+   HEDGE_ERR_POS_FROZEN,
 };
 
 ///
@@ -286,12 +290,14 @@ struct HedgeClosingRequest
    ///
    HedgeClosingRequest()
    {
-      //volume = 0.0;
+      volume = 0.0;
    }
 };
 
 #ifndef API_INTRO
-#import ".\API\HedgePanelAPI.ex5"
+#import "HedgePanelAPI.ex5"
+//#import ".\API\HedgePanelAPI.ex5"
+   int TestLoadApi(void);
    ///
    /// Return last error of Hedge terminal API.
    ///

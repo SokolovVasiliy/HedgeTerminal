@@ -125,7 +125,7 @@ class Position : public Transaction
       bool Unmanagment(void);
       bool VirtualStopLoss(){return isVirtualStopLoss;}
       
-      bool AddTask(Task2* task);
+      ENUM_HEDGE_ERR AddTask(Task2* task);
       Order* FindOrderById(ulong id);
       void TaskChanged();
       ///
@@ -1262,28 +1262,27 @@ bool Position::Unmanagment()
 /// Забирает задачу на выполнение и запускает ее.
 /// \return Ложь, если статус задачи после первого выполнения
 ///
-bool Position::AddTask(Task2 *ctask)
+ENUM_HEDGE_ERR Position::AddTask(Task2 *ctask)
 {
    if(CheckPointer(ctask) == POINTER_INVALID)
-      return false;
+      return HEDGE_ERR_TASK_FAILED;
    if(CheckPointer(task2) != POINTER_INVALID)
    {
       if(task2.IsActive())
       {
          ctask.Status(TASK_STATUS_FAILED);
          delete ctask;
-         //taskLog.Status(TASK_STATUS_FAILED);
          taskLog.AddRedcode(TARGET_CREATE_TASK, TRADE_RETCODE_FROZEN);
-         return false;
+         return HEDGE_ERR_POS_FROZEN;
       }
    }
    taskLog.Clear();
    task2 = ctask;
    task2.Execute();
    if(CheckPointer(task2) == POINTER_INVALID || task2.Status() == TASK_STATUS_FAILED)
-      return false;
+      return HEDGE_ERR_TASK_FAILED;
    else
-      return true;
+      return HEDGE_ERR_NOT_ERROR;
 }
 
 ///

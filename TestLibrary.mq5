@@ -10,26 +10,30 @@
 
 int OnInit()
 {
-   TestAPI();
    return(INIT_SUCCEEDED);
 }
 
 
 void OnTick()
 {
-      
+   TestAPI();
 }
 
 void TestAPI()
 {
    int total = ActivePositionsTotal();
-   bool res = HedgePositionSelect(0, SELECT_BY_POS, MODE_TRADES);
-   HedgePositionSelect();
-   printf((string)total + " " + (string)res);
-   HedgeClosingRequest request;
-   //request.asynch_mode = true;
-   //request.volume = 0.1;
-   request.exit_comment = "exit by expert";
-   if(!HedgePositionClose(request))
-      printf(EnumToString(GetHedgeError()));
+   for(int i = 0; i < ActivePositionsTotal(); i++)
+   {
+      if(!HedgePositionSelect(i, SELECT_BY_POS, MODE_TRADES))
+         return;
+      ulong magic = HedgePositionGetInteger(HEDGE_POSITION_MAGIC);
+      //HedgePositionGetInteger(HEDGE_POSITION_);
+      if(magic > 0)continue;
+      HedgeClosingRequest request;
+      //request.asynch_mode = true;
+      //request.volume = 0.1;
+      request.exit_comment = "exit by expert";
+      if(!HedgePositionClose(request))
+         printf(EnumToString(GetHedgeError()));
+   }
 }

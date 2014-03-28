@@ -49,5 +49,9 @@ void XmlGarbage::ClearActivePos(string fileName, CArrayObj *posList)
       delete xPos;
    }
    if(res)
+   {
       doc.SaveToFile(fileName);
+      doc.Clear();
+      doc.CreateFromFile(fileName, error);
+   }
 }

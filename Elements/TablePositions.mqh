@@ -168,6 +168,7 @@ class TablePositions : public Table
             if(twb != NULL && twb.State() != BOX_TREE_RESTORE)continue;
             twb.OnPush();
          }
+         
       }
       
       
