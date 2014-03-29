@@ -21,7 +21,8 @@ input int RefreshRate = 200;
 
 HedgeManager* api;
 MainForm* HedgePanel;
-
+/// Временный глобальный указатель.
+//TablePositions* tableHistory;
 ///
 /// Инициализирующая функция.
 ///
@@ -58,8 +59,20 @@ void OnDeinit(const int reason)
 ///
 /// Вызывает логику эксперта с определенной периодичностью.
 ///
+int counts;
+int l;
 void OnTimer(void)
 {
+   /*if(tableHistory != NULL && counts++%5==0)
+   {
+      printf("table move...");
+      int ind = 0;
+      if(l < tableHistory.LinesTotal())
+         ind = l++;
+      else
+         ind = tableHistory.LinesTotal();
+      tableHistory.LineVisibleFirst(ind);
+   }*/
    EventRefresh* refresh = new EventRefresh(EVENT_FROM_UP, "TERMINAL REFRESH");
    api.Event(refresh);
    #ifdef HEDGE_PANEL
@@ -110,6 +123,7 @@ void OnChartEvent(const int id,
 {
    #ifdef HEDGE_PANEL
    chartEventCount++;
+   printf(id);
    //Координаты мыши или комбинация нажатых кнопок мыши изменились.
    if(id == CHARTEVENT_MOUSE_MOVE)
    {

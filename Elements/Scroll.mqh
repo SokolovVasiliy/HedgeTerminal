@@ -302,7 +302,6 @@ class Scroll : public ProtoNode
    public:
       Scroll(string myName, ProtoNode* parNode) : ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_SCROLL, myName, parNode)
       {
-         
          BackgroundColor(clrWhiteSmoke); 
          //у скрола есть две кнопки и ползунок.
          up = new ClickScroll(GetPointer(this), parNode, CLICK_SCROLL_UP);

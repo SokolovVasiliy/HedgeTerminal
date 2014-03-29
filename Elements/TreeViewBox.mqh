@@ -91,6 +91,7 @@ class TreeViewBox : public Label
                //Создаем событие "Список свернут".
                //string name = parentNode.NameID();
                EventCollapseTree* ctree = new EventCollapseTree(EVENT_FROM_DOWN, parentNode, true);
+               //ctree.NeedRefresh();
                EventSend(ctree);
                delete ctree;
             }
@@ -123,6 +124,7 @@ class TreeViewBoxBorder : public Label
    public:
       TreeViewBoxBorder(string nameCheck, ProtoNode* parNode, ENUM_BOX_TREE_TYPE TreeType) : Label(ELEMENT_TYPE_TREE_BORDER, nameCheck, parNode)
       {
+         needRefresh = true;
          ReadOnly(true);
          treeType = TreeType;
          if(treeType == BOX_TREE_GENERAL)
@@ -171,6 +173,7 @@ class TreeViewBoxBorder : public Label
                if(parentNode.TypeElement() != ELEMENT_TYPE_POSITION)return;
                ENUM_ELEMENT_TYPE el_type = parentNode.TypeElement();
                EventCollapseTree* collapse = new EventCollapseTree(EVENT_FROM_DOWN, parentNode, false);
+               collapse.NeedRefresh(needRefresh);
                EventSend(collapse);
                delete collapse;
             }
@@ -181,6 +184,7 @@ class TreeViewBoxBorder : public Label
                if(brdGeneral != NULL)
                   brdGeneral.Text("+");
                EventCollapseTree* collapse = new EventCollapseTree(EVENT_FROM_DOWN, parentNode, true);
+               collapse.NeedRefresh(needRefresh);
                EventSend(collapse);
                delete collapse;
             }
@@ -190,6 +194,7 @@ class TreeViewBoxBorder : public Label
       {
          brdGeneral.FontColor(clrFont);  
       }
+      void NeedRefresh(bool refresh){needRefresh = refresh;}
    private:      
       
       virtual void OnCommand(EventNodeCommand* event)
@@ -258,4 +263,5 @@ class TreeViewBoxBorder : public Label
       /// Тип элемента.
       ///
       ENUM_BOX_TREE_TYPE treeType;
+      bool needRefresh;
 };

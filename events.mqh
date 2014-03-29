@@ -788,16 +788,41 @@ class EventOrderPending : public Event
 };
 
 #ifdef HEDGE_PANEL
+///
+/// “ип обновлени€ линий после сворачивани€ разворачивани€ позиции.
+///
+enum ENUM_REFRESH_LINES
+{
+   ///
+   /// ќбновить все линии.
+   ///
+   REFRESH_ALL,
+   ///
+   /// ќбновить линии распологающиес€ после свернутой/развернутой позиции.
+   ///
+   REFRESH_AFTER,
+   ///
+   /// Ќе обновл€ть линии.
+   ///
+   REFRESH_NONE
+};
 class EventCollapseTree : public Event
 {
    public:
       EventCollapseTree(ENUM_EVENT_DIRECTION myDir, ProtoNode* myNode, bool isCollapse) : Event(EVENT_FROM_DOWN, EVENT_COLLAPSE_TREE, myNode)
       {
-         #ifdef HEDGE_PANEL
          n_line = myNode.NLine();
-         #endif
          status = isCollapse;
+         needRefresh = true;
       }
+      ///
+      /// ¬озвращает истину, если требуетс€ обновление дл€ текущей строки и ложь в противном случае.
+      ///
+      bool NeedRefresh(){return needRefresh;}
+      ///
+      /// ”станавливает режим обновлени€ дл€ строки.
+      ///
+      void NeedRefresh(bool refresh){needRefresh = refresh;}
       ///
       /// ¬озвращает состо€ние списка.
       /// \return »стина, если список закрыт и ложь в противном случае.
@@ -820,6 +845,10 @@ class EventCollapseTree : public Event
       /// Ќомер строки в списке дочерних элементов, котора€ была свернута/развернута
       ///
       int n_line;
+      ///
+      /// »стина, если требуетс€ обновление и ложь в противном случае.
+      ///
+      bool needRefresh;
 };
 #endif
 ///

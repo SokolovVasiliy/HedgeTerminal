@@ -8,7 +8,6 @@
    #include "..\Events.mqh"
 #endif
 
-
 class ProtoNode : public CObject
 {
    public:

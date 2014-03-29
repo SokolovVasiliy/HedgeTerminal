@@ -133,7 +133,8 @@ class TablePositions : public Table
          }
          //ќбновл€ем рабочую область дл€ гарантированного позиционировани€
          //строк.
-         AllocationWorkTable();
+         if(event.NeedRefresh())
+            AllocationWorkTable();
          //—кролл реагирует на разворачивани€ списка
          AllocationScroll();
       }
@@ -151,7 +152,10 @@ class TablePositions : public Table
             TreeViewBoxBorder* twb = posLine.GetCell(COLUMN_COLLAPSE);
             if(twb != NULL && twb.State() != BOX_TREE_COLLAPSE)continue;
             ENUM_ELEMENT_TYPE elType = twb.TypeElement();
+            bool res = i == workArea.ChildsTotal()-1;
+            twb.NeedRefresh(res);
             twb.OnPush();
+            twb.NeedRefresh(true);
          }
       }
       ///
@@ -166,7 +170,10 @@ class TablePositions : public Table
             PosLine* posLine = node;
             TreeViewBoxBorder* twb = posLine.GetCell(COLUMN_COLLAPSE);
             if(twb != NULL && twb.State() != BOX_TREE_RESTORE)continue;
+            bool res = i == workArea.ChildsTotal()-1;
+            twb.NeedRefresh(res);
             twb.OnPush();
+            twb.NeedRefresh(true);
          }
          
       }
@@ -243,7 +250,7 @@ class TablePositions : public Table
             if(tbox.State() == BOX_TREE_RESTORE)
                tbox.OnPush();
          }
-         workArea.Delete(posLine.NLine());
+         workArea.DeleteRange(posLine.NLine(), 1);
       }
       ///
       /// ќбновл€ет все свойства позиции. ≈сли позиции нет в таблице,
@@ -338,8 +345,6 @@ class TablePositions : public Table
             count++;
          }
          workArea.DeleteRange(sn_line+1, count);
-         //PosLine* posLine = node;
-         //posLine.IsRestory(false);
       }
       ///
       /// ¬озвращает истину, если текуща€ позици€ относитс€ к текущему контексту таблицы.

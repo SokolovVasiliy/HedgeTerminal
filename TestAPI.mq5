@@ -9,8 +9,19 @@
 #define API_INTRO
 #include "\API\HedgePanelAPI.mq5"
 #include "Prototypes.mqh"
+#include ".\Elements\ScrollingNode.mqh"
+
+int OnInit()
+{
+   Singleton* inst = Singleton::getInstance();
+   inst.AddTask();
+   return INIT_SUCCEEDED;
+}
+
 void OnTick()
 {
+   Singleton* inst = Singleton::getInstance();
+   inst.AddTask();
    //printf((string)ERR_INDICATOR_DATA_NOT_FOUND);
    int total = ActivePositionsTotal();   
    if(total == 0)return;

@@ -37,7 +37,7 @@ class CWorkArea : public Label
       ///
       /// Удаляет строку по индексу index из таблицы строк.
       ///
-      void Delete(int index)
+      /*void Delete(int index)
       {
          ProtoNode* line = ChildElementAt(index);
          EventVisible* vis = new EventVisible(EVENT_FROM_UP, GetPointer(this), false);
@@ -47,7 +47,7 @@ class CWorkArea : public Label
          //Все последующие элементы изменили свое положение
          for(int i = index; i < ChildsTotal(); i++)
             RefreshLine(i);
-      }
+      }*/
       ///
       /// Удаляет диапазон строк из таблицы строк.
       /// \param index - индекс первой удаляемой строки.
@@ -65,8 +65,8 @@ class CWorkArea : public Label
             childNodes.Delete(index);
          }
          //Все последующие элементы изменили свое положение
-         for(int i = index; i < ChildsTotal(); i++)
-            RefreshLine(i);
+         //for(int i = index; i < ChildsTotal(); i++)
+         //   RefreshLine(i);
       }
       ///
       /// Обновляет координаты и размер линии по индексу index
@@ -129,7 +129,6 @@ class CWorkArea : public Label
       ///
       void LineVisibleFirst(int index)
       {               
-         
          if(index == visibleFirst)return;
          // Скрывает нижние строки и отображает верхние.
          if(index < visibleFirst)
@@ -286,36 +285,7 @@ class CWorkArea : public Label
       {
          //Команды снизу не принимаются.
          if(!Visible() || event.Direction() == EVENT_FROM_DOWN)return;
-         //printf("Вызываю OnCommand...");
          OnCommand();
-         return;
-         int total = ChildsTotal();
-         //Узнаем потенциальное количество строк, которое может разместиться
-         //при текущем размере таблице.
-         long highTable = High();
-         double lines = MathFloor(High()/20.0);
-         //Появилась возможность отобразить дополнительные линии?
-         
-         //Если теперь все линии вмещаются в таблицу - 
-         //отображаем их все.
-         if(total <= lines)
-         {
-            visibleFirst = 0;
-            for(int i = visibleFirst; i < total; i++)
-               RefreshLine(i);
-            return;
-         }
-         //Иначе, считаем линии, для которых не осталось места
-         int dn_line = total - (visibleFirst + visibleCount);
-         //Можно также отобразить часть нижних линий
-         if(visibleCount + dn_line < lines)
-         {
-            int n = (int)(lines - (dn_line + visibleCount));
-            visibleFirst -= n;
-         }
-         //else visibleFirst = total - lines;
-         for(int i = visibleFirst; i < total; i++)
-            RefreshLine(i);
       }
       ///
       /// Размещает линии согласно алгоритму таблицы.

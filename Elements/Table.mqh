@@ -129,6 +129,15 @@ class Table : public Label
          scroll.Event(command);
          delete command;
       }
+      ///
+      /// Алгоритм размещения нового скролла таблицы.
+      ///
+      void AllocationNewScroll()
+      {
+         EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), Width()-21, 1, 20, High()-2);
+         nscroll.Event(command);
+         delete command;
+      }
       /*TableDirective* SetTable()
       {
          return GetPointer(tDir);
@@ -160,6 +169,11 @@ class Table : public Label
       /// Скролл.
       ///
       Scroll* scroll;
+      ///
+      /// Новый скролл.
+      ///
+      NewScroll* nscroll;
+      
       virtual Line* InitHeader()
       {
          return new Line("Header", ELEMENT_TYPE_TABLE_HEADER, GetPointer(this));
@@ -187,8 +201,13 @@ class Table : public Label
          scroll.BorderType(BORDER_FLAT);
          scroll.BorderColor(clrBlack);
          
+         nscroll = new NewScroll("NewScroll", GetPointer(this), SCROLL_VERTICAL);
+         nscroll.BorderType(BORDER_FLAT);
+         nscroll.BorderColor(clrBlack);
+         childNodes.Add(nscroll);
+         
          childNodes.Add(workArea);
-         childNodes.Add(scroll);
+         //childNodes.Add(scroll);
       }
       virtual void OnCommand(EventVisible* event)
       {
@@ -198,7 +217,9 @@ class Table : public Label
          //Размещаем рабочую область.
          AllocationWorkTable();
          //Размещаем скролл.
-         AllocationScroll();
+         //AllocationScroll();
+         //
+         AllocationNewScroll();
       }
       virtual void OnCommand(EventNodeCommand* event)
       {
@@ -211,6 +232,8 @@ class Table : public Label
          AllocationWorkTable();
          //Размещаем скролл.
          AllocationScroll();
+         //
+         AllocationNewScroll();
       }
       
       ///
