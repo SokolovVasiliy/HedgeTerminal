@@ -888,9 +888,9 @@ class ProtoNode : public CObject
       void Redraw(EventRedraw* event)
       {
          //Команда актуальна только для видимых элементов
-         if(Visible())
+         if(ParVisible())
          {
-            ChartRedraw(MAIN_WINDOW);
+            //ChartRedraw(MAIN_WINDOW);
             OnRedraw(event);
          }
       }

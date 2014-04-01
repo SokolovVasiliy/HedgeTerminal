@@ -123,7 +123,7 @@ void OnChartEvent(const int id,
 {
    #ifdef HEDGE_PANEL
    chartEventCount++;
-   printf(id);
+   //printf(id);
    //Координаты мыши или комбинация нажатых кнопок мыши изменились.
    if(id == CHARTEVENT_MOUSE_MOVE)
    {

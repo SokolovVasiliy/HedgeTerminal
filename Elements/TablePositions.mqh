@@ -26,6 +26,7 @@ class TablePositions : public Table
       
       virtual void OnEvent(Event* event)
       {
+         Table::OnEvent(event);
          switch(event.EventId())
          {
             case EVENT_REFRESH:
@@ -136,7 +137,7 @@ class TablePositions : public Table
          if(event.NeedRefresh())
             AllocationWorkTable();
          //Скролл реагирует на разворачивания списка
-         AllocationScroll();
+         //AllocationScroll();
       }
       ///
       /// Разворачивает весь список позиций.

@@ -285,7 +285,7 @@ class ClickScroll : public Button
       int itt;
       ///
       /// Время работы терминала в миллисекундах на момент последнего
-      /// вызова функции OnMouseMove. 
+      /// вызова функции OnMouseMove.
       ///
       long lastCall;
       ///

@@ -26,6 +26,8 @@ class CWorkArea : public Label
          
          childNodes.Insert(lineNode, pos);
          lineNode.NLine(pos);
+         if(CheckPointer(scroll) != POINTER_INVALID)
+            scroll.TotalSteps(childNodes.Total());
          //после вставки элемента, все последующие элементы изменили свои координаты.
          //uint tbegin = GetTickCount();
          //OnCommand();
@@ -134,8 +136,7 @@ class CWorkArea : public Label
          if(index < visibleFirst)
          {
             //ѕерва€ отображаема€ лини€ не может выходить за пределы таблицы.
-            if(index < 0 || index >= childNodes.Total()||
-               index >= visibleFirst)return;
+            if(index < 0 || index >= childNodes.Total())return;
             visibleFirst = index;
             for(int i = visibleFirst; i < ChildsTotal(); i++)
                RefreshLine(i);
@@ -144,7 +145,7 @@ class CWorkArea : public Label
          if(index > visibleFirst)
          {
             if(index < 0 || LineVisibleFirst() == index ||
-            index <= visibleFirst) return;
+            index >= visibleFirst + visibleCount) return;
             //ѕолзунок перемещен вниз - скрываем верхние строки.
             int total = childNodes.Total();
             //int i = 0;
@@ -161,8 +162,29 @@ class CWorkArea : public Label
             for(; i < total; i++)
                RefreshLine(i);
          }
+         if(CheckPointer(scroll) != POINTER_INVALID)
+            scroll.CurrentStep(visibleFirst);
          //ѕозиционируем скролл, вс€кий раз после прокрутики таблицы.
-         table.AllocationScroll();
+         //table.AllocationScroll();
+      }
+      ///
+      /// ƒобавл€ет ссылку на скролл.
+      ///
+      void AddScroll(NewScroll2* nscroll)
+      {
+         scroll = nscroll;
+      }
+      ///
+      /// ќбрабатывает событие изменени€ состо€ни€ скролла.
+      ///
+      void OnScrollChanged()
+      {
+         if(CheckPointer(scroll) == POINTER_INVALID)
+            return;
+         if(scroll.CurrentStep() != LineVisibleFirst())
+         {
+            LineVisibleFirst(scroll.CurrentStep());
+         }
       }
    private:
    
@@ -205,6 +227,8 @@ class CWorkArea : public Label
             highTotal -= node.High();
             --visibleCount;  
          }
+         if(CheckPointer(scroll) != POINTER_INVALID)
+            scroll.VisibleSteps(visibleCount);
       }
       ///
       /// ”станавливает курсор на строку таблицы, по которой
@@ -377,4 +401,8 @@ class CWorkArea : public Label
       /// ”казатель на родительскую таблицу.
       ///
       Table* table;
+      ///
+      /// ”казатель на вертикальный скролл.
+      ///
+      NewScroll2* scroll;
 };

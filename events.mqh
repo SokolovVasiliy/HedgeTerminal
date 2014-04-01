@@ -214,7 +214,11 @@ enum ENUM_EVENT
    ///
    /// Идентификатор события обновления графической панели.
    ///
-   EVENT_REFRESH_PANEL
+   EVENT_REFRESH_PANEL,
+   ///
+   /// Идентификатор события состояние скролла изменилось.
+   ///
+   EVENT_SCROLL_CHANGED
 };
 
 
@@ -1101,5 +1105,21 @@ class EventRefreshPanel : public Event
 {
    public:
       EventRefreshPanel() : Event(EVENT_FROM_UP, EVENT_REFRESH_PANEL, "HEDGE API"){;}
+};
+#endif
+
+#ifdef HEDGE_PANEL
+class NewScroll2;
+///
+/// Событие уведомляющее об изменении состояния скролла.
+///
+class EventScrollChanged : public Event
+{
+   public:
+      EventScrollChanged(ENUM_EVENT_DIRECTION dir, NewScroll2* scroll) : Event(dir, EVENT_SCROLL_CHANGED, scroll){;}
+      ///
+      /// Возвращает указатель на измененный скролл.
+      ///
+      NewScroll2* GetScroll(){return Node();}
 };
 #endif

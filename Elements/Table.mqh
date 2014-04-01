@@ -123,12 +123,12 @@ class Table : public Label
       ///
       /// Алгоритм размещения скролла таблицы.
       ///
-      void AllocationScroll()
+      /*void AllocationScroll()
       {
          EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), Width()-21, 1, 20, High()-2);
          scroll.Event(command);
          delete command;
-      }
+      }*/
       ///
       /// Алгоритм размещения нового скролла таблицы.
       ///
@@ -137,6 +137,9 @@ class Table : public Label
          EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), Width()-21, 1, 20, High()-2);
          nscroll.Event(command);
          delete command;
+         /*command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 2, 2, Width()-4, 20);
+         gscroll.Event(command);
+         delete command;*/
       }
       /*TableDirective* SetTable()
       {
@@ -146,6 +149,16 @@ class Table : public Label
       /// Возвращает тип текущей таблицы.
       ///
       ENUM_TABLE_TYPE TableType(){return tblType;}
+      virtual void OnEvent(Event* event)
+      {
+         switch(event.EventId())
+         {
+            case EVENT_SCROLL_CHANGED:
+               if(nscroll != NULL)
+                  workArea.OnScrollChanged();
+               break;
+         }
+      }
    protected:
       Table(string myName, ProtoNode* parNode, ENUM_TABLE_TYPE tableType = TABLE_POSACTIVE):Label(ELEMENT_TYPE_TABLE, myName, parNode)
       {
@@ -172,7 +185,11 @@ class Table : public Label
       ///
       /// Новый скролл.
       ///
-      NewScroll* nscroll;
+      NewScroll2* nscroll;
+      ///
+      /// Горизонтальный скролл.
+      ///
+      NewScroll2* gscroll;
       
       virtual Line* InitHeader()
       {
@@ -182,7 +199,7 @@ class Table : public Label
       /// Содержит набор параметров, характеризущих настройки таблицы.
       ///
       //TableDirective tDir;
-      
+
    private:
       void Init(string myName, ProtoNode* parNode)
       {
@@ -197,18 +214,29 @@ class Table : public Label
          workArea.Text("");
          workArea.BorderColor(BackgroundColor());
          
-         scroll = new Scroll("Scroll", GetPointer(this));
+         /*scroll = new Scroll("Scroll", GetPointer(this));
          scroll.BorderType(BORDER_FLAT);
          scroll.BorderColor(clrBlack);
+         childNodes.Add(scroll);*/
          
-         nscroll = new NewScroll("NewScroll", GetPointer(this), SCROLL_VERTICAL);
+         
+         nscroll = new NewScroll2("", GetPointer(this), SCROLL_VERTICAL);
          nscroll.BorderType(BORDER_FLAT);
          nscroll.BorderColor(clrBlack);
+         workArea.AddScroll(nscroll);
          childNodes.Add(nscroll);
+         
+         //Тестовый горизонтальный скролл.
+         gscroll = new NewScroll2("NewScroll", GetPointer(this), SCROLL_HORIZONTAL);
+         gscroll.BorderType(BORDER_FLAT);
+         gscroll.BorderColor(clrBlack);
+         childNodes.Add(gscroll);
          
          childNodes.Add(workArea);
          //childNodes.Add(scroll);
       }
+      
+      
       virtual void OnCommand(EventVisible* event)
       {
          if(!event.Visible())return;
@@ -231,11 +259,10 @@ class Table : public Label
          //Размещаем рабочую область.
          AllocationWorkTable();
          //Размещаем скролл.
-         AllocationScroll();
+         //AllocationScroll();
          //
          AllocationNewScroll();
       }
-      
       ///
       /// Ширина линии.
       ///
