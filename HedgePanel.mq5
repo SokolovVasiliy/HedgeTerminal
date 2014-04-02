@@ -28,6 +28,9 @@ MainForm* HedgePanel;
 ///
 void OnInit(void)
 {  
+   //int k = 0;
+   //for(int i = 10; i >=0; --i)
+   //   k = i;
    //Settings* set = Settings::GetSettings1();
    Settings = PanelSettings::Init();
    EventSetMillisecondTimer(RefreshRate);
@@ -131,6 +134,7 @@ void OnChartEvent(const int id,
       EventMouseMove* move = new EventMouseMove(lparam, (long)dparam, mask);
       HedgePanel.Event(move);
       delete move;
+      return;
    }
    //Размеры базового окна изменились.
    if(id == CHARTEVENT_CHART_CHANGE)

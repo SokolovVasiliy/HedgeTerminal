@@ -23,33 +23,25 @@ class CWorkArea : public Label
       ///
       void Add(ProtoNode* lineNode, int pos)
       {
-         
          childNodes.Insert(lineNode, pos);
          lineNode.NLine(pos);
-         if(CheckPointer(scroll) != POINTER_INVALID)
-            scroll.TotalSteps(childNodes.Total());
-         //после вставки элемента, все последующие элементы изменили свои координаты.
-         //uint tbegin = GetTickCount();
-         //OnCommand();
-         //printf("Add El: " + (string)(GetTickCount() - tbegin));
-         /*int total = ChildsTotal();
-         for(int i = pos; i < total; i++)
-            RefreshLine(i);*/
+         ChangeScroll();
       }
       ///
-      /// Удаляет строку по индексу index из таблицы строк.
+      /// Рассчитывает общее количество шагов для скролла.
       ///
-      /*void Delete(int index)
+      int CalcTotalStepsForScroll()
       {
-         ProtoNode* line = ChildElementAt(index);
-         EventVisible* vis = new EventVisible(EVENT_FROM_UP, GetPointer(this), false);
-         line.Event(vis);
-         delete vis;
-         childNodes.Delete(index);
-         //Все последующие элементы изменили свое положение
-         for(int i = index; i < ChildsTotal(); i++)
-            RefreshLine(i);
-      }*/
+         // Дополнительный зазор.
+         int lineClearance = 2;
+         //Общее количество линий, которое может вместиться в форму.
+         int lines = (int)MathFloor(High()/highLine);
+         if(lines >= lineClearance + childNodes.Total())
+            return 0;
+         int total = childNodes.Total() + lineClearance - lines;
+         return total;
+      }
+      
       ///
       /// Удаляет диапазон строк из таблицы строк.
       /// \param index - индекс первой удаляемой строки.
@@ -66,9 +58,7 @@ class CWorkArea : public Label
             delete vis;
             childNodes.Delete(index);
          }
-         //Все последующие элементы изменили свое положение
-         //for(int i = index; i < ChildsTotal(); i++)
-         //   RefreshLine(i);
+         ChangeScroll();
       }
       ///
       /// Обновляет координаты и размер линии по индексу index
@@ -105,14 +95,14 @@ class CWorkArea : public Label
       ///
       long LinesHighTotal()
       {
-         return childNodes.Total()*20;
+         return childNodes.Total()*highLine;
       }
       ///
       /// Возвращает общую высоту всех видимых линий в таблице.
       ///
       long LinesHighVisible()
       {
-         return LinesVisible()*20;
+         return LinesVisible()*highLine;
       }
       ///
       /// Возвращает индекс первой видимой строки.
@@ -144,11 +134,10 @@ class CWorkArea : public Label
          // Скрывает верхние строки и отображает нижние.
          if(index > visibleFirst)
          {
-            if(index < 0 || LineVisibleFirst() == index ||
-            index >= visibleFirst + visibleCount) return;
-            //Ползунок перемещен вниз - скрываем верхние строки.
             int total = childNodes.Total();
-            //int i = 0;
+            if(index < 0 || LineVisibleFirst() == index ||
+               index > total) return;
+            //Ползунок перемещен вниз - скрываем верхние строки.
             int i = visibleFirst;
             for(; i < index; i++)
             {
@@ -162,10 +151,7 @@ class CWorkArea : public Label
             for(; i < total; i++)
                RefreshLine(i);
          }
-         if(CheckPointer(scroll) != POINTER_INVALID)
-            scroll.CurrentStep(visibleFirst);
-         //Позиционируем скролл, всякий раз после прокрутики таблицы.
-         //table.AllocationScroll();
+         ChangeScroll();
       }
       ///
       /// Добавляет ссылку на скролл.
@@ -207,6 +193,9 @@ class CWorkArea : public Label
             OnKeyPress(event);
             EventSend(event);
          }
+         //Обрабатываем передвижение мыши.
+         //else if(event.EventId() == EVENT_MOUSE_MOVE)
+         //   return;
          else
             EventSend(event);
       }
@@ -227,8 +216,6 @@ class CWorkArea : public Label
             highTotal -= node.High();
             --visibleCount;  
          }
-         if(CheckPointer(scroll) != POINTER_INVALID)
-            scroll.VisibleSteps(visibleCount);
       }
       ///
       /// Устанавливает курсор на строку таблицы, по которой
@@ -317,10 +304,12 @@ class CWorkArea : public Label
       void OnCommand()
       {
          int total = ChildsTotal();
-         double lines = MathFloor(High()/20.0);
+         double lines = MathFloor(High()/(double)highLine);
          if(total <= lines)
          {
+            //LineVisibleFirst(visibleFirst);
             visibleFirst = 0;
+            ChangeScroll();
             for(int i = visibleFirst; i < total; i++)
                RefreshLine(i);
             return;
@@ -335,6 +324,18 @@ class CWorkArea : public Label
          }
          for(int i = visibleFirst; i < total; i++)
             RefreshLine(i);
+         ChangeScroll();
+      }
+      ///
+      /// Обновляет параметры скролла.
+      ///
+      void ChangeScroll(void)
+      {
+         if(CheckPointer(scroll) != POINTER_INVALID)
+         {
+            scroll.CurrentStep(visibleFirst);
+            scroll.TotalSteps(CalcTotalStepsForScroll());
+         }
       }
       ///
       /// Нечетные строки подкрашиваются в более темный оттенок.

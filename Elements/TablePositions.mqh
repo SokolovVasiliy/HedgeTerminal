@@ -164,6 +164,7 @@ class TablePositions : public Table
       ///
       void CollapseAll()
       {
+         //for(int i = workArea.ChildsTotal()-1; i >= 0; i--)
          for(int i = 0; i < workArea.ChildsTotal(); i++)
          {
             ProtoNode* node = workArea.ChildElementAt(i);
