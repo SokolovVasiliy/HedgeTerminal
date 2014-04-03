@@ -218,7 +218,11 @@ enum ENUM_EVENT
    ///
    /// Идентификатор события состояние скролла изменилось.
    ///
-   EVENT_SCROLL_CHANGED
+   EVENT_SCROLL_CHANGED,
+   ///
+   /// Идентификатор приказа на создание итоговой строки.
+   ///
+   EVENT_CREATE_SUMMARY
 };
 
 
@@ -656,7 +660,7 @@ enum ENUM_POSITION_CHANGED_TYPE
    ///
    /// Указывает, что необходимо обновить отображение переданной позиции.
    ///
-   POSITION_REFRESH
+   POSITION_REFRESH,
 };
 
 ///
@@ -1025,7 +1029,7 @@ class EventKeyDown : public Event
       ///
       /// Возвращает код нажатой клавишы.
       ///
-      int Code(){return code;}
+      ENUM_KEY_CODE Code(){return (ENUM_KEY_CODE)code;}
       ///
       /// Возвращает маску, описывающую комбинацию нажатых клавишь на компьютере.
       ///
@@ -1040,6 +1044,7 @@ class EventKeyDown : public Event
       /// Код нажатой клавиши.
       ///
       int code;
+      
 };
 
 ///
@@ -1109,17 +1114,40 @@ class EventRefreshPanel : public Event
 #endif
 
 #ifdef HEDGE_PANEL
-class NewScroll2;
+class Scroll;
 ///
 /// Событие уведомляющее об изменении состояния скролла.
 ///
 class EventScrollChanged : public Event
 {
    public:
-      EventScrollChanged(ENUM_EVENT_DIRECTION dir, NewScroll2* scroll) : Event(dir, EVENT_SCROLL_CHANGED, scroll){;}
+      EventScrollChanged(ENUM_EVENT_DIRECTION dir, Scroll* scroll) : Event(dir, EVENT_SCROLL_CHANGED, scroll){;}
       ///
       /// Возвращает указатель на измененный скролл.
       ///
-      NewScroll2* GetScroll(){return Node();}
+      Scroll* GetScroll(){return Node();}
+};
+#endif
+
+#ifdef HEDGE_PANEL
+///
+/// Событие приказывает создать итоговую строку.
+///
+class EventCreateSummary : public Event
+{
+   public:
+      EventCreateSummary(ENUM_TABLE_TYPE tType) : Event(EVENT_FROM_UP, EVENT_CREATE_SUMMARY, "Terminal API")
+      {
+         tableType = tType;
+      }
+      ///
+      /// Возвращает тип таблицы, для которой необходимо создать итогвую строку.
+      ///
+      ENUM_TABLE_TYPE TableType(){return tableType;}
+   private:
+      ///
+      /// Тип таблцицы для которой необходимо создать итоговую строку.
+      ///
+      ENUM_TABLE_TYPE tableType;
 };
 #endif

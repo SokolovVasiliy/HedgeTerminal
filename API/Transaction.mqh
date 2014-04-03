@@ -130,6 +130,25 @@ class Transaction : public CObject
             delta *= -1.0;
          return delta;
       }
+      ///
+      /// Возвращает профит в пунктах инструмента.
+      ///
+      virtual double ProfitInCurrency()
+      {
+         double pips = ProfitInPips();
+         //Стоимость одного тика в валюте депозита.
+         double tickValueCurrency = 0.0;
+         double point = SymbolInfoDouble(this.Symbol(), SYMBOL_POINT);
+         if(point == 0.0)return 0.0;
+         pips /= point;
+         symbolInfo.Name(Symbol());
+         if(pips < 0.0)
+            tickValueCurrency = symbolInfo.TickValueLoss();
+         else
+            tickValueCurrency = symbolInfo.TickValueProfit();
+         double currency = tickValueCurrency * pips * VolumeExecuted();
+         return currency;
+      }
       virtual ENUM_DIRECTION_TYPE Direction()
       {
          return direction;
@@ -298,7 +317,11 @@ class Transaction : public CObject
       ///
       /// Текущий идентификатор транзакции, с которым работают функции.
       ///
-      ulong currId; 
+      ulong currId;
+      ///
+      /// Вспомогательный инструмент.  
+      ///
+      CSymbolInfo symbolInfo;
 };
 
 ///

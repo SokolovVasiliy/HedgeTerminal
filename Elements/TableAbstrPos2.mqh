@@ -3,6 +3,7 @@
 #include "Node.mqh"
 #include "TextNode.mqh"
 #include "..\Settings.mqh"
+#include "..\API\Position.mqh"
 
 ///
 /// Абстрактный класс одной из строк таблицы. Строка может быть заголовком, позицией или сделкой.
@@ -653,7 +654,7 @@ class PosLine : public AbstractLine
          return comby;
       }
       ///
-      /// Обновляет визуальеное представление позиции
+      /// Обновляет визуальное представление позиции
       ///
       virtual string GetStringValue(ENUM_COLUMN_TYPE cType)
       {
@@ -674,7 +675,10 @@ class PosLine : public AbstractLine
                break;
             case COLUMN_ENTRY_ORDER_ID:
                value = (string)pos.EntryOrderId();
-               
+               if(pos.EntryOrderId() == 1009362300)
+               {
+                  int dbg = 4;
+               }
                break;
             case COLUMN_EXIT_ORDER_ID:
                value = (string)pos.ExitOrderId();
@@ -1003,4 +1007,76 @@ class DealLine : public AbstractLine
       ///
       bool isLastLine;
       
+};
+
+///
+/// Итоговая строка таблицы.
+///
+class Summary : public AbstractLine
+{
+   public:
+      Summary(ProtoNode* parNode, ENUM_TABLE_TYPE tType) : AbstractLine("Summary", ELEMENT_TYPE_TABLE_SUMMARY, parNode, tType)
+      {
+         textNode = new Label("summary", GetPointer(this));
+         textNode.Font("Arial Rounded MT Bold");
+         textNode.Text("Summury Active Positions");
+         textNode.FontSize(9);
+         //textNode.Font("Arial Black");
+         textNode.BackgroundColor(clrGainsboro);
+         textNode.BorderColor(Settings.ColorTheme.GetSystemColor2());
+         Add(textNode);
+      }
+      ///
+      /// Обновляет текст итоговой строки для активной таблицы.
+      ///
+      void RefreshSummury(void)
+      {
+         if(CheckPointer(textNode) == POINTER_INVALID)
+            return;
+         string strBalance = DoubleToString(GetBalance(), 2);
+         string strPL = DoubleToString(GetFloatPL(), 2);
+         string str = "Balance: " + strBalance + "  Floating P/L: " + strPL;
+         //string str = "Current time: " + TimeToString(TimeCurrent(), TIME_DATE|TIME_MINUTES|TIME_SECONDS);
+         textNode.Text(str);
+      }
+   private:
+      ///
+      /// Получает баланс завершеных сделок.
+      ///
+      double GetBalance()
+      {
+         if(!Math::DoubleEquals(balance, 0.0))
+            return balance;
+         HedgeManager* api = EventExchange::GetAPI();
+         int total = api.HistoryPosTotal();
+         for(int i = 0; i < total; i++)
+         {
+            Transaction* trans = api.HistoryPosAt(i);
+            balance += trans.ProfitInCurrency();
+         }
+         return balance;
+      }
+      ///
+      /// Возвращает плавующую прибыль/убыток.
+      ///
+      double GetFloatPL(void)
+      {
+         double pl = 0.0;
+         HedgeManager* api = EventExchange::GetAPI();
+         int total = api.ActivePosTotal();
+         for(int i = 0; i < total; i++)
+         {
+            Transaction* trans = api.ActivePosAt(i);
+            pl += trans.ProfitInCurrency();
+         }
+         return pl;
+      }
+      ///
+      /// Единственный элемент строки.
+      ///
+      Label* textNode;
+      ///
+      /// Баланс завершенных сделок.
+      ///
+      double balance;
 };

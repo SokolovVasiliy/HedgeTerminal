@@ -29,10 +29,6 @@ class TablePositions : public Table
          Table::OnEvent(event);
          switch(event.EventId())
          {
-            case EVENT_REFRESH:
-               if(TableType() == TABLE_POSACTIVE)
-                  RefreshPrices();
-               break;
             case EVENT_CHECK_BOX_CHANGED:
                OnCheckBoxChanged(event);
                break;
@@ -44,6 +40,9 @@ class TablePositions : public Table
                break;
             case EVENT_CHANGE_POS:
                OnChangedPos(event);
+               break;
+            case EVENT_CREATE_SUMMARY:
+               OnCreateSummary(event);
                break;
             default:
                EventSend(event);
@@ -179,28 +178,6 @@ class TablePositions : public Table
          }
          
       }
-      
-      
-      ///
-      /// Обновляет цены открытых позиций.
-      ///
-      void RefreshPrices()
-      {
-         if(TableType() != TABLE_POSACTIVE)return;
-         if(!Visible())return;
-         int total = workArea.ChildsTotal();
-         for(int i = 0; i < total; i++)
-         {
-            ProtoNode* node = workArea.ChildElementAt(i);
-            ENUM_ELEMENT_TYPE el_type = node.TypeElement();
-            if(node.TypeElement() != ELEMENT_TYPE_POSITION &&
-               node.TypeElement() != ELEMENT_TYPE_DEAL)
-               continue;
-            AbstractLine* linePos = node;
-            linePos.RefreshValue(COLUMN_CURRENT_PRICE);
-            linePos.RefreshValue(COLUMN_PROFIT);
-         }
-      }
 
       ///
       /// Создает позицию в таблице позиций.
@@ -277,6 +254,15 @@ class TablePositions : public Table
          //delete er;
       }
       
+      ///
+      /// Создает итоговую строку.
+      ///
+      void OnCreateSummary(EventCreateSummary* event)
+      {
+         if(event.TableType() != TableType())return;
+         Summary* summary = new Summary(GetPointer(workArea), TableType());
+         workArea.Add(summary);
+      }
       
       ///
       /// Добавляет визуализацию сделок для позиции

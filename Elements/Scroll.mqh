@@ -1,350 +1,567 @@
+//+------------------------------------------------------------------+
+//|                                                       Scroll.mqh |
+//|                        Copyright 2013, MetaQuotes Software Corp. |
+//|                                              http://www.mql5.com |
+//+------------------------------------------------------------------+
+#property copyright "Copyright 2013, MetaQuotes Software Corp."
+#property link      "http://www.mql5.com"
+#property version   "1.00"
+#include "..\Events.mqh"
 #include "Node.mqh"
-#include "Table.mqh"
-
-class Toddler;
+#include "Button.mqh"
 
 ///
-/// 
+/// Определяет тип скролла.
 ///
-class LabToddle : public Label
+enum ENUM_SCROLL_TYPE
+{
+   ///
+   /// Вертикальный скролл.
+   ///
+   SCROLL_VERTICAL,
+   ///
+   /// Горизонтальный скролл.
+   ///
+   SCROLL_HORIZONTAL
+};
+
+///
+/// Тип кнопки скролла.
+///
+enum ENUM_SCROLL_BUTTON_TYPE
+{
+   SCROLL_BUTTON_UP,
+   SCROLL_BUTTON_DOWN,
+   SCROLL_BUTTON_LEFT,
+   SCROLL_BUTTON_RIGHT,
+};
+
+
+class Scroll;
+///
+/// Одна из четырех возможных кнопок скролла. Реализует кнопки по краям скролла.
+///
+class ButtonScroll : public Button
 {
    public:
-      LabToddle(ProtoNode* parNode, Table* tbl) : Label(ELEMENT_TYPE_LABTODDLER, "LabToddler", parNode)
+      ButtonScroll(Scroll* nscroll, ENUM_SCROLL_BUTTON_TYPE type) : Button("ButtonScroll", nscroll)
       {
-         if(parNode != NULL && parNode.TypeElement() == ELEMENT_TYPE_TODDLER)
-            tdl = parNode;
-         blockedComm = false;
-         table = tbl;
-         Text("");
-         ReadOnly(true);
-         prevY = -1;
+         btnScrollType = type;
+         scroll = nscroll;
       }
+   private:
+      
+      virtual void OnRedraw(EventRedraw* event)
+      {
+         switch(btnScrollType)
+         {
+            case SCROLL_BUTTON_UP:
+               UpMove();
+               break;
+            case SCROLL_BUTTON_DOWN:
+               DnMove();
+               break;
+            case SCROLL_BUTTON_LEFT:
+               LeftMove();
+               break;
+            case SCROLL_BUTTON_RIGHT:
+               RightMove();
+               break;
+         }
+         if(!Visible())
+            Visible(true);
+      }
+      void UpMove()
+      {
+         Move(2,2, COOR_LOCAL);
+         long w = scroll.Width()-4;
+         Resize(w, w);
+         Font("Wingdings");
+         Text(CharToString(241));
+      }
+      void DnMove()
+      {
+         long y = ParHigh() - ParWidth() + 2;
+         Move(2,y, COOR_LOCAL);
+         long w = scroll.Width()-4;
+         Resize(w, w);
+         Font("Wingdings");
+         Text(CharToString(242));
+      }
+      void LeftMove()
+      {
+         Move(2,2, COOR_LOCAL);
+         long h = scroll.High()-4;
+         Resize(h, h);
+         Font("Wingdings");
+         Text(CharToString(239));
+      }
+      void RightMove()
+      {
+         long w = ParWidth() - ParHigh() + 2;
+         Move(w,2, COOR_LOCAL);
+         long h = scroll.High()-4;
+         Resize(h, h);
+         Font("Wingdings");
+         Text(CharToString(240));
+      }
+      virtual void OnPush()
+      {
+         int step = scroll.CurrentStep();
+         switch(btnScrollType)
+         {
+            case SCROLL_BUTTON_UP:
+            case SCROLL_BUTTON_LEFT:
+               scroll.CurrentStep(--step);
+               break;
+            case SCROLL_BUTTON_DOWN:
+            case SCROLL_BUTTON_RIGHT:
+               scroll.CurrentStep(++step);
+               break;
+         }
+         scroll.SendChangeScrollEvent();
+         ObjectSetInteger(MAIN_WINDOW, NameID(), OBJPROP_STATE, false);
+      }
+      
+      ENUM_SCROLL_BUTTON_TYPE btnScrollType;
+      ///
+      /// Ссылка на скролл.
+      ///
+      Scroll* scroll;
+};
+
+class ScrollArea;
+///
+/// Ползунок скролла.
+///
+class Todler : public Label
+{
+   public:
+      Todler(ScrollArea* area) : Label("toddler", area)
+      {
+         BorderColor(Settings.ColorTheme.GetBorderColor());
+         BackgroundColor(Settings.ColorTheme.GetSystemColor1());
+         Text("");
+         Scroll* scroll = area.GetScroll();
+         scrollType = scroll.ScrollType();
+         scrollArea = area;
+      }
+      ///
+      /// Возвращает координату ползунка.
+      ///
+      long Coordinates()
+      {
+         long c = 0;
+         if(scrollType == SCROLL_VERTICAL)
+            c = YLocalDistance();
+         if(scrollType == SCROLL_HORIZONTAL)
+            c = XLocalDistance();
+         if(c <= 0)
+            return 1;
+         return c;
+      }
+      ///
+      /// Истина, если ползунок захвачен для перемещения.
+      ///
+      bool IsMove(){return isMove;}
    private:
       virtual void OnEvent(Event* event)
       {
          switch(event.EventId())
          {
             case EVENT_MOUSE_MOVE:
-               OnMouseMove(event);
+               OnMoveMouse(event);
                break;
-            default:
-               EventSend(event);
          }
       }
       ///
-      /// Перемещает позунок в след за мышью.
+      /// Обработчик перемещения мыши.
       ///
-      void OnMouseMove(EventMouseMove* event)
+      void OnMoveMouse(EventMouseMove* event)
       {
-         // Текущий объект должен находится под курсором мыши, а
-         // правая кнопка должна быть нажата. В противном случае
-         // обнуляем предыдущую y координату мыши.
-         if(!IsMouseSelected(event) ||
-            !event.PushedLeftButton())
-         {
-            prevY = -1;
-            tdl.BlockedCommand(false);
-            return;
-         }
-         //В первый раз просто запоминаем положение мыши
-         if(prevY == -1)
-         {
-            prevY = event.YCoord();
-            tdl.BlockedCommand(true);
-            return;
-         }
-         //Затем двигаем ползунок на изменившееся положение
-         long delta = event.YCoord() - prevY;
-         long yLocal = YLocalDistance();
-         long yLimit = yLocal + High() + delta;
-         //Ползунок не может заходит за нижнюю границу направляющей.
-         if(delta > 0 && yLimit > parentNode.High())
-            delta = parentNode.High() - High() - yLocal;
-         //Ползунок не может заходит за верхнюю границу направляющей.
-         if(delta < 0 && yLocal < MathAbs(delta))
-            delta = yLocal * (-1);
-         //Делаем зазоры для красоты.
-         if(yLocal + delta == 0)delta += 1;
-         if(yLimit >= parentNode.High())
-            delta -= 1;
-         Move(XLocalDistance(), yLocal + delta, COOR_LOCAL);
-         prevY = event.YCoord();
-         
-         //Теперь, когда ползунок передвинут, рассчитываем
-         //первую видимую строку в таблице
-         yLocal = YLocalDistance();
-         long parHigh = parentNode.High();
-         //Зазоры используемые для красоты убираем.
-         if(yLocal == 1) yLocal--;
-         if(yLocal + High() == parentNode.High()-1)
-            yLocal++;
-         //Рассчитываем % отступа от первой строки
-         double perFirst = yLocal/((double)parHigh);
-         int lineFirst = (int)(table.LinesTotal() * perFirst);
-         table.LineVisibleFirst(lineFirst);
-         ChartRedraw();
-         //printf("Scroll FL: " + table.LineVisibleFirst() + " Visible: " + table.LinesVisible());
+         if(ResetTodler(event))return;
+         if(SetTodler(event))return;
+         MoveTodler(event);
       }
       ///
-      /// Указатель на таблицу, видимость элементов которых надо изменять.
+      /// Сбрасывает режим перемещения ползунка
       ///
-      Table* table;
+      bool ResetTodler(EventMouseMove* event)
+      {
+         if(!event.PushedLeftButton() && isMove)
+         {
+            isMove = false;
+            coord = 0;
+            return true;
+         }
+         return false;
+      }
       ///
-      /// Предыдущая вертикальная координата мыши.
+      /// Устанавливает режим перемещения ползунка.
       ///
-      long prevY;
+      bool SetTodler(EventMouseMove* event)
+      {
+         if(!isMove && event.PushedLeftButton() &&
+            IsMouseSelected(event))
+         {
+            isMove = true;
+            if(scrollType == SCROLL_VERTICAL)
+               coord = event.YCoord();
+            if(scrollType == SCROLL_HORIZONTAL)
+               coord = event.XCoord();
+            return true;
+         }
+         return false;
+      }
       ///
-      /// Истина, если треубется заблокировать обработку события EventNodeCommand,
-      /// на время перемещения ползунка.
+      /// Двигает ползунок вдоль направляющей вслед за мышью.
       ///
-      bool blockedComm;
+      void MoveTodler(EventMouseMove* event)
+      {
+         if(!isMove)return;
+         long delta = GetDelta(event);
+         if(scrollType == SCROLL_VERTICAL)
+         {
+            coord = event.YCoord();
+            Move(1, YLocalDistance()+delta);
+         }
+         if(scrollType == SCROLL_HORIZONTAL)
+         {
+            coord = event.XCoord();
+            Move(XLocalDistance()+delta, 1);
+         }
+         scrollArea.SetCurrentStepByTodler();
+      }
+      ///
+      /// Возвращает разницу между старой и новой координатой.
+      /// Разница может как положительным так и отрицательным числом.
+      ///
+      long GetDelta(EventMouseMove* event)
+      {
+         long delta = 0;
+         if(scrollType == SCROLL_VERTICAL)
+         {
+            delta = event.YCoord() - coord;
+            //Верхний предел.
+            if(YLocalDistance()+delta < 1)
+               delta = (-1) * (YLocalDistance()-1);
+            //Нижний предел.
+            else
+            {
+               long t = scrollArea.High() - YLocalDistance() - scrollArea.GetHigh() - 1;
+               if(delta > t)delta = t;
+            }
+         }
+         if(scrollType == SCROLL_HORIZONTAL)
+         {
+            delta = event.XCoord() - coord;
+         }
+         return delta;
+      }
+      ///
+      /// Истина, если ползунок находиться в состоянии перемещения.
+      ///
+      bool isMove;
+      ///
+      /// последняя известная координата.
+      ///
+      long coord;
       ///
       /// Направляющая ползунка.
       ///
-      Toddler* tdl;
+      ScrollArea* scrollArea;
+      ///
+      /// Тип скролла.
+      ///
+      ENUM_SCROLL_TYPE scrollType;
 };
+
+class Scroll;
 ///
-/// Направляющая ползунка скрола. Задает его размер, в зависимости от отношения видимых и невидимых строк. 
+/// Направляющая ползунка скролла.
 ///
-class Toddler : public Label
+class ScrollArea : public Label
 {
    public:
-      Toddler(ProtoNode* parNode, Table* tbl) : Label(ELEMENT_TYPE_TODDLER, "Toddler", parNode)
+      ScrollArea(Scroll* nscroll) : Label(ELEMENT_TYPE_TODDLER, "Scroll area", nscroll)
       {
-         blockedComm = false;
+         BorderColor(Settings.ColorTheme.GetSystemColor2());
          Text("");
-         BorderColor(parNode.BackgroundColor());
-         ReadOnly(true);
-         labToddle = new LabToddle(GetPointer(this), tbl);
-         childNodes.Add(labToddle);
-         table = tbl;  
+         scroll = nscroll;
+         toddler = new Todler(GetPointer(this));
+         
+         childNodes.Add(toddler);
       }
       ///
-      /// Блокирует либо восстанавилвает обработку OnCommand на время движения скрола.
+      /// Позиционирует ползунок.
       ///
-      void BlockedCommand(bool blocked)
+      void RefreshToddler()
       {
-         if(blockedComm != blocked)
-            blockedComm = blocked;
-      }
-   private:
-      virtual void OnCommand(EventNodeCommand* event)
-      {
-         if(table == NULL || blockedComm)return;
-         // 1. Находим отношение всех строк к видимым строкам:
-         double p1 = table.LinesHighTotal() == 0 ? 0 : ((double)table.LinesHighVisible())/((double)table.LinesHighTotal());
-         // Если отношение больше либо равно еденице - все строки умещаются на одном
-         // экране, и ползунок отображать не надо.
-         if(NormalizeDouble(p1, 4) >= 1.0)
+         if(scroll.TotalSteps() == 0)
          {
-            if(!labToddle.Visible())return;
-            EventVisible* vis = new EventVisible(EVENT_FROM_UP, GetPointer(this), false);
-            labToddle.Event(vis);
-            delete vis;
+            if(toddler.Visible())
+            {
+               EventVisible* event = new EventVisible(EVENT_FROM_UP, GetPointer(this), false);
+               toddler.Event(event);
+               delete event;
+            }
             return;
          }
-         // Размер ползунка - это размер отношения видимых пользователю
-         // строк к общей высоте всех строк.
-         else
+         //Позиционируем ползунок в случае необходимости.
+         if(!toddler.IsMove())
          {
-            // Переводим отношение в размеры ползунка относительно его направляющей
-            long size = (long)(High()*p1);
-            //Ползунок не может быть меньше 5 пикселей.
-            if(size < 5)size = 5;
-            //Положение полузнка - это отношение первой видимой строки к общему количеству строк.
-            int fl = table.LineVisibleFirst();
-            int ltotal = table.LinesTotal();
-            double p2 = 0.0; 
-            bool vis = true;
-            if(ltotal > 0)
-               p2 = ((double)table.LineVisibleFirst())/((double)table.LinesTotal());
-            else vis = false;
-            long yMyDist = (long)(p2*High());
-            //long yMyDist = labToddle.YLocalDistance();
-            if(yMyDist == 0)yMyDist = 1;
-            EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), vis, 1, yMyDist, Width()-2, size);
-            labToddle.Event(command);
+            EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), ParVisible(), GetX(), GetY(), GetWidth(), GetHigh());
+            toddler.Event(command);
             delete command;
          }
       }
       ///
-      /// Ползунок, находящийся на области хода ползунка.
+      /// Получает высоту ползунка.
       ///
-      LabToddle* labToddle;
-      ///
-      /// Указатель на родительскую таблицу.
-      ///
-      Table* table;
-      ///
-      /// Флаг указывающий, надо ли блокировать комманду EventNodeCommand.
-      /// Истина, если комманда блокируется и ложь в противном случае.
-      ///
-      bool blockedComm;
-};
-///
-/// Тип кнопки скрола.
-///
-enum ENUM_CLICK_SCROLL
-{
-   CLICK_SCROLL_DOWN,
-   CLICK_SCROLL_UP
-};
-
-class ClickScroll : public Button
-{
-   public:
-      ClickScroll(ProtoNode* parNode, Table* tbl, ENUM_CLICK_SCROLL tClick) : Button("ScrollClickDn", parNode)
+      long GetHigh()
       {
-         SetColorsFromSettings();
-         if(parNode.TypeElement() == ELEMENT_TYPE_SCROLL)
-            scroll = parNode;
-         typeClick = tClick;
-         Text(CharToString(241));
-         if(typeClick == CLICK_SCROLL_DOWN)
+         if(scroll.ScrollType() == SCROLL_VERTICAL)
+            return ParWidth()-4;
+         return ParHigh()-4;
+      }
+      ///
+      /// Получает ширину ползунка.
+      ///
+      long GetWidth()
+      {
+         if(scroll.ScrollType() == SCROLL_VERTICAL)
+            return ParWidth()-4;
+         return ParHigh()-4;
+      }
+      ///
+      /// Возвращает указатель на скролл, которому принадлежит направляющая.
+      ///
+      Scroll* GetScroll(){return scroll;}
+      
+      ///
+      /// Рассчитывает текущий шаг в зависимости от положения ползунка.
+      ///
+      int CalcCurrentStepByTodler()
+      {
+         int step = scroll.CurrentStep();
+         //В крайнем верхнем положении ползунка отображаем самую верхнюю строку.
+         if(toddler.Coordinates() <= 1 || scroll.TotalSteps() == 0)
+            step = 0;
+         //В крайнем нижнем положении ползунка доводим таблицу до упора.
+         else if(toddler.Coordinates() + GetHigh() == High()-1)
+            step = scroll.TotalSteps();
+         else
          {
-            itt = 1;
-            Text(CharToString(242));
+            long thigh = High()-GetHigh();
+            double piksInStep = (double)thigh/scroll.TotalSteps(); //Пикселей в одном шаге.
+            step = (int)(toddler.Coordinates()/piksInStep);
          }
-         else itt = -1;
-         Font("Wingdings");
-         color bColor = clrBlack;
-         color bgrColor = clrWhite;
-         if(CheckPointer(Settings) != POINTER_INVALID)
-         {
-            bColor = Settings.ColorTheme.GetBorderColor();
-            bgrColor = Settings.ColorTheme.GetSystemColor2();
-         }
-         table = tbl;
+         return step;
+      }
+      ///
+      /// Устанавливает текущий шаг в зависимости от положения ползунка.
+      ///
+      void SetCurrentStepByTodler()
+      {
+         int step = CalcCurrentStepByTodler();
+         if(scroll.CurrentStep() != step)
+            scroll.CurrentStepIntro(step);
+         
       }
    private:
-      virtual void OnEvent(Event* event)
+      ///
+      /// Позиционирует расположение направляющей ползунка и сам ползунок.
+      ///
+      virtual void OnRedraw(EventRedraw* event)
       {
-         switch(event.EventId())
+         //BorderColor(clrRed);
+         //Text("");
+         if(scroll.ScrollType() == SCROLL_VERTICAL)
          {
-            case EVENT_MOUSE_MOVE:
-               OnMouseMove(event);
-               break;
-            default:
-               EventSend(event);
+            Move(1, ParWidth()-2);
+            Resize(ParWidth()-2, ParHigh() - 2*ParWidth()+4);
          }
+         if(scroll.ScrollType() == SCROLL_HORIZONTAL)
+         {
+            Move(ParHigh()-2, 1);
+            Resize(ParWidth() - 2*ParHigh()+4, ParHigh()-2);
+         }
+         if(!Visible())
+            Visible(true);
+         RefreshToddler();
       }
       ///
-      /// Обрабатываем нажатия кнопок мыши.
+      /// Получает координату по оси X для позиционирования ползунка.
       ///
-      void OnMouseMove(EventMouseMove* event)
+      long GetX()
       {
-         if(!IsMouseSelected(event) || !event.PushedLeftButton())
-         {
-            //Сбрасываем время нажатия.
-            lastCall = 0;
-            return;
-         }
-         //В первый раз просто запоминаем время нажатия
-         if(lastCall == 0)
-         {
-            lastCall = GetTickCount();
-            return;
-         }
-         //Если прошло более 2 секунд с момента нажатия кнопки, начинаем реагировать
-         //На комманду.
-         if(GetTickCount() - lastCall >= 1500)
-            OnPush();
-      }
-      void OnPush()
-      {
-         int fline = table.LineVisibleFirst();
-         int vline = table.LinesVisible();
-         //Весь список отображен?
-         if(fline + vline >= table.LinesTotal() && itt == 1)
-            return;
-         //Достигнуто начало списка.
-         if(fline == 0 && itt == -1)   
-            return;
-         table.LineVisibleFirst(fline+itt);
-         //Меняем цвет кнопок, если пределы достигнуты:
-         fline = table.LineVisibleFirst();
-         vline = table.LinesVisible();
-         if(scroll != NULL)
-            scroll.ChangedScroll();
+         if(scroll.ScrollType() == SCROLL_VERTICAL)
+            return 1;
+         //Для горизонтального ползунка алгоритм не реализван. См. аналогию по GetY()
+         return 1;
       }
       ///
-      /// Таблица.
+      /// Получает координату по оси Y для позиционирования ползунка.
       ///
-      Table* table;
+      long GetY()
+      {
+         if(scroll.ScrollType() == SCROLL_HORIZONTAL ||
+            scroll.TotalSteps() == 0)
+            return 1;
+         //Обратная связь (не работает).
+         //int step = CalcCurrentStepByTodler();
+         //if(step == scroll.CurrentStep())
+         //   return toddler.Coordinates();
+         long tod_high = toddler.High();
+         long thigh = High()-toddler.High();
+         double piksInStep = (double)thigh/scroll.TotalSteps(); //Пикселей в одном шаге.
+         long piksNow = (long)(piksInStep*scroll.CurrentStep());
+         //Корректировка границ.
+         if(piksNow + GetHigh() >= High())
+            piksNow = High() - GetHigh() - 1;
+         if(piksNow <= 0)piksNow = 1;
+         return piksNow;
+      }
+      
       ///
-      /// Родительский скролл.
+      /// Скролл, которому принадлежит направляющая.
       ///
       Scroll* scroll;
       ///
-      /// Тип кнопки скрола.
+      /// Ползунок скролла.
       ///
-      ENUM_CLICK_SCROLL typeClick;
-      ///
-      /// Количество прибавляемых линий.
-      ///
-      int itt;
-      ///
-      /// Время работы терминала в миллисекундах на момент последнего
-      /// вызова функции OnMouseMove.
-      ///
-      long lastCall;
-      ///
-      /// Время последнего вызова события EventMouse.
-      ///
-      long lastEventMouse;
+      Todler* toddler;
 };
 
+class Scrolling;
 ///
-/// Прокрутка списка.
+/// Скролл.
 ///
 class Scroll : public ProtoNode
 {
    public:
-      Scroll(string myName, ProtoNode* parNode) : ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_SCROLL, myName, parNode)
+      Scroll(string myName, ProtoNode* parNode, ENUM_SCROLL_TYPE sType) : ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_SCROLL, myName, parNode)
       {
-         BackgroundColor(clrWhiteSmoke); 
-         //у скрола есть две кнопки и ползунок.
-         up = new ClickScroll(GetPointer(this), parNode, CLICK_SCROLL_UP);
-         childNodes.Add(up);
-         
-         dn = new ClickScroll(GetPointer(this), parNode, CLICK_SCROLL_DOWN);
-         childNodes.Add(dn);
-         
-         toddler = new Toddler(GetPointer(this), parentNode);
-         childNodes.Add(toddler);
+         //Тип скролла должен быть известен на этапе его создания
+         scrollType = sType;
+         ProtoNode * el = new ScrollArea(GetPointer(this));
+         scrollArea = el;
+         childNodes.Add(el);
+         if(sType == SCROLL_VERTICAL)
+         {
+            el = new ButtonScroll(GetPointer(this),SCROLL_BUTTON_UP);
+            childNodes.Add(el);
+            el = new ButtonScroll(GetPointer(this), SCROLL_BUTTON_DOWN);
+            childNodes.Add(el); 
+         }
+         if(sType == SCROLL_HORIZONTAL)
+         {
+            el = new ButtonScroll(GetPointer(this),SCROLL_BUTTON_LEFT);
+            childNodes.Add(el);
+            el = new ButtonScroll(GetPointer(this), SCROLL_BUTTON_RIGHT);
+            childNodes.Add(el);
+         }
       }
       ///
-      /// Изменяет положение ползунка скрола в зависимости
-      /// от состояния видимой части таблицы.
+      /// Отправляет уведомление об изменении состояния скролла.
       ///
-      void ChangedScroll()
+      void SendChangeScrollEvent()
       {
-         EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 1, 18, Width()-2, High()-36);
-         toddler.Event(command);
-         delete command;
+         EventScrollChanged* event = new EventScrollChanged(EVENT_FROM_DOWN, GetPointer(this));
+         EventSend(event);
+         delete event;
+      }
+      ///
+      /// Привязывает текущий скроллинг к настройки.
+      ///
+      //void LinkToScrolling(Scrolling* scr){scrolling = scr;}
+      ///
+      /// Обновляет позиционирования ползунка.
+      ///
+      void RefreshToddler(void)
+      {
+         scrollArea.RefreshToddler();
+      }
+      ///
+      /// Возвращает тип скролла.
+      ///
+      ENUM_SCROLL_TYPE ScrollType(){return scrollType;}
+      ///
+      /// Возвращает текущий шаг.
+      ///
+      int CurrentStep(void)
+      {
+         return currStep;
+      }
+      ///
+      /// Устанавливает текущий шаг из вне.
+      ///
+      void CurrentStep(int step)
+      {
+         if(step < 0 || step > totalSteps || step == currStep)
+            return;
+         currStep = step;
+         RefreshToddler();
+      }
+      ///
+      /// Устанавливает текущий шаг из нутри.
+      ///
+      void CurrentStepIntro(int step)
+      {
+         if(step < 0 || step > totalSteps || step == currStep)
+         {
+            printf("set current set failed");
+            return;
+         }
+         currStep = step;
+         SendChangeScrollEvent();
+      }
+      ///
+      /// Возвращает общее количество шагов.
+      ///
+      int TotalSteps(void)
+      {
+         return totalSteps;
+      }
+      ///
+      /// Устанавливает общее количество шагов.
+      ///
+      void TotalSteps(int steps)
+      {
+         if(steps < 0 || steps == totalSteps)return;
+         totalSteps = steps;
+         RefreshToddler();
       }
       
    private:
       virtual void OnCommand(EventNodeCommand* event)
       {
-         //Позиционируем верхнюю кнопку.
-         EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 2, 2, 16, 16);
-         up.Event(command);
-         delete command;
-         
-         //Позиционируем нижнюю кнопку.
-         command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 2, High()-18, 16, 16);
-         dn.Event(command);
-         delete command;
-         
-         //Позиционируем ползунок.
-         //Ползунок должен выбирать свою Y координату самостоятельно.
-         command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 1, 18, Width()-2, High()-36);
-         toddler.Event(command);
-         delete command;
+         EventRedraw* redraw = new EventRedraw(EVENT_FROM_UP, NameID());
+         EventSend(redraw);
+         delete redraw;
       }
-      //у скрола есть две кнопки и ползунок.
-      ClickScroll* up;
-      ClickScroll* dn;
-      Toddler* toddler;
+      ///
+      /// Надстройка элемента, через которую задается скроллинг.
+      ///
+      //Scrolling* scrolling;
+      ///
+      /// Тип скролла.
+      ///
+      ENUM_SCROLL_TYPE scrollType;
+      ///
+      /// Текущий шаг скролла.
+      ///
+      int currStep;
+      ///
+      /// Количество отображаемых шагов.
+      ///
+      int visibleSteps;
+      ///
+      /// Общее количество шагов.
+      ///
+      int totalSteps;
+      ///
+      /// Направляющая ползунка.
+      ///
+      ScrollArea* scrollArea;
 };

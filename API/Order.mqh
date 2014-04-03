@@ -658,7 +658,10 @@ void Order::RecalcValues(void)
       OrderSelect(GetId());
       priceSetup = OrderGetDouble(ORDER_PRICE_OPEN);
       volumeSetup = OrderGetDouble(ORDER_VOLUME_INITIAL);
-      timeSetup = OrderGetInteger(ORDER_TIME_SETUP_MSC);
+      long tSetup = OrderGetInteger(ORDER_TIME_SETUP_MSC);
+      if(tSetup != 0)
+         timeSetup = tSetup;
+      else timeSetup = (long)OrderGetInteger(ORDER_TIME_SETUP)*1000; 
       comment = OrderGetString(ORDER_COMMENT);
       symbol = OrderGetString(ORDER_SYMBOL);
       type = (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE);
@@ -672,7 +675,10 @@ void Order::RecalcValues(void)
       ulong id = GetId();
       priceSetup = HistoryOrderGetDouble(id, ORDER_PRICE_OPEN);
       volumeSetup = HistoryOrderGetDouble(id, ORDER_VOLUME_INITIAL);
-      timeSetup = HistoryOrderGetInteger(id, ORDER_TIME_SETUP_MSC);
+      long tSetup = HistoryOrderGetInteger(id, ORDER_TIME_SETUP_MSC);
+      if(tSetup != 0)
+         timeSetup = tSetup;
+      else timeSetup = (long)HistoryOrderGetInteger(id, ORDER_TIME_SETUP)*1000;
       comment = HistoryOrderGetString(id, ORDER_COMMENT);
       symbol = HistoryOrderGetString(id, ORDER_SYMBOL);
       type = (ENUM_ORDER_TYPE)HistoryOrderGetInteger(id, ORDER_TYPE);

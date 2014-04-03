@@ -5,9 +5,7 @@
 #include "TreeViewBox.mqh"
 #include "Line.mqh"
 #include "Label.mqh"
-#include "Scroll.mqh"
 #include "TableWork.mqh"
-//#include "TableDirective.mqh"
 
 
 
@@ -15,24 +13,7 @@
    #define TABLE_MQH
 #endif 
 
-///
-/// Определяет тип таблицы позиций. Используется в качестве части комбинированного поля совместно с ENUM_TABLE_TYPE_ELEMENT.
-///
-enum ENUM_TABLE_TYPE
-{
-   ///
-   /// Таблица по-умолчанию. Комбинация флагов не используется.
-   ///
-   TABLE_DEFAULT = 0,
-   ///
-   /// Таблица открытых позиций.
-   ///
-   TABLE_POSACTIVE = 1,
-   ///
-   /// Таблица исторических позиций.
-   ///
-   TABLE_POSHISTORY = 2,
-};
+
 
 #include "TableAbstrPos2.mqh"
 ///
@@ -179,17 +160,13 @@ class Table : public Label
       ///
       CWorkArea* workArea;
       ///
-      /// Скролл.
-      ///
-      Scroll* scroll;
-      ///
       /// Новый скролл.
       ///
-      NewScroll2* nscroll;
+      Scroll* nscroll;
       ///
       /// Горизонтальный скролл.
       ///
-      NewScroll2* gscroll;
+      Scroll* gscroll;
       
       virtual Line* InitHeader()
       {
@@ -214,20 +191,14 @@ class Table : public Label
          workArea.Text("");
          workArea.BorderColor(BackgroundColor());
          
-         /*scroll = new Scroll("Scroll", GetPointer(this));
-         scroll.BorderType(BORDER_FLAT);
-         scroll.BorderColor(clrBlack);
-         childNodes.Add(scroll);*/
-         
-         
-         nscroll = new NewScroll2("", GetPointer(this), SCROLL_VERTICAL);
+         nscroll = new Scroll("", GetPointer(this), SCROLL_VERTICAL);
          nscroll.BorderType(BORDER_FLAT);
          nscroll.BorderColor(clrBlack);
          workArea.AddScroll(nscroll);
          childNodes.Add(nscroll);
          
          //Тестовый горизонтальный скролл.
-         gscroll = new NewScroll2("NewScroll", GetPointer(this), SCROLL_HORIZONTAL);
+         gscroll = new Scroll("NewScroll", GetPointer(this), SCROLL_HORIZONTAL);
          gscroll.BorderType(BORDER_FLAT);
          gscroll.BorderColor(clrBlack);
          childNodes.Add(gscroll);

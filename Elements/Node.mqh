@@ -425,6 +425,8 @@ class ProtoNode : public CObject
       ///
       int NLine()
       {
+         //if(elementType == ELEMENT_TYPE_TABLE_SUMMARY)
+         //   return n_line;
          //Если n-line не заполнен узнаем номер строки через перебор
          if(n_line == -1)
          {
@@ -485,9 +487,7 @@ class ProtoNode : public CObject
       void NLine(int n)
       {
          if(n < 0)
-         {
             n_line = -1;
-         }
          else
          {
             if(parentNode.ChildElementAt(n) != GetPointer(this))

@@ -78,7 +78,7 @@ class HedgeManager
       ///
       void OnRefresh()
       {
-         HistorySelect(timeBegin, TimeCurrent()+100);
+         HistorySelect(timeBegin, TimeCurrent());
          TrackingHistoryDeals();
          TrackingHistoryOrders();
          TrackingPendingOrders();
@@ -121,6 +121,14 @@ class HedgeManager
          return pos;
       }
       ///
+      /// For API: Возвращает историческую позицию под номером n из списка позиций.
+      ///
+      Position* HistoryPosAt(int n)
+      {
+         Position* pos = HistoryPos.At(n);
+         return pos;
+      }
+      ///
       /// Находит активную позицию в списке активных позиций, чей
       /// id равен posId.
       ///
@@ -155,11 +163,6 @@ class HedgeManager
       void TrackingHistoryDeals()
       {
          int total = HistoryDealsTotal();
-         /*if(MQLInfoInteger(MQL_TESTER) && dealsCountNow != total)
-         {
-            printf("sleep 1000");
-            Sleep(200);
-         }*/
          //Перебираем все доступные трейды и формируем на их основе прототипы будущих позиций типа COrder
          for(; dealsCountNow < HistoryDealsTotal(); dealsCountNow++)
          {  
@@ -390,6 +393,7 @@ class HedgeManager
             Position* pos = ActivePos.At(i);
             pos.SendEventChangedPos(POSITION_SHOW);
          }
+         CreateSummary(TABLE_POSACTIVE);
          for(int i = 0; i < HistoryPos.Total(); i++)
          {
             Position* pos = HistoryPos.At(i);
@@ -397,6 +401,17 @@ class HedgeManager
          }
       }
       
+      void CreateSummary(ENUM_TABLE_TYPE tType)
+      {
+         #ifdef HEDGE_PANEL
+            if(CheckPointer(HedgePanel) != POINTER_INVALID)
+            {
+               EventCreateSummary* event = new EventCreateSummary(tType);
+               HedgePanel.Event(event);
+               delete event;
+            }
+         #endif
+      }
       ///
       /// Интегрирует новую сделку в систему позиций.
       ///

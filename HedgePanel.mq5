@@ -78,9 +78,7 @@ void OnTimer(void)
    }*/
    EventRefresh* refresh = new EventRefresh(EVENT_FROM_UP, "TERMINAL REFRESH");
    api.Event(refresh);
-   #ifdef HEDGE_PANEL
    HedgePanel.Event(refresh);
-   #endif
    //EventExchange::PushEvent(refresh);
    delete refresh;
    ChartRedraw(MAIN_WINDOW);
@@ -124,7 +122,6 @@ void OnChartEvent(const int id,
                   const double &dparam,
                   const string &sparam)
 {
-   #ifdef HEDGE_PANEL
    chartEventCount++;
    //printf(id);
    //Координаты мыши или комбинация нажатых кнопок мыши изменились.
@@ -132,6 +129,9 @@ void OnChartEvent(const int id,
    {
       int mask = (int)StringToInteger(sparam);
       EventMouseMove* move = new EventMouseMove(lparam, (long)dparam, mask);
+      
+      if(move.PushedLeftButton())
+         printf("X:" + move.XCoord() + " Y:" + move.YCoord());
       HedgePanel.Event(move);
       delete move;
       return;
@@ -159,6 +159,7 @@ void OnChartEvent(const int id,
    {
       int mask = (int)StringToInteger(sparam);
       EventKeyDown* key = new EventKeyDown((int)lparam, mask);
+      //printf("Key press: " + key.Code());
       HedgePanel.Event(key);
       delete key;
    }
@@ -169,6 +170,5 @@ void OnChartEvent(const int id,
       delete endEdit;
    }
    ChartRedraw(MAIN_WINDOW);
-   #endif 
 }
 

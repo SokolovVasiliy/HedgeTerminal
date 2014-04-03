@@ -1,3 +1,5 @@
+#include "..\Keys.mqh"
+#include "Node.mqh"
 class CWorkArea : public Label
 {
    public:
@@ -23,6 +25,12 @@ class CWorkArea : public Label
       ///
       void Add(ProtoNode* lineNode, int pos)
       {
+         if(pos == childNodes.Total() && pos > 0)
+         {
+            ProtoNode* node = childNodes.At(pos-1);
+            if(node.TypeElement() == ELEMENT_TYPE_TABLE_SUMMARY)
+               pos -= 1;
+         }
          childNodes.Insert(lineNode, pos);
          lineNode.NLine(pos);
          ChangeScroll();
@@ -88,7 +96,8 @@ class CWorkArea : public Label
             node.Event(command);
             delete command;
          }
-         InterlacingColor(node);
+         if(node.TypeElement() != ELEMENT_TYPE_TABLE_SUMMARY)
+            InterlacingColor(node);
       }
       ///
       /// Возвращает общую высоту всех линий в таблице.
@@ -135,8 +144,7 @@ class CWorkArea : public Label
          if(index > visibleFirst)
          {
             int total = childNodes.Total();
-            if(index < 0 || LineVisibleFirst() == index ||
-               index > total) return;
+            if(index < 0 || index > total) return;
             //Ползунок перемещен вниз - скрываем верхние строки.
             int i = visibleFirst;
             for(; i < index; i++)
@@ -156,7 +164,7 @@ class CWorkArea : public Label
       ///
       /// Добавляет ссылку на скролл.
       ///
-      void AddScroll(NewScroll2* nscroll)
+      void AddScroll(Scroll* nscroll)
       {
          scroll = nscroll;
       }
@@ -181,7 +189,7 @@ class CWorkArea : public Label
             ChangeLineVisible(event);
 
          // Обрабатываем щелчок, по одной из строк
-         if(event.Direction() == EVENT_FROM_DOWN && event.EventId() == EVENT_NODE_CLICK)
+         else if(event.Direction() == EVENT_FROM_DOWN && event.EventId() == EVENT_NODE_CLICK)
          {
             OnClickNode(event);
             EventSend(event);
@@ -192,6 +200,10 @@ class CWorkArea : public Label
          {
             OnKeyPress(event);
             EventSend(event);
+         }
+         else if(event.EventId() == EVENT_REFRESH)
+         {
+            OnRefreshPrices();
          }
          //Обрабатываем передвижение мыши.
          //else if(event.EventId() == EVENT_MOUSE_MOVE)
@@ -257,38 +269,68 @@ class CWorkArea : public Label
       ///
       void OnKeyPress(EventKeyDown* event)
       {
-         // Клавиши могут перемещать курсор, если он есть,
-         // а также раскрывать позицию под курсором.
-         if(CheckPointer(cursorLine) != POINTER_INVALID)
+         switch(event.Code())
          {
-            // Перемещаем курсор вниз.
-            if(event.Code() == KEY_DOWN || event.Code() == KEY_UP)
-            {
-               int n = cursorLine.NLine();
-               //Конец списка еще недостигнут?
-               if(ChildsTotal() > n+1 && event.Code() == KEY_DOWN)
-               {
-                  //Если требуется двигаем таблицу вслед за курсором.
-                  if(visibleFirst + visibleCount <= n+1)
-                     LineVisibleFirst(n+2 - visibleCount);
-                  Line* nline = ChildElementAt(n+1);
-                  MoveCursor(nline);
-               }
-               else if(n > 0 && event.Code() == KEY_UP)
-               {
-                  //Если требуется двигаем таблицу вслед за курсором.
-                  if(n-1 < visibleFirst)
-                     LineVisibleFirst(n-1);
-                  Line* nline = ChildElementAt(n-1);
-                  MoveCursor(nline);
-               }
-            }
-            
-            //Раскрываем позицию.
-            if(event.Code() == KEY_ENTER)
-            {
-               ;
-            }
+            case KEY_ARROW_UP:
+            case KEY_ARROW_DOWN:
+               OnKeyPressArrow(event.Code());
+               break;
+            case KEY_HOME:
+               LineVisibleFirst(0);
+               break;
+            case KEY_END:
+               LineVisibleFirst(CalcTotalStepsForScroll());
+               break;
+            case KEY_PAGE_UP:
+               OnPressPage(KEY_PAGE_UP);
+               break;
+            case KEY_PAGE_DOWN:
+               OnPressPage(KEY_PAGE_DOWN);
+               break;
+         }  
+      }
+      ///
+      /// Обработчки события нажатой клавиши "стрелка вверх" или "стрелка вниз".
+      ///
+      void OnKeyPressArrow(ENUM_KEY_CODE code)
+      {
+         //Передвигаем курсор только если он есть.
+         if(CheckPointer(cursorLine) == POINTER_INVALID)return;
+         int n = cursorLine.NLine();
+         if(ChildsTotal() > n+1 && code == KEY_ARROW_DOWN)
+         {
+            //Если требуется двигаем таблицу вслед за курсором.
+            if(visibleFirst + visibleCount <= n+1)
+               LineVisibleFirst(n+2 - visibleCount);
+            Line* nline = ChildElementAt(n+1);
+            MoveCursor(nline);
+         }
+         else if(n > 0 && code == KEY_ARROW_UP)
+         {
+            //Если требуется двигаем таблицу вслед за курсором.
+            if(n-1 < visibleFirst)
+               LineVisibleFirst(n-1);
+            Line* nline = ChildElementAt(n-1);
+            MoveCursor(nline);
+         }
+      }
+      ///
+      /// Обрабатывает нажатие клавиш "прокручивание списка на один экран вверх/вниз".
+      ///
+      void OnPressPage(ENUM_KEY_CODE code)
+      {
+         if(code == KEY_PAGE_UP)
+         {
+            int fl = visibleFirst - visibleCount-1;
+            if(fl < 0)fl = 0;
+            LineVisibleFirst(fl);
+         }
+         else if(code == KEY_PAGE_DOWN)
+         {
+            int fl = visibleFirst + visibleCount-1;
+            int limit = CalcTotalStepsForScroll();
+            if(fl > limit)fl = limit;
+            LineVisibleFirst(fl);
          }
       }
       
@@ -307,13 +349,19 @@ class CWorkArea : public Label
          double lines = MathFloor(High()/(double)highLine);
          if(total <= lines)
          {
-            //LineVisibleFirst(visibleFirst);
             visibleFirst = 0;
             ChangeScroll();
             for(int i = visibleFirst; i < total; i++)
                RefreshLine(i);
             return;
          }
+         //Для зазора между концом таблицы и работчей областью. (не работает)
+         //int lt = (int)MathRound(High()/((double)highLine));
+         //int vt = visibleFirst + lt;
+         //if(vt >= total && vt < total+3)
+         //   return;
+         //if(visibleFirst + visibleCount == total)
+         //   return;
          //Иначе, считаем линии, для которых не осталось места
          int dn_line = total - (visibleFirst + visibleCount);
          //Можно также отобразить часть нижних линий
@@ -326,6 +374,38 @@ class CWorkArea : public Label
             RefreshLine(i);
          ChangeScroll();
       }
+      ///
+      /// Обновляет цены открытых позиций.
+      ///
+      void OnRefreshPrices()
+      {
+         if(!Visible())return;
+         if(table.TableType() != TABLE_POSACTIVE)return;
+         int total = ChildsTotal();
+         for(int i = 0; i < total; i++)
+         {
+            ProtoNode* node = ChildElementAt(i);
+            ENUM_ELEMENT_TYPE el_type = node.TypeElement();
+            switch(el_type)
+            {
+               case ELEMENT_TYPE_POSITION:
+               case ELEMENT_TYPE_DEAL:
+               {
+                  AbstractLine* linePos = node;
+                  linePos.RefreshValue(COLUMN_CURRENT_PRICE);
+                  linePos.RefreshValue(COLUMN_PROFIT);
+                  break;
+               }
+               case ELEMENT_TYPE_TABLE_SUMMARY:
+               {
+                  Summary* summary = node;
+                  summary.RefreshSummury();
+                  break;
+               }
+            }
+         }
+      }
+      
       ///
       /// Обновляет параметры скролла.
       ///
@@ -405,5 +485,5 @@ class CWorkArea : public Label
       ///
       /// Указатель на вертикальный скролл.
       ///
-      NewScroll2* scroll;
+      Scroll* scroll;
 };
