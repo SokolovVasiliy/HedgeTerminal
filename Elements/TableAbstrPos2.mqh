@@ -675,7 +675,7 @@ class PosLine : public AbstractLine
                break;
             case COLUMN_ENTRY_ORDER_ID:
                value = (string)pos.EntryOrderId();
-               if(pos.EntryOrderId() == 1009362300)
+               if(pos.EntryOrderId() == 1009479524)
                {
                   int dbg = 4;
                }
@@ -709,13 +709,9 @@ class PosLine : public AbstractLine
             {
                double sl = pos.StopLossLevel();
                if(Math::DoubleEquals(sl, 0.0))
-                  value = "-.";
+                  value = "";
                else
-               {
                   value = pos.PriceToString(sl);
-                  /*ProtoNode* node = GetCell(COLUMN_SL);
-                  if(node != NULL && node.ToolTip() != )*/
-               }
                break;
             }
             case COLUMN_TP:
@@ -739,8 +735,12 @@ class PosLine : public AbstractLine
             case COLUMN_CURRENT_PRICE:
                value = pos.PriceToString(pos.CurrentPrice());
                break;
+            case COLUMN_COMMISSION:
+               value = DoubleToString(pos.Commission(), 2);
+               break;
             case COLUMN_PROFIT:
-               value = pos.ProfitAsString();
+               value = DoubleToString(pos.ProfitInCurrency(), 2);
+               //value = pos.ProfitAsString();
                break;
             case COLUMN_ENTRY_COMMENT:
                value = pos.EntryComment();
@@ -975,6 +975,16 @@ class DealLine : public AbstractLine
                if(pos != NULL)
                   value = pos.PriceToString(pos.CurrentPrice());
                break;
+            case COLUMN_COMMISSION:
+            {
+               double comm = 0.0;
+               if(exitDeal != NULL)
+                  comm += exitDeal.Commission();
+               if(entryDeal != NULL)
+                  comm += entryDeal.Commission();
+               value = DoubleToString(comm, 2);
+               break;
+            }
             case COLUMN_PROFIT:
                value = "-";
                break;
@@ -1025,44 +1035,82 @@ class Summary : public AbstractLine
          textNode.BackgroundColor(clrGainsboro);
          textNode.BorderColor(Settings.ColorTheme.GetSystemColor2());
          Add(textNode);
+         if(tType == TABLE_POSHISTORY)
+            RefreshHistory();
       }
       ///
       /// Обновляет текст итоговой строки для активной таблицы.
       ///
       void RefreshSummury(void)
       {
-         if(CheckPointer(textNode) == POINTER_INVALID)
-            return;
-         string strBalance = DoubleToString(GetBalance(), 2);
+         if(TableType() == TABLE_POSACTIVE)
+            RefreshActive();
+         if(TableType() == TABLE_POSHISTORY)
+            RefreshHistory();
+      }
+      
+   private:
+      ///
+      /// Обновляет итоговую строку для вкладки активных позиций.
+      ///
+      void RefreshActive()
+      {
+         RefreshSummary();
+         double margin = AccountInfoDouble(ACCOUNT_MARGIN);
+         string strPerMargin = DoubleToString(margin/AccountInfoDouble(ACCOUNT_BALANCE), 2);
+         
+         string strBalance = DoubleToString(AccountInfoDouble(ACCOUNT_BALANCE), 2);
+         
+         string strComm = DoubleToString(commission, 2);
+         double pl = GetFloatPL();
+         string strPerPl = DoubleToString(pl/AccountInfoDouble(ACCOUNT_BALANCE)*100.0, 2);
          string strPL = DoubleToString(GetFloatPL(), 2);
-         string str = "Balance: " + strBalance + "  Floating P/L: " + strPL;
+         //" Comm.: " + strComm + 
+         string str = "Balance: " + strBalance + "  Floating P/L: " + strPL + " (" + strPerPl + "%)  Margin: " + strPerMargin + "%";
          //string str = "Current time: " + TimeToString(TimeCurrent(), TIME_DATE|TIME_MINUTES|TIME_SECONDS);
          textNode.Text(str);
       }
-   private:
+      ///
+      /// Обновляет итоговую строку для вкладки исторических позиций.
+      ///
+      void RefreshHistory()
+      {
+         RefreshSummary();
+         string strBalance = DoubleToString(AccountInfoDouble(ACCOUNT_BALANCE), 2);
+         string strPL = DoubleToString(balance+commission, 2);
+         string strComm = DoubleToString(commission, 2);
+         string strPerComm = "";
+         if(balance != 0.0)
+            strPerComm = DoubleToString(commission/MathAbs(balance)*100.0, 2);
+         //string str = "Balance: " + strBalance + "  P/L: " + strPL + " (Comm.: " + strComm + ", " + strPerComm + "%)";
+         string str = "Balance: " + strBalance + "  P/L: " + strPL + " Pos.: " + posTotal;
+         textNode.Text(str);
+      }
       ///
       /// Получает баланс завершеных сделок.
       ///
-      double GetBalance()
+      void RefreshSummary()
       {
-         if(!Math::DoubleEquals(balance, 0.0))
-            return balance;
-         HedgeManager* api = EventExchange::GetAPI();
+         if(api == NULL)
+            return;
          int total = api.HistoryPosTotal();
-         for(int i = 0; i < total; i++)
+         for(; histTrans < total; histTrans++)
          {
-            Transaction* trans = api.HistoryPosAt(i);
+            Transaction* trans = api.HistoryPosAt(histTrans);
             balance += trans.ProfitInCurrency();
+            commission += trans.Commission();
+            if(trans.TransactionType() == TRANS_POSITION)
+               posTotal++;
          }
-         return balance;
       }
+      
       ///
       /// Возвращает плавующую прибыль/убыток.
       ///
       double GetFloatPL(void)
       {
          double pl = 0.0;
-         HedgeManager* api = EventExchange::GetAPI();
+         //HedgeManager* api = EventExchange::GetAPI();
          int total = api.ActivePosTotal();
          for(int i = 0; i < total; i++)
          {
@@ -1079,4 +1127,16 @@ class Summary : public AbstractLine
       /// Баланс завершенных сделок.
       ///
       double balance;
+      ///
+      /// Совокупная комиссия всех совершенных транзакций.
+      ///
+      double commission;
+      ///
+      /// количество исторических транзакций.
+      ///
+      int histTrans;
+      ///
+      /// Всего позиций.
+      ///
+      int posTotal;
 };

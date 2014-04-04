@@ -24,11 +24,14 @@ CArrayObj Experts;
 ///
 int OnInit()
 {
+   PrintResult();
    MAExpert* maexp = new MAExpert();
    maexp.SetSlowMA(3);
    Experts.Add(maexp);
+   
    return(INIT_SUCCEEDED);
 }
+
 
 void OnDeinit(const int reason)
 {
@@ -39,10 +42,26 @@ void OnDeinit(const int reason)
 ///
 void OnTick()
 {
-   for(int i = 0; i < Experts.Total(); i++)
+   /*for(int i = 0; i < Experts.Total(); i++)
    {
       MAExpert* expert = Experts.At(i);
       expert.Run();
+   }*/
+}
+
+void PrintResult()
+{
+   int total = api.HistoryPosTotal();
+   for(int i = 0; i < total; i++)
+   {
+      Transaction* trans = api.HistoryPosAt(i);
+      if(trans.TransactionType() != TRANS_POSITION)
+         continue;
+      Position* pos = trans;
+      string profit = DoubleToString(pos.ProfitInCurrency(), 2);
+      string timeEntry = TimeToString(pos.EntryExecutedTime()/1000, TIME_DATE|TIME_MINUTES|TIME_SECONDS);
+      string id = IntegerToString(pos.EntryOrderId());
+      printf(id + "\t" + timeEntry + "\t" + profit);
    }
 }
 

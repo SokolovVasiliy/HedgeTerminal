@@ -403,6 +403,8 @@ ENUM_COLUMN_TYPE XmlLoader::GetColumnType(string columnId)
       return COLUMN_TP;
    if(columnId == "CurrentPrice")
       return COLUMN_CURRENT_PRICE;
+   if(columnId == "Commission")
+      return COLUMN_COMMISSION;
    if(columnId == "Profit")
       return COLUMN_PROFIT;
    if(columnId == "EntryComment")

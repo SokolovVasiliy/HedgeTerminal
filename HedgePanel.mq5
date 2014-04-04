@@ -34,13 +34,11 @@ void OnInit(void)
    //Settings* set = Settings::GetSettings1();
    Settings = PanelSettings::Init();
    EventSetMillisecondTimer(RefreshRate);
-   #ifdef HEDGE_PANEL
    HedgePanel = new MainForm();
    EventExchange::Add(HedgePanel);
    EventRefresh* refresh = new EventRefresh(EVENT_FROM_UP, "TERMINAL REFRESH");
    HedgePanel.Event(refresh);
    delete refresh;
-   #endif
    api = new HedgeManager();
    EventExchange::Add(api);
    ChartSetInteger(0, CHART_EVENT_MOUSE_MOVE, true);
@@ -130,8 +128,8 @@ void OnChartEvent(const int id,
       int mask = (int)StringToInteger(sparam);
       EventMouseMove* move = new EventMouseMove(lparam, (long)dparam, mask);
       
-      if(move.PushedLeftButton())
-         printf("X:" + move.XCoord() + " Y:" + move.YCoord());
+      //if(move.PushedLeftButton())
+      //   printf("X:" + move.XCoord() + " Y:" + move.YCoord());
       HedgePanel.Event(move);
       delete move;
       return;

@@ -144,6 +144,14 @@ class Position : public Transaction
       /// ѕечатает текущее состо€ние лога задач.
       ///
       void PrintTaskLog();
+      ///
+      /// “екуща€ цена зависит от типа позиции.
+      ///
+      virtual double CurrentPrice(void);
+      ///
+      /// ¬овзращает совокупную комиссию дл€ позиции.
+      ///
+      virtual double Commission(void);
    private:
       
       void OnRefresh(void);
@@ -1509,4 +1517,28 @@ void Position::PrintTaskLog(void)
       }
       printf("Step " + (string)i + ": " + EnumToString(typeTarget) + " - " + (string)retcode);
    }
+}
+
+double Position::CurrentPrice(void)
+{
+   switch(status)
+   {
+      case POSITION_ACTIVE:
+         return Transaction::CurrentPrice();
+      case POSITION_NULL:
+         return 0;
+      case POSITION_HISTORY:
+         return ExitExecutedPrice();
+   }
+   return 0.0;
+}
+
+double Position::Commission(void)
+{
+   if(status == POSITION_NULL)
+      return 0.0;
+   double commission = initOrder.Commission();
+   if(status == POSITION_HISTORY)
+      commission += closingOrder.Commission();
+   return commission;
 }

@@ -399,6 +399,7 @@ class HedgeManager
             Position* pos = HistoryPos.At(i);
             pos.SendEventChangedPos(POSITION_SHOW);
          }
+         CreateSummary(TABLE_POSHISTORY);
       }
       
       void CreateSummary(ENUM_TABLE_TYPE tType)

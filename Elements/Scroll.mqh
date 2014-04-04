@@ -192,6 +192,8 @@ class Todler : public Label
          {
             isMove = false;
             coord = 0;
+            //Scroll* scroll = scrollArea.GetScroll();
+            //scroll.CurrentStepIntro(scroll.CurrentStep());
             return true;
          }
          return false;
@@ -366,7 +368,6 @@ class ScrollArea : public Label
          int step = CalcCurrentStepByTodler();
          if(scroll.CurrentStep() != step)
             scroll.CurrentStepIntro(step);
-         
       }
    private:
       ///

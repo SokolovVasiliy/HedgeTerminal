@@ -78,6 +78,11 @@ class CWorkArea : public Label
          if(index < 0 || index >= total)return;
          //Получаем линию под номером index.
          ProtoNode* node = ChildElementAt(index);
+         if(node.TypeElement() == ELEMENT_TYPE_TABLE_SUMMARY)
+         {
+            Summary* s = node;
+            s.RefreshSummury();
+         }
          int nline = node.NLine();
          node.NLine(index);
          //Запоминаем видимость элемента
@@ -303,7 +308,8 @@ class CWorkArea : public Label
             if(visibleFirst + visibleCount <= n+1)
                LineVisibleFirst(n+2 - visibleCount);
             Line* nline = ChildElementAt(n+1);
-            MoveCursor(nline);
+            if(nline.TypeElement() != ELEMENT_TYPE_TABLE_SUMMARY)
+               MoveCursor(nline);
          }
          else if(n > 0 && code == KEY_ARROW_UP)
          {
@@ -311,7 +317,8 @@ class CWorkArea : public Label
             if(n-1 < visibleFirst)
                LineVisibleFirst(n-1);
             Line* nline = ChildElementAt(n-1);
-            MoveCursor(nline);
+            if(nline.TypeElement() != ELEMENT_TYPE_TABLE_SUMMARY)
+               MoveCursor(nline);
          }
       }
       ///
@@ -340,6 +347,12 @@ class CWorkArea : public Label
          if(!Visible() || event.Direction() == EVENT_FROM_DOWN)return;
          OnCommand();
       }
+      
+      /*virtual void OnVisible(EventVisible* event)
+      {
+         if(event.Visible())
+            OnCommand();
+      }*/
       ///
       /// Размещает линии согласно алгоритму таблицы.
       ///

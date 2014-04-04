@@ -701,6 +701,9 @@ class ProtoNode : public CObject
             }
             //√енерируем новое им€ вс€кий раз когда требуетс€ отобразить элемент, гарантиру€ его уникальность.
             GenNameId();
+            int dbg = 4;
+            if(typeObject == OBJ_BITMAP_LABEL)
+               dbg = 5;
             visible = ObjectCreate(MAIN_WINDOW, nameId, typeObject, MAIN_SUBWINDOW, XAbsDistance(), YAbsDistance());
             if(!visible)
                LogWriter("Failed visualize element " + nameId, MESSAGE_TYPE_ERROR);

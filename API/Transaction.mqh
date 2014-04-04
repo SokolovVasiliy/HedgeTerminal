@@ -110,9 +110,18 @@ class Transaction : public CObject
             price = SymbolInfoDouble(this.Symbol(), SYMBOL_ASK);
          else
             price = 0.0;
-         return price;
+         return NormalizePrice(price);
       }
-      
+      ///
+      /// Нормализует цену в соответствии с количеством знаков текущего инструмента.
+      ///
+      double NormalizePrice(double price)
+      {
+         if(this.Symbol() == NULL || this.Symbol() == "")
+            return price;
+         int digits = (int)SymbolInfoInteger(this.Symbol(), SYMBOL_DIGITS);
+         return NormalizeDouble(price, digits);
+      }
       ///
       /// Возвращает фактический выполненный объем транзакции.
       ///
@@ -125,8 +134,11 @@ class Transaction : public CObject
       ///
       virtual double ProfitInPips()
       {
+         int dbg = 5;
+         if(currId == 1009362300)
+            dbg = 5;
          double delta = CurrentPrice() - EntryExecutedPrice();
-         if(direction == DIRECTION_SHORT)
+         if(Direction() == DIRECTION_SHORT)
             delta *= -1.0;
          return delta;
       }
@@ -141,7 +153,7 @@ class Transaction : public CObject
          double point = SymbolInfoDouble(this.Symbol(), SYMBOL_POINT);
          if(point == 0.0)return 0.0;
          pips /= point;
-         symbolInfo.Name(Symbol());
+         symbolInfo.Name(this.Symbol());
          if(pips < 0.0)
             tickValueCurrency = symbolInfo.TickValueLoss();
          else
@@ -151,7 +163,14 @@ class Transaction : public CObject
       }
       virtual ENUM_DIRECTION_TYPE Direction()
       {
-         return direction;
+         return DIRECTION_NDEF;
+      }
+      ///
+      /// Комиссия за совершение транзакции.
+      ///
+      virtual double Commission()
+      {
+         return 0.0;
       }
       ///
       /// Возвращает профит в виде текстового представления.
@@ -308,7 +327,7 @@ class Transaction : public CObject
          if(HistoryDealsTotal() < 2)
             HistorySelect(D'1970.01.01', TimeCurrent()+100);
       }
-      ENUM_DIRECTION_TYPE direction;
+      //ENUM_DIRECTION_TYPE direction;
    private:
       ///
       /// Тип транзакции.

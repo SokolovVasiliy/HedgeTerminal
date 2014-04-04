@@ -1,8 +1,8 @@
 
 class PanelSettings;
 
-#define IMG_MENU "::img\\button_img.bmp"
-#resource "img\\button_img.bmp"
+#define IMG_MENU "::button_img.bmp"
+#resource "button_img.bmp"
 
 #include "Prototypes.mqh"
 PanelSettings* Settings;

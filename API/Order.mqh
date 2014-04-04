@@ -102,6 +102,7 @@ class Order : public Transaction
       bool IsStopLoss();
       bool IsTakeProfit();
       bool IsExecuted();
+      virtual double Commission(void);
    private:
       ulong GetStopMask(void);
       ulong GetTakeMask(void);
@@ -650,20 +651,23 @@ void Order::RecalcValues(void)
          timeExecuted.Tiks(deal.TimeExecuted());
    }
    if(volumeExecuted > 0)
+   {
       priceExecuted /= volumeExecuted;
+      priceExecuted = NormalizePrice(priceExecuted);
+   }
    volumeExecuted = NormalizeDouble(volumeExecuted, 4);
    //calc setup price and comment.
    if(IsPending())
    {
       OrderSelect(GetId());
-      priceSetup = OrderGetDouble(ORDER_PRICE_OPEN);
+      symbol = OrderGetString(ORDER_SYMBOL);
+      priceSetup = NormalizePrice(OrderGetDouble(ORDER_PRICE_OPEN));
       volumeSetup = OrderGetDouble(ORDER_VOLUME_INITIAL);
       long tSetup = OrderGetInteger(ORDER_TIME_SETUP_MSC);
       if(tSetup != 0)
          timeSetup = tSetup;
       else timeSetup = (long)OrderGetInteger(ORDER_TIME_SETUP)*1000; 
       comment = OrderGetString(ORDER_COMMENT);
-      symbol = OrderGetString(ORDER_SYMBOL);
       type = (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE);
       state = (ENUM_ORDER_STATE)OrderGetInteger(ORDER_STATE);
       magic = OrderGetInteger(ORDER_MAGIC);
@@ -673,14 +677,14 @@ void Order::RecalcValues(void)
    {
       //printf("Calc history order");
       ulong id = GetId();
-      priceSetup = HistoryOrderGetDouble(id, ORDER_PRICE_OPEN);
+      symbol = HistoryOrderGetString(id, ORDER_SYMBOL);
+      priceSetup = NormalizePrice(HistoryOrderGetDouble(id, ORDER_PRICE_OPEN));
       volumeSetup = HistoryOrderGetDouble(id, ORDER_VOLUME_INITIAL);
       long tSetup = HistoryOrderGetInteger(id, ORDER_TIME_SETUP_MSC);
       if(tSetup != 0)
          timeSetup = tSetup;
       else timeSetup = (long)HistoryOrderGetInteger(id, ORDER_TIME_SETUP)*1000;
       comment = HistoryOrderGetString(id, ORDER_COMMENT);
-      symbol = HistoryOrderGetString(id, ORDER_SYMBOL);
       type = (ENUM_ORDER_TYPE)HistoryOrderGetInteger(id, ORDER_TYPE);
       state = (ENUM_ORDER_STATE)HistoryOrderGetInteger(id, ORDER_STATE);
       magic = HistoryOrderGetInteger(id, ORDER_MAGIC);
@@ -774,4 +778,18 @@ bool Order::IsCanceled(void)
    if(state == ORDER_STATE_CANCELED)
       return true;
    return false;
+}
+
+///
+/// Возвращает комиссию всех совершенных сделок для этого ордера.
+///
+double Order::Commission(void)
+{
+   double commission = 0.0;
+   for(int i = 0; i < deals.Total(); i++)
+   {
+      Deal* deal = deals.At(i);
+      commission += deal.Commission();
+   }
+   return commission;
 }

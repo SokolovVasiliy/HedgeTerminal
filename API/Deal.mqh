@@ -43,6 +43,12 @@ class Deal : public Transaction
       Order* Order(){return order;}
       virtual ulong Magic(){return magic;}
       virtual ENUM_DIRECTION_TYPE Direction(void);
+      virtual double Commission();
+   protected:
+      ///
+      /// —одержит комиссию в пересчете на 1 базовый контракт.
+      ///
+      double commission;
    private:
       virtual bool IsHistory();
       ///
@@ -81,6 +87,7 @@ class Deal : public Transaction
       /// »дентификатор эксперта, которому принадлежит текуща€ сделка.
       ///
       ulong magic;
+      
 };
 
 Deal::Deal(void) : Transaction(TRANS_DEAL)
@@ -106,6 +113,7 @@ Deal::Deal(Deal* deal) : Transaction(TRANS_DEAL)
    priceExecuted = deal.EntryExecutedPrice();
    type = deal.DealType();
    magic = deal.Magic();
+   commission = deal.commission;
    // опируютс€ все значени€ кроме ссылки на ордер.
    //order = deal.Order();
 }
@@ -139,26 +147,27 @@ void Deal::Init(ulong dealId)
    SetId(dealId);
    if(!IsHistory())
       return;
-   volumeExecuted = HistoryDealGetDouble(dealId, DEAL_VOLUME);
-   timeExecuted.Tiks(HistoryDealGetInteger(dealId, DEAL_TIME_MSC));
-   priceExecuted = HistoryDealGetDouble(dealId, DEAL_PRICE);
-   type = (ENUM_DEAL_TYPE)HistoryDealGetInteger(GetId(), DEAL_TYPE);
    symbol = HistoryDealGetString(dealId, DEAL_SYMBOL);
+   volumeExecuted = HistoryDealGetDouble(dealId, DEAL_VOLUME);
+   //–ассчитываем комиссию на один базовый контракт.
+   commission = HistoryDealGetDouble(dealId, DEAL_COMMISSION);
+   if(Math::DoubleEquals(volumeExecuted, 0.0))
+      commission = 0.0;
+   else
+      commission = commission/volumeExecuted;
+   timeExecuted.Tiks(HistoryDealGetInteger(dealId, DEAL_TIME_MSC));
+   priceExecuted = NormalizePrice(HistoryDealGetDouble(dealId, DEAL_PRICE));
+   type = (ENUM_DEAL_TYPE)HistoryDealGetInteger(GetId(), DEAL_TYPE);
    comment = HistoryDealGetString(dealId, DEAL_COMMENT);
    magic = HistoryDealGetInteger(dealId, DEAL_MAGIC);
    if(type == DEAL_TYPE_BUY || type == DEAL_TYPE_SELL)
    {
       status = DEAL_TRADE;
       orderId = HistoryDealGetInteger(GetId(), DEAL_ORDER);
-      if(type == DEAL_TYPE_BUY)
-         direction = DIRECTION_LONG;
-      else
-         direction = DIRECTION_SHORT;
    }
    else
    {
       status = DEAL_BROKERAGE;
-      direction = DIRECTION_NDEF;
    }
 }
 
@@ -261,4 +270,12 @@ ENUM_DIRECTION_TYPE Deal::Direction()
       return DIRECTION_SHORT;
    else
       return DIRECTION_NDEF;
+}
+
+///
+/// ¬озвращает комиссию за совершенную сделку.
+///
+double Deal::Commission()
+{
+   return commission*volumeExecuted;
 }

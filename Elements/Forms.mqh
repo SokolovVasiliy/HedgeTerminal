@@ -25,10 +25,11 @@ class MainForm : public ProtoNode
          allowed = false;
          
          start = new Button("Menu", GetPointer(this));
-         
-         //btnMenu = new Image("HP Menu", GetPointer(this), IMG_MENU);
-         
          childNodes.Add(start);
+         
+         //btnMenu = new MenuButton(GetPointer(this));
+         //btnMenu = new Image("HP Menu", GetPointer(this), IMG_MENU);
+         //childNodes.Add(btnMenu);
          
          status = new Label("TradeStatus", GetPointer(this));
          status.ReadOnly(true);
@@ -87,9 +88,9 @@ class MainForm : public ProtoNode
          start.Event(command);
          delete command;
          
-         /*command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 15, 0, 90, 30);
+         command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 15, 0, 100, 30);
          btnMenu.Event(command);
-         delete command;*/
+         delete command;
       }
       
       virtual void OnEvent(Event* event)
