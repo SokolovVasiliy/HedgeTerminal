@@ -8,14 +8,10 @@
 #property link      "http://www.mql5.com"
 #property version   "1.00"
 
-//#define HLIBRARY
+#define HLIBRARY
 #include "..\Globals.mqh"
 #include "TaskLog.mqh"
 
-///
-/// 
-///
-//#define 
  
 HedgeManager api;
 
@@ -39,6 +35,13 @@ ENUM_HEDGE_ERR hedgeErr;
 ENUM_HEDGE_ERR GetHedgeError() export
 {
    return hedgeErr;
+}
+///
+/// Install missing files.
+///
+void InstallMissingFiles()export
+{
+   api.InstallMissingFiles();
 }
 ///
 /// Return count active and pending positions.

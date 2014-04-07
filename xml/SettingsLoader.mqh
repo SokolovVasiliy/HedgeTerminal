@@ -31,6 +31,10 @@ class XmlLoader
          ///
          SET_COLUMNS_SHOW,
          ///
+         /// Секция прочих настроек.
+         ///
+         SET_OTHER,
+         ///
          /// Неопределенная секция настроек.
          ///
          SET_NOTDEF
@@ -97,6 +101,18 @@ class XmlLoader
             string name;
       };
       ENUM_SET_SECTIONS GetTypeSection(string nameNode);
+      //Группа функций для парсинга прочих настроек.
+      void ParseOtherSettings(CXmlElement* xmlItem);
+      void ParseBeginMarker(CXmlElement* xmlItem);
+      void ParseDeviation(CXmlElement* xmlItem);
+      void ParseTimeout(CXmlElement* xmlItem);
+      void ParseRefreshRates(CXmlElement* xmlItem);
+      //Группа переменных содержащие значения прочих настроек.
+      ulong beginMarker;
+      int deviation;
+      int timeout;
+      int refrshRates;
+      
       void ParseColumnsSettings(CXmlElement* xmlItem);
       void ParseColumns(CXmlElement* activeTab, ENUM_TAB_TYPE tabType);
       void ParseColumn(CXmlElement* activeTab, ENUM_TAB_TYPE tabType);
@@ -125,7 +141,7 @@ void XmlLoader::LoadSettings(void)
 {
    CXmlDocument doc;
    string err;
-   string path = "HedgeTerminalSettings.xml";
+   string path = ".\HedgeTerminal\HedgeTerminalSettings.xml";
    if(!doc.CreateFromFile(path, err))
    {
       printf(err);
@@ -139,6 +155,9 @@ void XmlLoader::LoadSettings(void)
          case SET_COLUMNS_SHOW:
             ParseColumnsSettings(xmlItem);
             break;
+         case SET_OTHER:
+            ParseOtherSettings(xmlItem);
+            break;
       }
    }
 }
@@ -147,7 +166,7 @@ void XmlLoader::LoadAliases(void)
 {
    CXmlDocument doc;
    string err;
-   string path = "ExpertAliases.xml";
+   string path = ".\HedgeTerminal\ExpertAliases.xml";
    if(!doc.CreateFromFile(path, err))
    {
       printf(err);
@@ -202,7 +221,7 @@ void XmlLoader::LoadHistOrders(void)
       HistPos.Sort();
    
    string err;
-   string path = "HistoryPositions.xml";
+   string path = ".\HedgeTerminal\HistoryPositions.xml";
    if(!XmlHistFile.CreateFromFile(path, err))
    {
       printf(err);
@@ -277,6 +296,8 @@ ENUM_SET_SECTIONS XmlLoader::GetTypeSection(string nameNode)
 {
    if(nameNode == "Show-Columns")
       return SET_COLUMNS_SHOW;
+   if(nameNode == "Other-Settings")
+      return SET_OTHER;
    return SET_NOTDEF;
 }
 
@@ -294,6 +315,69 @@ void XmlLoader::ParseColumnsSettings(CXmlElement *xmlItem)
       else if(xmlTab.GetName() == "History-Position")
          ParseColumns(xmlTab, TAB_HISTORY);
    }
+}
+
+///
+/// Разбирает секцию прочих настроек.
+///
+void XmlLoader::ParseOtherSettings(CXmlElement *xmlItem)
+{
+   for(int i = 0; i < xmlItem.GetChildCount(); i++)
+   {
+      CXmlElement* xmlTab = xmlItem.GetChild(i);
+      if(xmlTab.GetName() == "Begin-Marker")
+         ParseBeginMarker(xmlTab);
+      else if(xmlTab.GetName() == "Deviation")
+         ParseDeviation(xmlTab);
+   }
+}
+
+///
+/// Парсит узел настроек отвечающий за значение начального маркера.
+///
+void XmlLoader::ParseBeginMarker(CXmlElement* xmlTab)
+{
+   CXmlAttribute* attr = xmlTab.GetAttribute("ID");
+   if(attr == NULL)return;
+   int id = (int)StringToInteger(attr.GetValue());
+   if(id > 0)
+      beginMarker = id;
+}
+
+///
+/// Парсит узел настроек отвечающий за велечину предельного отклонения цены.
+///
+void XmlLoader::ParseDeviation(CXmlElement *xmlTab)
+{
+   CXmlAttribute* attr = xmlTab.GetAttribute("Value");
+   if(attr == NULL)return;
+   int dev = (int)StringToInteger(attr.GetValue());
+   if(dev > 0)
+      deviation = dev;
+}
+
+///
+/// Парсит узел настроек отвечающий за велечину предельного отклонения цены.
+///
+void XmlLoader::ParseTimeout(CXmlElement *xmlTab)
+{
+   CXmlAttribute* attr = xmlTab.GetAttribute("Seconds");
+   if(attr == NULL)return;
+   int sec = (int)StringToInteger(attr.GetValue());
+   if(sec > 0)
+      timeout = sec;
+}
+
+///
+/// Парсит узел настроек отвечающий за велечину предельного отклонения цены.
+///
+void XmlLoader::ParseRefreshRates(CXmlElement *xmlTab)
+{
+   CXmlAttribute* attr = xmlTab.GetAttribute("Milliseconds");
+   if(attr == NULL)return;
+   int msc = (int)StringToInteger(attr.GetValue());
+   if(msc > 0)
+      refrshRates = msc;
 }
 
 ///

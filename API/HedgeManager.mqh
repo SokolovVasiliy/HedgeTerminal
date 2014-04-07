@@ -4,6 +4,7 @@
 #include "Order.mqh"
 #include "..\Events.mqh"
 #include "..\XML\XmlGarbage.mqh"
+#include "..\Resources\Resources.mqh"
 ///
 /// Класс позиции
 ///
@@ -30,12 +31,38 @@ class HedgeManager
                break;
          }
       }
-      
+      ///
+      /// Мастер инсталяции HedgeTerminal запускаемый в первый раз.
+      ///
+      bool WizardForUseFirstTime()
+      {
+         int res =  MessageBox("HedgeTerminal detected first time use. This master help you install" + 
+         " HedgeTerminal on your PC. Press \'OK' for continue or cancel for exit HedgeTerminal.", VERSION, MB_OKCANCEL);
+         if(res == IDCANCEL)
+            return false;
+         string path = MQLInfoString(MQL_PROGRAM_PATH);
+         printf(path);
+         res = MessageBox("For corectly work HedgeTerminal needed install some files in" +
+         " .\MQL5\Files\HedgeTerminal derectory. For install files press \'ОК\' or cancel for exit.", VERSION, MB_OKCANCEL);
+         return true;
+         //return false;
+         //InstallMissingFiles();
+      }
       ///
       /// 
       ///
       HedgeManager()
       {
+         if(Resources::UsingFirstTime())
+         {
+            if(!WizardForUseFirstTime())
+            {
+               ExpertRemove();
+               return;
+            }
+         }
+         else
+            InstallMissingFiles();
          if(Settings == NULL)
             Settings = PanelSettings::Init();
          ActivePos = new CArrayObj();
@@ -55,11 +82,16 @@ class HedgeManager
       
       ~HedgeManager()
       {
-         int total = ActivePos.Total();
-         ActivePos.Clear();
-         delete ActivePos;
-         HistoryPos.Clear();
-         delete HistoryPos;
+         if(CheckPointer(ActivePos))
+         {
+            ActivePos.Clear();
+            delete ActivePos;
+         }
+         if(CheckPointer(HistoryPos))
+         {
+            HistoryPos.Clear();
+            delete HistoryPos;
+         }
          if(CheckPointer(Settings) != POINTER_INVALID)
             delete Settings;
          tasks.Shutdown();
@@ -127,6 +159,23 @@ class HedgeManager
       {
          Position* pos = HistoryPos.At(n);
          return pos;
+      }
+      
+      ///
+      /// Инсталлирует отсутствующие файлы в директорию HedgeTerminal.
+      ///
+      void InstallMissingFiles(void)
+      {
+         if(!Resources::CheckResource(RES_SETTINGS_XML))
+            Resources::InstallResource(RES_SETTINGS_XML);
+         if(!Resources::CheckResource(RES_ACTIVE_POS_XML))
+            Resources::InstallResource(RES_ACTIVE_POS_XML);
+         if(!Resources::CheckResource(RES_HISTORY_POS_XML))
+            Resources::InstallResource(RES_HISTORY_POS_XML);
+         if(!Resources::CheckResource(RES_EXPERT_ALIASES))
+            Resources::InstallResource(RES_EXPERT_ALIASES);
+         if(!Resources::CheckResource(RES_FONT_MT_BOLT))
+            Resources::InstallResource(RES_FONT_MT_BOLT);
       }
       ///
       /// Находит активную позицию в списке активных позиций, чей

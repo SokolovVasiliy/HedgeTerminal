@@ -71,11 +71,10 @@ class ElementMenu : public Label
       ///
       void OnMenuSaveReport()
       {
-         
          CFileTxt file;
-         file.SetCommon(true);
          string date = TimeToString(TimeCurrent(), TIME_DATE);
-         string fileName = "HTReport_" + date + ".csv";
+         string fileName = ".\HedgeTerminal\HTReport_" + date + ".csv";
+         file.SetCommon(false);
          if(file.IsExist(fileName))
             file.Delete(fileName);
          int handle = file.Open(fileName, FILE_WRITE|FILE_CSV);
@@ -86,7 +85,7 @@ class ElementMenu : public Label
          }
          SaveReport(GetPointer(file));
          file.Close();
-         LogWriter("The report file " + fileName + " has been successfully created. Check it in common directory", MESSAGE_TYPE_INFO);
+         LogWriter("The report file " + fileName + " has been successfully created. Check it in .\MQL5\Files\HedgeTerminal directory", MESSAGE_TYPE_INFO);
       }
       ///
       /// Формирует отчет и сохраняет его в предворительно открытом файле 'file'
@@ -125,12 +124,12 @@ class ElementMenu : public Label
       ///
       void OnMenuInstallFiles()
       {
+         //printf(GetRelativeProgramPath());
          string message = "Warning! HedgeTerminal reinstall files. Corrupted files will not be replaced, remove them for replacement. Continue?";
          int res = MessageBox(message, "HedgeTerminal 1.0", MB_OKCANCEL|MB_ICONQUESTION);
          if(res == IDCANCEL)
             return;
-         if(!Resources::CheckResource(RES_SETTINGS_XML))
-            Resources::InstallResource(RES_SETTINGS_XML);
+         api.InstallMissingFiles();
       }
       ///
       /// Скрывает родительское меню.

@@ -10,10 +10,10 @@ class CXmlDocument
   {
 private:
    void              DoElementTrimText(CXmlElement &aXmlItem);
-
+   int               common;  //Флаг, указывающий, что загрузка и сохранение файла происходит из общей деректории.
 public:
    CXmlElement       FDocumentElement;
-
+   void              SetCommon(bool res){ common = res ? FILE_COMMON : 0;}
    void              CXmlDocument();
    void             ~CXmlDocument();
    void              Clear();
@@ -30,6 +30,7 @@ public:
 //+------------------------------------------------------------------+
 void CXmlDocument::CXmlDocument()
   {
+   common = 0;
   };
 //+------------------------------------------------------------------+
 //| Destructor                                                       |
@@ -290,7 +291,7 @@ string CXmlDocument::GetXml()
 bool CXmlDocument::CreateFromFile(const string filename,string &err) 
   {
    ResetLastError();
-   int h=FileOpen(filename,FILE_BIN | FILE_READ | FILE_COMMON);
+   int h=FileOpen(filename,FILE_BIN | FILE_READ | common);
    if(h!=INVALID_HANDLE) 
      {
       uchar data[];
@@ -311,7 +312,7 @@ bool CXmlDocument::CreateFromFile(const string filename,string &err)
 bool CXmlDocument::SaveToFile(const string filename) 
   {
    ResetLastError();
-   int h=FileOpen(filename,FILE_BIN|FILE_WRITE|FILE_COMMON);
+   int h=FileOpen(filename,FILE_BIN|FILE_WRITE|common);
    if(h!=INVALID_HANDLE) 
      {
       uchar data[];

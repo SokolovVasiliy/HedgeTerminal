@@ -1,4 +1,4 @@
-
+#define VERSION "HedgeTerminal 1.0"
 class PanelSettings;
 #ifdef HEDGE_PANEL
    ///

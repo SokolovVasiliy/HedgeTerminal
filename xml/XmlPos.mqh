@@ -212,7 +212,7 @@ XmlPos::XmlPos(Position* pos)
 {
    //POSITION_STATUS st = pos.Status();
    xmlFile = Settings.GetActivePosXml();
-   file = new FileInfo(xmlFile, FILE_COMMON, 1);
+   file = new FileInfo(xmlFile, 0, 1);
    position = pos;
    accountId = AccountInfoInteger(ACCOUNT_LOGIN);
    id = pos.GetId();

@@ -52,7 +52,8 @@ void OnTick()
 void PrintResult()
 {
    int total = api.HistoryPosTotal();
-   for(int i = 0; i < total; i++)
+   ExpertRemove();
+   /*for(int i = 0; i < total; i++)
    {
       Transaction* trans = api.HistoryPosAt(i);
       if(trans.TransactionType() != TRANS_POSITION)
@@ -62,6 +63,6 @@ void PrintResult()
       string timeEntry = TimeToString(pos.EntryExecutedTime()/1000, TIME_DATE|TIME_MINUTES|TIME_SECONDS);
       string id = IntegerToString(pos.EntryOrderId());
       printf(id + "\t" + timeEntry + "\t" + profit);
-   }
+   }*/
 }
 
