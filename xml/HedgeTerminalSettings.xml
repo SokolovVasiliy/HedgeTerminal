@@ -1,0 +1,38 @@
+<Settings>
+	<Show-Columns>
+		<Active-Position>
+			<Column ID="CollapsePosition" Name="CollapsePosition" Width="20"></Column>
+			<Column ID="Magic" Name="Magic" Width="60"></Column>
+			<Column ID="EntryID" Name="Entry ID" Width="40"></Column>
+			<Column ID="Type" Name="Type" Width="40"></Column>
+			<Column ID="Volume" Name="Volume" Width="30"></Column>
+			<Column ID="EntryPrice" Name="EntryPrice" Width="60"></Column>
+			<Column ID="StopLoss" Name="StopLoss" Width="40"></Column>
+			<Column ID="TakeProfit" Name="TakeProfit" Width="60"></Column>
+			<Column ID="CurrentPrice" Name="CurrentPrice" Width="60"></Column>
+			<Column ID="Commission" Name="Commission" Width="40"></Column>
+			<Column ID="Profit" Name="Profit" Width="90"></Column>
+			<Column ID="ExitDate" Name="ExitDate" Width="90"></Column>
+			<Column ID="ExitID" Name="ExitID" Width="90"></Column>
+			<Column ID="EntryComment" Name="EntryComment" Width="80"></Column>
+			<Column ID="ExitComment" Name="ExitComment" Width="120"></Column>
+		</Active-Position>
+		<History-Position>
+			<Column ID="CollapsePosition" Name="CollapsePosition" Width="20"></Column>
+			<Column ID="Magic" Name="Magic" Width="80"></Column>
+			<Column ID="EntryID" Name="Entry ID" Width="60"></Column>
+			<Column ID="Type" Name="Type" Width="40"></Column>
+			<Column ID="Volume" Name="Volume" Width="30"></Column>
+			<Column ID="EntryPrice" Name="EntryPrice" Width="60"></Column>
+			<Column ID="StopLoss" Name="StopLoss" Width="40"></Column>
+			<Column ID="TakeProfit" Name="TakeProfit" Width="60"></Column>
+			<Column ID="CurrentPrice" Name="CurrentPrice" Width="60"></Column>
+			<Column ID="Commission" Name="Commission" Width="40"></Column>
+			<Column ID="EntryComment" Name="EntryComment" Width="80"></Column>
+			<Column ID="ExitDate" Name="ExitDate" Width="90"></Column>
+			<Column ID="ExitID" Name="ExitID" Width="90"></Column>
+			<Column ID="ExitPrice" Name="ExitPrice" Width="90"></Column>
+			<Column ID="ExitComment" Name="ExitComment" Width="90"></Column>
+		</History-Position>
+	</Show-Columns>
+</Settings>

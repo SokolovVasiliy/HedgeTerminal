@@ -152,6 +152,7 @@ class TabFlat : public Label
                   break;
                }
             }
+            EventSend(event);
          }
          else
             EventSend(event);

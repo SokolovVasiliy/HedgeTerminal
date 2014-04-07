@@ -24,7 +24,13 @@ class MainForm : public ProtoNode
          
          allowed = false;
          
-         start = new Button("Menu", GetPointer(this));
+         start = new StartButton(GetPointer(this));
+         start.Font("Webdings");
+         start.FontSize(10);
+         string str = CharToString(0x5c);
+         string str1 = CharToString(0x2f);
+         start.Text(str1 +str1 + str1);
+         start.FontColor(clrOrangeRed);
          childNodes.Add(start);
          
          //btnMenu = new MenuButton(GetPointer(this));
@@ -88,9 +94,9 @@ class MainForm : public ProtoNode
          start.Event(command);
          delete command;
          
-         command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 15, 0, 100, 30);
-         btnMenu.Event(command);
-         delete command;
+         //command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 15, 0, 100, 30);
+         //btnMenu.Event(command);
+         //delete command;
       }
       
       virtual void OnEvent(Event* event)
@@ -132,6 +138,11 @@ class MainForm : public ProtoNode
                   else connected.FontColor(clrRed);
                }
             }
+         }
+         if(event.EventId() == EVENT_NODE_CLICK)
+         {
+            if(event.NameNodeId() != start.NameID())
+               start.PushOff();
          }
          //Принимаем команды снизу на обновление терминала
          /*if(event.Direction() == EVENT_FROM_DOWN)
@@ -207,7 +218,7 @@ class MainForm : public ProtoNode
       ///
       /// Кнопка старта.
       ///
-      Button* start;
+      StartButton* start;
       ///
       /// Графическая кнопка меню.
       ///

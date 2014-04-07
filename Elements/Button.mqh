@@ -1,4 +1,5 @@
 #include "TextNode.mqh"
+#include "..\Events.mqh"
 
 ///
 ///  ласс " нопка".
@@ -102,14 +103,7 @@ class ButtonClosePos : public Button
       }
       void OnMouseMove(EventMouseMove* event)
       {
-         bool res = true;
-         long x = event.XCoord();
-         long xAbs = XAbsDistance();
-         if(x > xAbs + Width() || x < xAbs)res = false;
-         long y = event.YCoord();
-         long yAbs = YAbsDistance();
-         if(y > yAbs + High() || y < yAbs)res = false;
-         if(res)
+         if(IsMouseSelected(event))
             FontColor(clrCrimson);
          else
             FontColor(clrDimGray);

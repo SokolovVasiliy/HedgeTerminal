@@ -988,6 +988,8 @@ double Position::TakeProfitLevel(void)
 {
    if(status == POSITION_HISTORY && Math::DoubleEquals(takeProfit, 0.0))
    {
+       if(closingOrder != NULL && closingOrder.IsTakeProfit())
+         return closingOrder.EntryExecutedPrice();
        double tp = Settings.GetLevelVirtualOrder(GetId(), VIRTUAL_TAKE_PROFIT);
        if(CheckHistTP(tp))
          takeProfit = tp;

@@ -37,6 +37,7 @@ class TablePositions : public Table
                break;
             case EVENT_NODE_CLICK:
                OnNodeClick(event);
+               EventSend(event);
                break;
             case EVENT_CHANGE_POS:
                OnChangedPos(event);

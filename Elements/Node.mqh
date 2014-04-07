@@ -495,6 +495,20 @@ class ProtoNode : public CObject
             n_line = n;
          }
       }
+      ///
+      /// ¬овращает истину, если обект находитс€ под курсором мыши,
+      /// и ложь в противном случе.
+      ///
+      bool IsMouseSelected(EventMouseMove* event)
+      {
+         long x = event.XCoord();
+         long xAbs = XAbsDistance();
+         if(x > xAbs + Width() || x < xAbs)return false;
+         long y = event.YCoord();
+         long yAbs = YAbsDistance();
+         if(y > yAbs + High() || y < yAbs)return false;
+         return true;   
+      }
    protected:
       
       virtual void SetColorsFromSettings(void)
@@ -515,20 +529,7 @@ class ProtoNode : public CObject
          BackgroundColor(m_bgColor);
       }
       
-      ///
-      /// ¬овращает истину, если обект находитс€ под курсором мыши,
-      /// и ложь в противном случе.
-      ///
-      bool IsMouseSelected(EventMouseMove* event)
-      {
-         long x = event.XCoord();
-         long xAbs = XAbsDistance();
-         if(x > xAbs + Width() || x < xAbs)return false;
-         long y = event.YCoord();
-         long yAbs = YAbsDistance();
-         if(y > yAbs + High() || y < yAbs)return false;
-         return true;   
-      }
+      
       ///
       /// ѕереопредел€емый прием событий.
       ///
@@ -878,7 +879,7 @@ class ProtoNode : public CObject
          Visible(newEvent.Visible());
          OnCommand(newEvent);
       }
-      void Push(EventObjectClick* push)
+      virtual void Push(EventObjectClick* push)
       {
          if(push.PushObjName() == NameID())
          {

@@ -2,6 +2,7 @@
 #include "Line.mqh"
 #include "Label.mqh"
 #include "Button.mqh"
+#include "Menu.mqh"
 #include "Scroll.mqh"
 #include "CheckBox.mqh"
 #include "TreeViewBox.mqh"

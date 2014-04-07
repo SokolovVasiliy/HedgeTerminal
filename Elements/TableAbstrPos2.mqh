@@ -675,10 +675,6 @@ class PosLine : public AbstractLine
                break;
             case COLUMN_ENTRY_ORDER_ID:
                value = (string)pos.EntryOrderId();
-               if(pos.EntryOrderId() == 1009479524)
-               {
-                  int dbg = 4;
-               }
                break;
             case COLUMN_EXIT_ORDER_ID:
                value = (string)pos.ExitOrderId();
@@ -716,6 +712,9 @@ class PosLine : public AbstractLine
             }
             case COLUMN_TP:
             {
+               int dbg = 5;
+               if(pos.EntryOrderId() == 1009985306)
+                  dbg = 6;
                double tp = pos.TakeProfitLevel();
                if(Math::DoubleEquals(tp, 0.0))
                   value = "";
@@ -1028,6 +1027,7 @@ class Summary : public AbstractLine
       Summary(ProtoNode* parNode, ENUM_TABLE_TYPE tType) : AbstractLine("Summary", ELEMENT_TYPE_TABLE_SUMMARY, parNode, tType)
       {
          textNode = new Label("summary", GetPointer(this));
+         textNode.Font("\Resources\Fonts\Arial Rounded MT Bold Bold.ttf");
          textNode.Font("Arial Rounded MT Bold");
          textNode.Text("Summury Active Positions");
          textNode.FontSize(9);
@@ -1083,7 +1083,7 @@ class Summary : public AbstractLine
          if(balance != 0.0)
             strPerComm = DoubleToString(commission/MathAbs(balance)*100.0, 2);
          //string str = "Balance: " + strBalance + "  P/L: " + strPL + " (Comm.: " + strComm + ", " + strPerComm + "%)";
-         string str = "Balance: " + strBalance + "  P/L: " + strPL + " Pos.: " + posTotal;
+         string str = "Balance: " + strBalance + "  P/L: " + strPL + " Pos.: " + (string)posTotal;
          textNode.Text(str);
       }
       ///

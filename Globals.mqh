@@ -1,9 +1,14 @@
 
 class PanelSettings;
-
-#define IMG_MENU "::button_img.bmp"
-#resource "button_img.bmp"
-
+#ifdef HEDGE_PANEL
+   ///
+   /// Кнопка старта.
+   ///
+   #define IMG_MENU "::button_img.bmp"
+   #resource "button_img.bmp"
+   //#resource "Resources\\Fonts\\Arial Rounded MT Bold Bold.ttf"
+   //#resource "Resources\\Fonts\\test.fon"
+#endif
 #include "Prototypes.mqh"
 PanelSettings* Settings;
 
@@ -185,7 +190,11 @@ enum ENUM_ELEMENT_TYPE
    ///
    /// Идентификатор элемента графического интерфейса, поддерживающий скролл.
    ///
-   ELEMENT_TYPE_SCROLLING
+   ELEMENT_TYPE_SCROLLING,
+   ///
+   /// Идентификатор кнопки меню HT.
+   ///
+   ELEMENT_TYPE_START_MENU
 };
 
 ///
@@ -267,6 +276,7 @@ enum ENUM_BUTTON_STATE
 //
 #include "Math.mqh"
 #include "Log.mqh"
+#include "Resources\Resources.mqh"
 #ifndef SETTINGS_MQH
    #include "Settings.mqh"
 #endif
