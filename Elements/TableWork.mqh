@@ -11,6 +11,7 @@ class CWorkArea : public Label
          Text("");
          ReadOnly(true);
          BorderColor(parNode.BackgroundColor());
+         cursorIndex = -1; //Курсор не установлен.
          //visibleCount = -1;
       }
       ///
@@ -152,6 +153,7 @@ class CWorkArea : public Label
             if(index < 0 || index > total) return;
             //Ползунок перемещен вниз - скрываем верхние строки.
             int i = visibleFirst;
+            //for(; i < visibleCount; i++)
             for(; i < index; i++)
             {
                ProtoNode* node = childNodes.At(i);
@@ -183,6 +185,8 @@ class CWorkArea : public Label
          if(scroll.CurrentStep() != LineVisibleFirst())
          {
             LineVisibleFirst(scroll.CurrentStep());
+            if(scroll.CurrentStep() + visibleCount >= childNodes.Total())
+               OnCommand();
          }
       }
    private:
@@ -219,20 +223,39 @@ class CWorkArea : public Label
       ///
       /// Обработчик события "видимость одной из строк таблицы изменилась".
       ///
-      void ChangeLineVisible(EventVisible* event)
+      /*void ChangeLineVisible(EventVisible* event)
       {
          EventVisible* vis = event;
          ProtoNode* node = vis.Node();
          if(vis.Visible())
          {
-            ++visibleCount;
-            highTotal += node.High();
+            //if(visibleCount+1 >= childNodes.Total())return;
+            //ProtoNode* node = childNodes.At(visibleFirst + visibleCount+1);
+            //if(node.Visible())
+            //{
+               ++visibleCount;
+               highTotal += node.High();
+            //}
+            //++visibleCount;
+            //highTotal += node.High();
          }
          else
          {
             highTotal -= node.High();
             --visibleCount;  
          }
+      }*/
+      ///
+      /// Обработчик события "видимость одной из строк таблицы изменилась".
+      ///
+      void ChangeLineVisible(EventVisible* event)
+      {
+         double dlines = MathRound(High()/(double)highLine);
+         int lines = (int)dlines;
+         int limit = childNodes.Total() - visibleFirst;
+         if(limit < lines)
+            lines = limit;
+         visibleCount = lines;
       }
       ///
       /// Устанавливает курсор на строку таблицы, по которой
@@ -249,10 +272,14 @@ class CWorkArea : public Label
             Label* lab = node;
             //Включаем подсветку строки
             ProtoNode* parNode = lab.ParentNode();
-            bool isConvert = parNode.TypeElement() == ELEMENT_TYPE_POSITION ||
-            parNode.TypeElement() == ELEMENT_TYPE_DEAL;
+            //bool isConvert = parNode.TypeElement() == ELEMENT_TYPE_POSITION ||
+            //parNode.TypeElement() == ELEMENT_TYPE_DEAL;
+            bool isConvert = parNode.TypeElement() != ELEMENT_TYPE_TABLE_SUMMARY;
             if(lab.ReadOnly() && isConvert)
+            {
                MoveCursor(parNode);
+               //MoveIndexCursor(lab.NLine());
+            }
          }
       }
       ///
@@ -270,10 +297,22 @@ class CWorkArea : public Label
          ColorationBack(newCursLine, clrLightSteelBlue);
       }
       ///
+      /// Перемещает индекс курсора на новое значение.
+      ///
+      bool MoveIndexCursor(int index)
+      {
+         //if(index == cursorIndex || index >= ChildsTotal())
+            return   true;
+         if(index > visibleFirst)
+         cursorIndex = index;
+         return true;
+      }
+      ///
       /// Обработчик события нажатия клавиши.
       ///
       void OnKeyPress(EventKeyDown* event)
       {
+         int dbg = 4;
          switch(event.Code())
          {
             case KEY_ARROW_UP:
@@ -285,12 +324,16 @@ class CWorkArea : public Label
                break;
             case KEY_END:
                LineVisibleFirst(CalcTotalStepsForScroll());
+               if(scroll.CurrentStep() + visibleCount >= childNodes.Total())
+                  OnCommand();
                break;
             case KEY_PAGE_UP:
                OnPressPage(KEY_PAGE_UP);
                break;
             case KEY_PAGE_DOWN:
                OnPressPage(KEY_PAGE_DOWN);
+               if(scroll.CurrentStep() + visibleCount >= childNodes.Total())
+                  OnCommand();
                break;
          }  
       }
@@ -299,7 +342,10 @@ class CWorkArea : public Label
       ///
       void OnKeyPressArrow(ENUM_KEY_CODE code)
       {
+         
+         if(!Visible())return;
          //Передвигаем курсор только если он есть.
+         int totals = ChildsTotal();
          if(CheckPointer(cursorLine) == POINTER_INVALID)return;
          int n = cursorLine.NLine();
          if(ChildsTotal() > n+1 && code == KEY_ARROW_DOWN)
@@ -343,9 +389,11 @@ class CWorkArea : public Label
       
       virtual void OnCommand(EventNodeCommand* event)
       {
+         uint tiks = GetTickCount();
          //Команды снизу не принимаются.
          if(!Visible() || event.Direction() == EVENT_FROM_DOWN)return;
          OnCommand();
+         printf("Command " + (string)(GetTickCount()-tiks));
       }
       
       /*virtual void OnVisible(EventVisible* event)
@@ -499,4 +547,10 @@ class CWorkArea : public Label
       /// Указатель на вертикальный скролл.
       ///
       Scroll* scroll;
+      ///
+      /// Содержит индекс линии, на которой установлен курсор.
+      ///
+      int cursorIndex;
 };
+
+

@@ -116,7 +116,6 @@ class AbstractLine : public Line
       {
          EditNode* build = NULL;
          build = new Label(el.Name(), GetPointer(this));
-         //build.BorderColor(clrRed);
          build.OptimalWidth(el.OptimalWidth());
          build.ConstWidth(el.ConstWidth());
          return build;
@@ -150,6 +149,9 @@ class AbstractLine : public Line
             DefColumn* el = scolumns.At(i);
             ENUM_COLUMN_TYPE cType = el.ColumnType();
             tnode* node = GetColumn(el);
+            
+            SetSkinMode(node.element);
+            
             if(CheckPointer(node.element) != POINTER_INVALID)
             {
                Add(node.element);
@@ -170,6 +172,17 @@ class AbstractLine : public Line
       /// Вызывается при обновлении колонки cType и переопределяется дочерним классом.
       ///
       virtual void OnRefreshValue(ENUM_COLUMN_TYPE cType){;}
+      
+      ///
+      /// Задает графическое представление для все таблицы.
+      ///
+      void SetSkinMode(ProtoNode* node)
+      {
+         if(TypeElement() == ELEMENT_TYPE_TABLE_HEADER_POS)
+            node.BorderColor(Settings.ColorTheme.GetBorderColor());
+         else
+            node.BorderColor(Settings.ColorTheme.GetSystemColor1());
+      }
    private:
       ENUM_TABLE_TYPE tblType;
       ///
@@ -621,6 +634,7 @@ class PosLine : public AbstractLine
          build.FontSize(12);
          build.OptimalWidth(el.OptimalWidth());
          build.ConstWidth(el.ConstWidth());
+         build.BackgroundColor(Settings.ColorTheme.GetSystemColor2());
          return build;
       }
       
@@ -635,8 +649,11 @@ class PosLine : public AbstractLine
             element = new Line(el.Name(), GetPointer(this));
             element.AlignType(LINE_ALIGN_CELLBUTTON);
             Label* profit = new Label(el.Name(), element);
+            
+            profit.BorderColor(Settings.ColorTheme.GetSystemColor2());
             comby.value = profit;
             ButtonClosePos* btnClose = new ButtonClosePos("btnClosePos.", element);
+            btnClose.BorderColor(Settings.ColorTheme.GetSystemColor2());
             btnClose.Font("Wingdings");
             btnClose.FontSize(12);
             btnClose.Text(CharToString(251));

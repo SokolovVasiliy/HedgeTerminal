@@ -160,9 +160,9 @@ class Menu : public Label
          m.BorderColor(Settings.ColorTheme.GetSystemColor2());
          childNodes.Add(m);
          //Reinstall files.
-         m = new ElementMenu(MENU_INSTALL_FILES, "Reinstall files", GetPointer(this));
-         m.BorderColor(Settings.ColorTheme.GetSystemColor2());
-         childNodes.Add(m);
+         //m = new ElementMenu(MENU_INSTALL_FILES, "Reinstall files", GetPointer(this));
+         //m.BorderColor(Settings.ColorTheme.GetSystemColor2());
+         //childNodes.Add(m);
          //About Hedge Terminal
          m = new ElementMenu(MENU_ABOUT, "About HedgeTerminal", GetPointer(this));
          m.BorderColor(Settings.ColorTheme.GetSystemColor2());

@@ -4,7 +4,7 @@
 //|                                           e-mail: vs-box@mail.ru |
 //|                              https://login.mql5.com/ru/users/c-4 |
 //+------------------------------------------------------------------+
-
+#define NEW_TABLE
 #property copyright  "2013, Vasiliy Sokolov, St.Petersburg, Russia."
 #property link      "https://login.mql5.com/ru/users/c-4"
 #property version   "1.100"

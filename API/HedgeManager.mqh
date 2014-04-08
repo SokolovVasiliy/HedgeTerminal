@@ -40,6 +40,15 @@ class HedgeManager
          " HedgeTerminal on your PC. Press \'OK' for continue or cancel for exit HedgeTerminal.", VERSION, MB_OKCANCEL);
          if(res == IDCANCEL)
             return false;
+         /*HistorySelect(0, TimeCurrent());
+         if(HistoryOrdersTotal() > 0)
+         {
+            if(PositionsTotal() > 0)
+            {
+               //MessageBox("HedgeTerminal detected using active positions on your account, but . ");
+            }
+            //SetMarkerOrder();
+         }*/
          string path = MQLInfoString(MQL_PROGRAM_PATH);
          printf(path);
          res = MessageBox("For corectly work HedgeTerminal needed install some files in" +

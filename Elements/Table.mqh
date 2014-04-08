@@ -6,8 +6,7 @@
 #include "Line.mqh"
 #include "Label.mqh"
 #include "TableWork.mqh"
-
-
+#include "TableWork2.mqh"
 
 #ifndef TABLE_MQH
    #define TABLE_MQH
@@ -31,14 +30,14 @@ class Table : public Label
       ///
       long LinesHighTotal()
       {
-         return workArea.LinesHighTotal();
+         return (long)workArea.LinesHighTotal();
       }
       ///
       /// Возвращает общую высоту всех видимых линий в таблице.
       ///
       long LinesHighVisible()
       {
-         return workArea.LinesHighVisible();
+         return (long)workArea.LinesHighVisible();
       }
       ///
       /// Возвращает общее количество всех строк в таблице, в т.ч. за
@@ -75,13 +74,7 @@ class Table : public Label
       {
          workArea.LineVisibleFirst(index);
       }
-      ///
-      /// Задает индекс первой видимой строки.
-      ///
-      void LineVisibleFirst1(int index)
-      {
-         workArea.LineVisibleFirst(index);
-      }
+
       ///
       /// Алгоритм размещения заголовка таблицы.
       ///
@@ -158,7 +151,12 @@ class Table : public Label
       ///
       /// Рабочая область таблицы
       ///
+      #ifndef NEW_TABLE
       CWorkArea* workArea;
+      #endif
+      #ifdef NEW_TABLE
+      WorkArea* workArea;
+      #endif
       ///
       /// Новый скролл.
       ///
@@ -186,7 +184,12 @@ class Table : public Label
          highLine = 20;
          // Заголовок таблицы должен проинициализировать и добавить с список потомок.
          //...
+         #ifndef NEW_TABLE
          workArea = new CWorkArea(GetPointer(this));
+         #endif
+         #ifdef NEW_TABLE
+         workArea = new WorkArea(GetPointer(this));
+         #endif
          workArea.ReadOnly(true);
          workArea.Text("");
          workArea.BorderColor(BackgroundColor());

@@ -881,7 +881,7 @@ class ProtoNode : public CObject
       }
       virtual void Push(EventObjectClick* push)
       {
-         if(push.PushObjName() == NameID())
+         if(push.PushObjName() == NameID() && Visible() == true)
          {
             OnPush();
             ChartRedraw();
