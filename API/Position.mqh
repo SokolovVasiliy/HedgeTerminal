@@ -8,6 +8,7 @@
 //#include "..\XML\XmlPosition.mqh"
 //#include "..\XML\XmlPosition1.mqh"
 #include "..\XML\XmlPos.mqh"
+#include "..\XML\XmlPos2.mqh"
  
 class Position;
 
@@ -57,6 +58,7 @@ struct ExchangerList
 class Position : public Transaction
 {
    public:
+      
       Position(void);
       Position(Order* inOrder);
       Position(Order* inOrder, Order* outOrder);
@@ -152,6 +154,10 @@ class Position : public Transaction
       /// Вовзращает совокупную комиссию для позиции.
       ///
       virtual double Commission(void);
+      ///
+      /// Вызвается при изменении аттрибутов xml активной позиции.
+      ///
+      void AttributesChanged(double tp, string exComment);
    private:
       
       void OnRefresh(void);
@@ -279,7 +285,8 @@ class Position : public Transaction
       ///
       /// Содержит XML представление активной позиции.
       ///
-      XmlPos* activeXmlPos;
+      //XmlPos* activeXmlPos;
+      XmlPos2* activeXmlPos;
       ///
       /// Истина, если текущая позиция была отображена. 
       ///
@@ -814,7 +821,10 @@ void Position::ExitComment(string comment)
    if(exitComment == comment)return;
    exitComment = comment;
    if(CheckPointer(activeXmlPos) != POINTER_INVALID)
-      activeXmlPos.ExitComment(exitComment);
+   {
+      activeXmlPos.SaveState();
+      //activeXmlPos.ExitComment(exitComment);
+   }
    if(UsingStopLoss())
       AddTask(new TaskChangeCommentStopLoss(GetPointer(this), true));
 }
@@ -1230,17 +1240,21 @@ void Position::SendEventChangedPos(ENUM_POSITION_CHANGED_TYPE type)
       {
          if(CheckPointer(activeXmlPos) != POINTER_INVALID)
             delete activeXmlPos;
-         activeXmlPos = new XmlPos(GetPointer(this));
+         //activeXmlPos = new XmlPos(GetPointer(this));
+         activeXmlPos = new XmlPos2(GetPointer(this));
+         activeXmlPos.CheckModify();
       }
       else if(type == POSITION_HIDE && CheckPointer(activeXmlPos) != POINTER_INVALID)
       {
-         activeXmlPos.DeleteXmlNode();
+         activeXmlPos.SaveState(STATE_DELETE);
+         //activeXmlPos.DeleteXmlNode();
          delete activeXmlPos;
       }
       else if(type == POSITION_REFRESH && CheckPointer(activeXmlPos) != POINTER_INVALID)
       {
-         activeXmlPos.TakeProfit(takeProfit);
-         activeXmlPos.ExitComment(exitComment);
+         //activeXmlPos.TakeProfit(takeProfit);
+         //activeXmlPos.ExitComment(exitComment);
+         activeXmlPos.SaveState(STATE_REFRESH);
       }
    }
    //Только для визуальной панели.
@@ -1543,4 +1557,11 @@ double Position::Commission(void)
    if(status == POSITION_HISTORY)
       commission += closingOrder.Commission();
    return commission;
+}
+
+void Position::AttributesChanged(double tp, string exComment)
+{
+   if(CheckValidTP(tp))
+      takeProfit = tp;
+   exitComment = exComment;
 }

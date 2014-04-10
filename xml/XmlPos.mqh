@@ -211,7 +211,7 @@ class XmlPos
 XmlPos::XmlPos(Position* pos)
 {
    //POSITION_STATUS st = pos.Status();
-   xmlFile = Settings.GetActivePosXml();
+   xmlFile = Resources::GetFileNameByType(RES_ACTIVE_POS_XML);
    file = new FileInfo(xmlFile, 0, 1);
    position = pos;
    accountId = AccountInfoInteger(ACCOUNT_LOGIN);

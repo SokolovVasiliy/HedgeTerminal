@@ -1,4 +1,5 @@
 #include "Button.mqh"
+#include "..\Resources\Resources.mqh"
 ///
 /// Основная форма панели.
 ///
@@ -7,6 +8,7 @@ class MainForm : public ProtoNode
    public:
       MainForm():ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_FORM, "HedgePanel", NULL)
       {
+         
          BorderType(BORDER_FLAT);
          BackgroundColor(clrWhiteSmoke);
          
@@ -29,7 +31,7 @@ class MainForm : public ProtoNode
          start.FontSize(10);
          string str = CharToString(0x5c);
          string str1 = CharToString(0x2f);
-         start.Text(str1 +str1 + str1);
+         start.Text(str +str + str);
          start.FontColor(clrOrangeRed);
          childNodes.Add(start);
          
@@ -69,6 +71,7 @@ class MainForm : public ProtoNode
          
       }
    private:
+      
       virtual void OnCommand(EventNodeCommand* event)
       {
          if(event.Direction() == EVENT_FROM_DOWN)return;

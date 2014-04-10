@@ -49,9 +49,6 @@ class ElementMenu : public Label
             case MENU_SAVE_REPORT:
                OnMenuSaveReport();
                break;
-            case MENU_INSTALL_FILES:
-               OnMenuInstallFiles();
-               break;
          }
       }
       ///
@@ -118,18 +115,6 @@ class ElementMenu : public Label
             line += "\n";
             file.WriteString(line);
          }
-      }
-      ///
-      /// Переустанавливает файлы для HedgeTerminal
-      ///
-      void OnMenuInstallFiles()
-      {
-         //printf(GetRelativeProgramPath());
-         string message = "Warning! HedgeTerminal reinstall files. Corrupted files will not be replaced, remove them for replacement. Continue?";
-         int res = MessageBox(message, "HedgeTerminal 1.0", MB_OKCANCEL|MB_ICONQUESTION);
-         if(res == IDCANCEL)
-            return;
-         api.InstallMissingFiles();
       }
       ///
       /// Скрывает родительское меню.

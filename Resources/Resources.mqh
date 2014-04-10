@@ -66,6 +66,7 @@ enum ENUM_RESOURCES
 class Resources
 {
    public:
+      
       ///
       /// Возвращает истину, если терминал определил, что он используется
       /// впервые на этом комьютере. В противном случае возвращает ложь.
@@ -80,6 +81,49 @@ class Resources
             return false;
          }
          return true;
+      }
+      ///
+      /// Мастер инсталяции HedgeTerminal запускаемый в первый раз.
+      ///
+      static bool WizardForUseFirstTime()
+      {
+         int res =  MessageBox("HedgeTerminal detected first time use. This master help you install" + 
+         " HedgeTerminal on your PC. Press \'OK' for continue or cancel for exit HedgeTerminal.", VERSION, MB_OKCANCEL);
+         if(res == IDCANCEL)
+            return false;
+         /*HistorySelect(0, TimeCurrent());
+         if(HistoryOrdersTotal() > 0)
+         {
+            if(PositionsTotal() > 0)
+            {
+               //MessageBox("HedgeTerminal detected using active positions on your account, but . ");
+            }
+            //SetMarkerOrder();
+         }*/
+         res = MessageBox("For corectly work HedgeTerminal needed install some files in" +
+         " .\MQL5\Files\HedgeTerminal derectory. For install files press \'ОК\' or cancel for exit.", VERSION, MB_OKCANCEL);
+         if(res == IDCANCEL)
+            return false;
+         res = InstallMissingFiles();
+         return true;
+      }
+      ///
+      /// Инсталлирует отсутствующие файлы в директорию HedgeTerminal.
+      ///
+      static bool InstallMissingFiles(void)
+      {
+         bool res = true;
+         if(!Resources::CheckResource(RES_SETTINGS_XML))
+            res = Resources::InstallResource(RES_SETTINGS_XML);
+         if(!Resources::CheckResource(RES_ACTIVE_POS_XML))
+            res = Resources::InstallResource(RES_ACTIVE_POS_XML);
+         if(!Resources::CheckResource(RES_HISTORY_POS_XML))
+            res = Resources::InstallResource(RES_HISTORY_POS_XML);
+         if(!Resources::CheckResource(RES_EXPERT_ALIASES))
+            res = Resources::InstallResource(RES_EXPERT_ALIASES);
+         if(!Resources::CheckResource(RES_FONT_MT_BOLT))
+            res = Resources::InstallResource(RES_FONT_MT_BOLT);
+         return res;
       }
       ///
       /// Проверяет существование файла ресурса.
@@ -156,10 +200,12 @@ class Resources
                break;
             #endif
             default:
+               printf("HedgeTerminal is not unable to create the file " + fileName + ". Check your permission and settings.");
                FileClose(handle);
                return false;
          }
          FileClose(handle);
+         printf("HedgeTerminal install " + fileName + " on your PC.");
          return true;
       }
    private:

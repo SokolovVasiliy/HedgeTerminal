@@ -176,7 +176,11 @@ class PanelSettings
       static PanelSettings* Init()
       {
          if(CheckPointer(set) == POINTER_INVALID)
+         {
+            if(!CheckInstall())
+               return NULL;
             set = new PanelSettings();
+         }
          return set;
       }
       
@@ -195,13 +199,6 @@ class PanelSettings
       /// Вовзвращает рекомендованное количество прайсстепов, между ценой и стоп, тейк ордерами, 
       ///
       int GetPriceStepCount(){return 100;}
-      ///
-      /// Возвращает путь к файлу с инофрмацией по активным позициям.
-      ///
-      string GetActivePosXml()
-      {
-         return "ActivePositions.xml";
-      }
       ///
       /// Вовзращает строковый псевдоноим для маджика эксперта.
       ///
@@ -240,5 +237,25 @@ class PanelSettings
          setForActivePos.AssignArray(loader.GetActiveColumns());
          setForHistoryPos.AssignArray(loader.GetHistoryColumns());
       }
+      ///
+      /// Проверяет инсталляцию файлов. (Только для HLYBRARY)
+      ///
+      static bool CheckInstall()
+      {
+         bool res = true;
+         if(Resources::UsingFirstTime())
+         {
+            if(!Resources::WizardForUseFirstTime())
+            {
+               printf("Installing HedgeTerminal filed. Unable to continue. Goodbuy:(");
+               ExpertRemove();
+               return false;
+            }
+         }
+         else
+            res = Resources::InstallMissingFiles();
+         return res;
+      }
+      
       PanelSettings* operator=(const PanelSettings*);
 };

@@ -5,9 +5,9 @@
 //|                              https://login.mql5.com/ru/users/c-4 |
 //+------------------------------------------------------------------+
 #define NEW_TABLE
-#property copyright  "2013, Vasiliy Sokolov, St.Petersburg, Russia."
+#property copyright  "2013-2014, Vasiliy Sokolov, St.Petersburg, Russia."
 #property link      "https://login.mql5.com/ru/users/c-4"
-#property version   "1.100"
+#property version   "1.00"
 
 #define HEDGE_PANEL
 //#define DEBUG
@@ -17,7 +17,7 @@
 ///
 /// Скорость обновления панели
 ///
-input int RefreshRate = 200;
+input int RefreshRate = 1000;
 
 HedgeManager* api;
 MainForm* HedgePanel;
@@ -28,11 +28,9 @@ MainForm* HedgePanel;
 ///
 void OnInit(void)
 {  
-   //int k = 0;
-   //for(int i = 10; i >=0; --i)
-   //   k = i;
-   //Settings* set = Settings::GetSettings1();
    Settings = PanelSettings::Init();
+   if(Settings == NULL)
+      ExpertRemove();
    EventSetMillisecondTimer(RefreshRate);
    HedgePanel = new MainForm();
    EventExchange::Add(HedgePanel);

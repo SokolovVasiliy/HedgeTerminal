@@ -10,8 +10,27 @@ class CXmlDocument
   {
 private:
    void              DoElementTrimText(CXmlElement &aXmlItem);
-   int               common;  //Флаг, указывающий, что загрузка и сохранение файла происходит из общей деректории.
+   //
+   /// Флаг, указывающий, что загрузка и сохранение файла происходит из общей деректории.
+   ///
+   int               common;  
+   ///
+   /// Режим блокировки файла. В этом режиме файл не закрывается сразу после загрузки.
+   ///
+   bool              blockedMode;
+   ///
+   /// Хэндл открытого файла.
+   ///
+   int               h;
 public:
+   ///
+   /// Устанавливает режим блокировки файла.
+   ///
+   void BlockedMode(bool mode){blockedMode = mode;}
+   ///
+   /// Возвращает режим блокировки файла.
+   ///
+   bool BlockedMode(void){return blockedMode;}
    CXmlElement       FDocumentElement;
    void              SetCommon(bool res){ common = res ? FILE_COMMON : 0;}
    void              CXmlDocument();
@@ -291,12 +310,13 @@ string CXmlDocument::GetXml()
 bool CXmlDocument::CreateFromFile(const string filename,string &err) 
   {
    ResetLastError();
-   int h=FileOpen(filename,FILE_BIN | FILE_READ | common);
+   h=FileOpen(filename,FILE_BIN|FILE_READ|FILE_WRITE| common);
    if(h!=INVALID_HANDLE) 
      {
       uchar data[];
       bool complete=(FileReadArray(h,data)==FileSize(h));
-      FileClose(h);
+      if(!blockedMode)
+         FileClose(h);
       if(complete) 
         {
          string text=CharArrayToString(data);
@@ -312,12 +332,16 @@ bool CXmlDocument::CreateFromFile(const string filename,string &err)
 bool CXmlDocument::SaveToFile(const string filename) 
   {
    ResetLastError();
-   int h=FileOpen(filename,FILE_BIN|FILE_WRITE|common);
+   if(!blockedMode)
+      h=FileOpen(filename,FILE_BIN|FILE_WRITE|common);
    if(h!=INVALID_HANDLE) 
      {
       uchar data[];
       int c=StringToCharArray(GetXml(),data);
-      bool complete=(FileWriteArray(h,data,0,c-1)==(ArraySize(data)-1));
+      if(blockedMode)
+         FileSeek(h, 0, SEEK_SET);
+      bool complete = FileWriteArray(h, data);
+      //bool complete=(FileWriteArray(h,data,0,c-1)==(ArraySize(data)-1));
       FileClose(h);
       return(complete);
      };

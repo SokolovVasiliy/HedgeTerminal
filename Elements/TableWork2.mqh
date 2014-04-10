@@ -157,6 +157,9 @@ class WorkArea : public Label
                OnPressKey(event);
                EventSend(event);
                break;
+            default:
+               EventSend(event);
+               break;
          }
       }
       void OnPressKey(EventKeyDown* event)

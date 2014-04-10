@@ -208,9 +208,9 @@ void XmlLoader::SaveXmlAttr(ulong id, ENUM_VIRTUAL_ORDER_TYPE type, string level
       attr.SetValue(level);
       xmlItem.AttributeAdd(attr);
       XmlHistFile.FDocumentElement.ChildAdd(xmlItem);
-      XmlHistFile.SaveToFile("HistoryPositions.xml");
+      XmlHistFile.SaveToFile(Resources::GetFileNameByType(RES_HISTORY_POS_XML));
       string err;
-      XmlHistFile.CreateFromFile("HistoryPositions.xml", err);
+      XmlHistFile.CreateFromFile(Resources::GetFileNameByType(RES_HISTORY_POS_XML), err);
    }
    
 }
@@ -221,7 +221,7 @@ void XmlLoader::LoadHistOrders(void)
       HistPos.Sort();
    
    string err;
-   string path = ".\HedgeTerminal\HistoryPositions.xml";
+   string path = Resources::GetFileNameByType(RES_HISTORY_POS_XML);
    if(!XmlHistFile.CreateFromFile(path, err))
    {
       printf(err);

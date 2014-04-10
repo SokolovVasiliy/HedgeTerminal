@@ -1,5 +1,6 @@
 #define VERSION "HedgeTerminal 1.0"
 class PanelSettings;
+#include "Resources\Resources.mqh"
 #ifdef HEDGE_PANEL
    ///
    /// Кнопка старта.
@@ -276,7 +277,7 @@ enum ENUM_BUTTON_STATE
 //
 #include "Math.mqh"
 #include "Log.mqh"
-#include "Resources\Resources.mqh"
+
 #ifndef SETTINGS_MQH
    #include "Settings.mqh"
 #endif
