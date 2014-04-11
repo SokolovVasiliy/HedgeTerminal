@@ -159,7 +159,14 @@ class Position : public Transaction
       ///
       void AttributesChanged(double tp, string exComment);
    private:
-      
+      ///
+      /// Сохраняет состояние текущей активной позиции в XML-узле.
+      ///
+      void SaveXmlState(ENUM_POSITION_CHANGED_TYPE type);
+      ///
+      /// Посылает событие обновления состояния в визуальную форму.
+      ///
+      void RefreshVisualForm(ENUM_POSITION_CHANGED_TYPE type);
       void OnRefresh(void);
       ///
       /// Класс, для совершения торговых операций.
@@ -1014,8 +1021,11 @@ void Position::TakeProfitLevel(double level)
 {
    if(Math::DoubleEquals(takeProfit, level))
       return;
-   if(CheckValidTP(level))
-      takeProfit = level;
+   if(!CheckValidTP(level))
+      return;
+   if(Math::DoubleEquals(level, takeProfit))
+      return;
+   takeProfit = level;
    SendEventChangedPos(POSITION_REFRESH);
 }
 
@@ -1234,6 +1244,12 @@ void Position::SendEventChangedPos(ENUM_POSITION_CHANGED_TYPE type)
    if(!showed && type != POSITION_SHOW)
       return;
    showed = true;
+   SaveXmlState(type);
+   RefreshVisualForm(type);
+}
+
+void Position::SaveXmlState(ENUM_POSITION_CHANGED_TYPE type)
+{
    if(Status() == POSITION_ACTIVE || status == POSITION_NULL)
    {
       if(type == POSITION_SHOW)
@@ -1241,14 +1257,17 @@ void Position::SendEventChangedPos(ENUM_POSITION_CHANGED_TYPE type)
          if(CheckPointer(activeXmlPos) != POINTER_INVALID)
             delete activeXmlPos;
          //activeXmlPos = new XmlPos(GetPointer(this));
-         activeXmlPos = new XmlPos2(GetPointer(this));
-         activeXmlPos.CheckModify();
+         if(!MQLInfoInteger(MQL_OPTIMIZATION))
+         {
+            activeXmlPos = new XmlPos2(GetPointer(this));
+            activeXmlPos.CheckModify();
+         }
       }
       else if(type == POSITION_HIDE && CheckPointer(activeXmlPos) != POINTER_INVALID)
       {
          activeXmlPos.SaveState(STATE_DELETE);
+         delete activeXmlPos;  
          //activeXmlPos.DeleteXmlNode();
-         delete activeXmlPos;
       }
       else if(type == POSITION_REFRESH && CheckPointer(activeXmlPos) != POINTER_INVALID)
       {
@@ -1257,7 +1276,10 @@ void Position::SendEventChangedPos(ENUM_POSITION_CHANGED_TYPE type)
          activeXmlPos.SaveState(STATE_REFRESH);
       }
    }
-   //Только для визуальной панели.
+}
+
+void Position::RefreshVisualForm(ENUM_POSITION_CHANGED_TYPE type)
+{
    #ifdef HEDGE_PANEL
       if(type != POSITION_SHOW && positionLine == NULL)
          return;
@@ -1564,4 +1586,5 @@ void Position::AttributesChanged(double tp, string exComment)
    if(CheckValidTP(tp))
       takeProfit = tp;
    exitComment = exComment;
+   RefreshVisualForm(POSITION_REFRESH);
 }

@@ -13,24 +13,23 @@ private:
    //
    /// Флаг, указывающий, что загрузка и сохранение файла происходит из общей деректории.
    ///
-   int               common;  
-   ///
-   /// Режим блокировки файла. В этом режиме файл не закрывается сразу после загрузки.
-   ///
-   bool              blockedMode;
-   ///
-   /// Хэндл открытого файла.
-   ///
-   int               h;
+   int               common;
 public:
+   
    ///
-   /// Устанавливает режим блокировки файла.
+   /// Читает из открытого файла содержимое Xml-документа.
+   /// \param handle - Файловый дискриптор.
+   /// \param err - Сообщение об ошибке.
+   /// \return Истина, если запись прошла удачно и ложь в противном случае.
    ///
-   void BlockedMode(bool mode){blockedMode = mode;}
+   bool ReadDocument(int handle, string& err);
    ///
-   /// Возвращает режим блокировки файла.
+   /// Записывает в начало открытого файла содержимое Xml-документа.
+   /// \param handle - Файловый дискриптор.
+   /// \param err - Сообщение об ошибке.
+   /// \return Истина, если запись прошла удачно и ложь в противном случае.
    ///
-   bool BlockedMode(void){return blockedMode;}
+   bool WriteDocument(int handle, string& err);
    CXmlElement       FDocumentElement;
    void              SetCommon(bool res){ common = res ? FILE_COMMON : 0;}
    void              CXmlDocument();
@@ -310,13 +309,12 @@ string CXmlDocument::GetXml()
 bool CXmlDocument::CreateFromFile(const string filename,string &err) 
   {
    ResetLastError();
-   h=FileOpen(filename,FILE_BIN|FILE_READ|FILE_WRITE| common);
+   int h=FileOpen(filename,FILE_BIN|FILE_READ|FILE_WRITE| common);
    if(h!=INVALID_HANDLE) 
      {
       uchar data[];
       bool complete=(FileReadArray(h,data)==FileSize(h));
-      if(!blockedMode)
-         FileClose(h);
+      FileClose(h);
       if(complete) 
         {
          string text=CharArrayToString(data);
@@ -327,25 +325,55 @@ bool CXmlDocument::CreateFromFile(const string filename,string &err)
    return(false);
   };
 //+------------------------------------------------------------------+
-//| SaveToFile                                                       |
+//| SaveToFile                                                 | | | |
 //+------------------------------------------------------------------+
 bool CXmlDocument::SaveToFile(const string filename) 
   {
    ResetLastError();
-   if(!blockedMode)
-      h=FileOpen(filename,FILE_BIN|FILE_WRITE|common);
+   int h=FileOpen(filename,FILE_BIN|FILE_WRITE|common);
    if(h!=INVALID_HANDLE) 
      {
       uchar data[];
       int c=StringToCharArray(GetXml(),data);
-      if(blockedMode)
-         FileSeek(h, 0, SEEK_SET);
-      bool complete = FileWriteArray(h, data);
-      //bool complete=(FileWriteArray(h,data,0,c-1)==(ArraySize(data)-1));
+      bool complete=(FileWriteArray(h,data,0,c-1)==(ArraySize(data)-1));
       FileClose(h);
       return(complete);
      };
-//  err="File write error: "+IntegerToString(GetLastError());
    return(false);
   };
 //+------------------------------------------------------------------+
+
+
+bool CXmlDocument::WriteDocument(int handle, string& err)
+{
+   if(handle == INVALID_HANDLE)
+   {
+      err = "Write XML Document failed. Handle of file invalid";
+      return false;
+   }
+   uchar data[];   
+   int len = StringToCharArray(GetXml(),data);   
+   FileSeek(handle, 0, SEEK_SET);
+   bool complete = (bool)FileWriteArray(handle, data, 0, len-1);
+   return complete;
+}
+
+bool CXmlDocument::ReadDocument(int handle, string& err)
+{
+   if(handle == INVALID_HANDLE)
+   {
+      err = "Read XML Document failed. Handle of file invalid.";
+      return false;
+   }
+   Clear();
+   uchar data[];
+   int size = FileSize(handle);
+   bool complete = FileReadArray(handle, data) == FileSize(handle);
+   if(!complete)
+   {
+      err = "Read XML Document failed. End of file is reached.";
+      return false;
+   }
+   string text = CharArrayToString(data);
+   return CreateFromText(text, err);
+}

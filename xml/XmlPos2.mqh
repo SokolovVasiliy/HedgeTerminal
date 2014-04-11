@@ -83,7 +83,6 @@ class XPosValues
          attr.SetName(GetAttributeName(ATTR_TAKE_PROFIT));
          attr.SetValue(pos.PriceToString(pos.TakeProfitLevel()));
          element.AttributeAdd(attr);
-         
          return element;
       }
       ///
@@ -170,7 +169,11 @@ class XmlPos2
       ///
       XmlPos2(Position* pos)
       {
+         saveState = true;
          xPos = new XPosValues(pos);
+         string fileName = Resources::GetFileNameByType(RES_ACTIVE_POS_XML);
+         file = new FileInfo(fileName, 0, 1);
+         file.SetMode(ACCESS_CHECK_AND_BLOCKED);
       }
       ///
       /// Проверяет файл на изменения.
@@ -184,11 +187,11 @@ class XmlPos2
       ///
       /// В случае успеха возвращает указатель на XML-документ, в случае неудачи возвращает NULL
       ///
-      bool LoadXmlDoc();
+      bool LoadXmlDoc(int handle);
       ///
       /// Сохраняет текущий загруженный документ в файл.
       ///
-      void SaveXmlDoc();
+      void SaveXmlDoc(int handle);
       ///
       /// Удаляет текущий xml-узел из файла.
       ///
@@ -221,76 +224,85 @@ class XmlPos2
       /// Возвращает имя xml-аттрибута в зависимости от его типа.
       ///
       string GetAttributeName(ENUM_ATTRIBUTE_POS);
-      ///
-      /// Истина, если последнее чтение XML документа завершилось неудачей.
-      ///
-      bool isFailedRead;
-      ///
-      /// Истина, если синхронизация завершилась неудачей.
-      ///
-      bool isFailedSynch;
+      bool saveState;
 };
 
-bool XmlPos2::LoadXmlDoc(void)
+bool XmlPos2::LoadXmlDoc(int handle)
 {
    if(CheckPointer(doc) == POINTER_INVALID)
-   {
       doc = new CXmlDocument();
-      doc.BlockedMode(true);
-   }
    else return true;
    string err;
-   return doc.CreateFromFile(file.Name(), err);
+   bool res = doc.ReadDocument(handle, err);
+   if(!res)
+      delete doc;
+   return res;
 }
 
-void XmlPos2::SaveXmlDoc()
+/*bool XmlPos2::LoadXmlDoc(string name)
+{
+   if(CheckPointer(doc) == POINTER_INVALID)
+      doc = new CXmlDocument();
+   string err;
+   doc.Clear();
+   if(!doc.CreateFromFile(name , err))
+   {
+      delete doc;
+      return false;
+   }
+   return true;
+}*/
+
+void XmlPos2::SaveXmlDoc(int handle)
 {
    if(CheckPointer(doc) == POINTER_INVALID)return;
-   doc.SaveToFile(file.Name());
+   string err = "";
+   doc.WriteDocument(handle, err);
    delete doc;
 }
 
 bool XmlPos2::CheckModify(void)
 {
-   if(file == NULL)
+   /*(if(!saveState)
    {
-      string fileName = Resources::GetFileNameByType(RES_ACTIVE_POS_XML);
-      file = new FileInfo(fileName, 0, 1);
-   }
-   if(isFailedSynch)
-      return SaveState();
-   //xPos.
-   if(!file.IsModify() && !isFailedRead)return false;
-   //Кто-то уже изменяет файл? - пробуем прочитать в следущий раз.
-   printf("ModifyDetect");
-   if(!LoadXmlDoc())
+      SaveState();
+      return false;
+   }*/
+   ulong id = xPos.PositionId();
+   if(!file.IsModify())return false;
+   if(!LoadXmlDoc(file.GetHandle()))   
+      return false;
+   if(!ContainsMe())
    {
-      isFailedRead = true;
+      file.FileClose();
+      delete doc;
+      SaveState(STATE_REFRESH);
       return false;
    }
-   isFailedRead = false;
-   if(!ContainsMe())
-      CreateMe();
    else
       ReadMe();
-   SaveXmlDoc();
-   file.IsModify();
+   delete doc;
+   file.FileClose();
    return true;
 }
 
 bool XmlPos2::SaveState(ENUM_STATE_TYPE type = STATE_REFRESH)
 {
-   printf("SaveState");
-   if(!LoadXmlDoc())
+   saveState = false;
+   if(file.FileOpen(FILE_WRITE) == INVALID_HANDLE)
+      return false;
+   if(!LoadXmlDoc(file.GetHandle()))
    {
-      isFailedSynch = true;
+      file.FileClose();
       return false;
    }
-   isFailedSynch = false;
+   file.FillSpace();
    DeleteMe();
    if(type == STATE_REFRESH)
       CreateMe();
-   SaveXmlDoc();
+   SaveXmlDoc(file.GetHandle());
+   file.FileClose();
+   saveState = true;
    return true;
 }
 
@@ -318,7 +330,8 @@ void XmlPos2::CreateMe(void)
 void XmlPos2::DeleteMe(void)
 {
    if(CheckPointer(doc) == POINTER_INVALID)return;
-   for(int i = doc.FDocumentElement.GetChildCount()-1; i >= 0 ; i--)
+   int count = doc.FDocumentElement.GetChildCount();
+   for(int i = count-1; i >= 0 ; i--)
    {
       CXmlElement* element = doc.FDocumentElement.GetChild(i);
       if(xPos.IsMyElement(element))

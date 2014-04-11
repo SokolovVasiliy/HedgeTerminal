@@ -394,6 +394,9 @@ CXmlElement *CXmlElement::ChildRemove(CXmlElement *aElement)
 //+------------------------------------------------------------------+
 CXmlElement *CXmlElement::ChildRemove(int aPos)
   {
+   //delete FElements[aPos];
+   //for(int i=aPos; i<ArraySize(FElements)-1;++i)
+   //   FElements[i]=FElements[i+1];
    CXmlElement *child=FElements[aPos];
    child.SetParent(NULL);
 
@@ -449,7 +452,7 @@ string CXmlElement::GetXml(int aLevel)
          StringAdd(s,"\r\n");
       //    StringAdd(s,TextPreProcess(FText));
       StringAdd(s,FText);
-      FText="*"+FText+"*";
+      //FText="*"+FText+"*";
       if((ArraySize(FElements)>0))
          StringAdd(s,"\r\n"+t);
       StringAdd(s,"</"+FName+">");
