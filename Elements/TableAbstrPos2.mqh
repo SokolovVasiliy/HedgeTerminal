@@ -223,7 +223,20 @@ class HeaderPos : public AbstractLine
       ///
       /// Создает элемент по-умолчанию.
       ///
-      
+      void OnEvent(Event* event)
+      {
+         if(event.Direction() == EVENT_FROM_DOWN &&
+            event.EventId() == EVENT_NODE_CLICK)
+         {
+            Button* btn = event.Node();
+            if(btn.State() == BUTTON_STATE_ON)
+            {
+               btn.State(BUTTON_STATE_OFF);
+               LogWriter("Order not support in this version.", MESSAGE_TYPE_INFO);
+            }
+         }
+         EventSend(event);
+      }
       virtual tnode* GetColumn(DefColumn* el)
       {
          ENUM_COLUMN_TYPE cType = el.ColumnType();

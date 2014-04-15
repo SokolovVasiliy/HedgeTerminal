@@ -167,14 +167,11 @@ class XmlPos2
       ///
       /// Конструктор.
       ///
-      XmlPos2(Position* pos)
-      {
-         saveState = true;
-         xPos = new XPosValues(pos);
-         string fileName = Resources::GetFileNameByType(RES_ACTIVE_POS_XML);
-         file = new FileInfo(fileName, 0, 1);
-         file.SetMode(ACCESS_CHECK_AND_BLOCKED);
-      }
+      XmlPos2(Position* pos);
+      ///
+      /// Диструктор.
+      ///
+      ~XmlPos2();
       ///
       /// Проверяет файл на изменения.
       ///
@@ -226,6 +223,21 @@ class XmlPos2
       string GetAttributeName(ENUM_ATTRIBUTE_POS);
       bool saveState;
 };
+
+XmlPos2::XmlPos2(Position* pos)
+{
+   saveState = true;
+   xPos = new XPosValues(pos);
+   string fileName = Resources::GetFileNameByType(RES_ACTIVE_POS_XML);
+   file = new FileInfo(fileName, 0, 1);
+   file.SetMode(ACCESS_CHECK_AND_BLOCKED);
+}
+
+XmlPos2::~XmlPos2()
+{
+   delete xPos;
+   delete file;
+}
 
 bool XmlPos2::LoadXmlDoc(int handle)
 {

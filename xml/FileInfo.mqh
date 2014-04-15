@@ -145,7 +145,7 @@ int FileInfo::FileOpen(int writeMode = 0)
       handle = FileOpen(fileName, FILE_BIN|FILE_READ|FILE_WRITE|flagDist);
    else 
       handle = FileOpen(fileName, FILE_BIN|FILE_READ|flagDist);
-   int size = FileSize(handle);
+   int size = (int)FileSize(handle);
    return handle;
 }
 void FileInfo::FileClose()

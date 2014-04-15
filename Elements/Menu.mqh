@@ -67,31 +67,30 @@ class ElementMenu : public Label
       /// Сохраняет отчет в виде CSV файла.
       ///
       void OnMenuSaveReport()
-      {
-         CFileTxt file;
+      {         
          string date = TimeToString(TimeCurrent(), TIME_DATE);
          string fileName = ".\HedgeTerminal\HTReport_" + date + ".csv";
-         file.SetCommon(false);
-         if(file.IsExist(fileName))
-            file.Delete(fileName);
-         int handle = file.Open(fileName, FILE_WRITE|FILE_CSV);
+         //if(file.IsExist(fileName))
+         //   file.Delete(fileName);
+         int handle = FileOpen(fileName, FILE_WRITE, FILE_CSV);
+         //int handle = file.Open(fileName, FILE_WRITE|FILE_CSV);
          if(handle == -1)
          {
             LogWriter("Failed save report. Last error: " + (string)GetLastError(), MESSAGE_TYPE_ERROR);
             return;
          }
-         SaveReport(GetPointer(file));
-         file.Close();
+         SaveReport(handle);
+         FileClose(handle);
          LogWriter("The report file " + fileName + " has been successfully created. Check it in .\MQL5\Files\HedgeTerminal directory", MESSAGE_TYPE_INFO);
       }
       ///
       /// Формирует отчет и сохраняет его в предворительно открытом файле 'file'
       ///
-      void SaveReport(CFileTxt* file)
+      void SaveReport(int file)
       {
          string d = ";";
-         string header = "Magic;Symbol;EntryID;Type;Volume;EntryPrice;StopLoss;TakeProfit;CurrentPrice;Commission;ProfitInCurrency;EntryComment;ExitComment\n";
-         file.WriteString(header);
+         string header = "Magic;Symbol;EntryID;EntryDate;Type;Volume;EntryPrice;StopLoss;TakeProfit;CurrentPrice;Commission;ProfitInCurrency;EntryComment;ExitComment\n";
+         FileWriteString(file, header);
          for(int i = 0; i < api.ActivePosTotal(); i++)
          {
             Transaction* trans = api.ActivePosAt(i);
@@ -102,6 +101,7 @@ class ElementMenu : public Label
             line += (string)pos.Magic() + d;
             line += pos.Symbol() + ";";
             line += (string)pos.EntryOrderId() + d;
+            line += TimeToString(pos.EntryExecutedTime()/1000, TIME_DATE|TIME_MINUTES|TIME_SECONDS) + d;
             line += pos.TypeAsString() + d;
             line += pos.VolumeToString(pos.VolumeExecuted()) + d;
             line += pos.PriceToString(pos.EntryExecutedPrice()) + d;
@@ -113,7 +113,35 @@ class ElementMenu : public Label
             line += pos.EntryComment() + d;
             line += pos.ExitComment();
             line += "\n";
-            file.WriteString(line);
+            FileWriteString(file, line, StringLen(line)-1);
+         }
+         header = "\nMagic;Symbol;EntryID;EntryDate;Type;Volume;EntryPrice;ExitPrice;ExitDate;ExitID;StopLoss;TakeProfit;Commision;Profit;EntryComment;ExitComment\n";
+         FileWriteString(file, header);
+         for(int i = 0; i < api.HistoryPosTotal(); i++)
+         {
+            Transaction* trans = api.HistoryPosAt(i);
+            if(trans.TransactionType() != TRANS_POSITION)
+               continue;
+            Position* pos = trans;
+            string line = "";
+            line += (string)pos.Magic() + d;
+            line += pos.Symbol() + ";";
+            line += (string)pos.EntryOrderId() + d;
+            line += TimeToString(pos.EntryExecutedTime()/1000, TIME_DATE|TIME_MINUTES|TIME_SECONDS) + d;
+            line += pos.TypeAsString() + d;
+            line += pos.VolumeToString(pos.VolumeExecuted()) + d;
+            line += pos.PriceToString(pos.EntryExecutedPrice()) + d;
+            line += pos.PriceToString(pos.ExitExecutedPrice()) + d;
+            line += TimeToString(pos.ExitExecutedTime()/1000, TIME_DATE|TIME_MINUTES|TIME_SECONDS) + d;
+            line += (string)pos.ExitOrderId() + d;
+            line += pos.PriceToString(pos.StopLossLevel()) + d;
+            line += pos.PriceToString(pos.TakeProfitLevel()) + d;
+            line += DoubleToString(pos.Commission(), 2) + d;
+            line += DoubleToString(pos.ProfitInCurrency(), 2) + d;
+            line += pos.EntryComment() + d;
+            line += pos.ExitComment();
+            line += "\n";
+            FileWriteString(file, line, StringLen(line)-1);
          }
       }
       ///

@@ -15,6 +15,16 @@ class WorkArea : public Label
       {
          //Ширина одного шага двадцать пикселей.
          stepHigh = 20;
+         cursor = new Cursor(GetPointer(this));
+         cursorIndex = -1;
+         Text("");
+         ReadOnly(true);
+         BorderColor(parNode.BackgroundColor());
+      }
+      ~WorkArea()
+      {
+         if(CheckPointer(cursor) != POINTER_INVALID)
+            delete cursor;
       }
       ///
       /// Добавляет произвольную строку в конец таблицы. Строка - любой графический узел, чья ширина будет
@@ -30,9 +40,11 @@ class WorkArea : public Label
       ///
       void Add(ProtoNode* line, int index)
       {
+         //if(index > 0 && index childNodes.)
          childNodes.Insert(line, index);
          if(index <= stepCurrent + StepsVisible())
             StepCurrent(stepCurrent);
+         ChangeScroll();
       }
       ///
       /// Удаляет диапазон линий из таблицы.
@@ -51,17 +63,22 @@ class WorkArea : public Label
          childNodes.DeleteRange(index, index+count-1);
          if(!notVisible)
             RefreshVisibleLines(true);
+         ChangeScroll();
       }
       ///
       /// Возвращает количество отображенных линий.
       ///
-      int VisibleCounts(){return 0;}
+      //int VisibleCounts(){return 0;}
       ///
       /// Возвращает общее количество шагов.
       ///
       int StepsTotal()
       {
-         return childNodes.Total();
+         int chTotal = childNodes.Total();
+         int total = chTotal - StepsVisibleTheory() + 3;
+         if(total < 0)total = 0;
+         if(total > chTotal)total = chTotal;
+         return total;
       }
       ///
       /// Возвращает общую высоту всех элементов.
@@ -76,12 +93,14 @@ class WorkArea : public Label
       void AddScroll(Scroll* nscroll)
       {
          scroll = nscroll;
+         ChangeScroll();
       }
       ///
       /// Обрабатывает событие изменения состояния скролла.
       ///
-      void OnScrollChanged()
+      void OnScrollChanged(EventScrollChanged* event)
       {
+         if(!Visible())return;
          if(CheckPointer(scroll) == POINTER_INVALID)
             return;
          if(scroll.CurrentStep() != stepCurrent)
@@ -95,17 +114,21 @@ class WorkArea : public Label
       {
          return stepCurrent;
       }
+      
+      ///
+      /// Возвращает теоретическое количество линий, которое может разместиться на экране.
+      ///
+      int StepsVisibleTheory()
+      {
+         int visSteps = (int)MathCeil(High()/(double)stepHigh);
+         return visSteps;
+      }
       ///
       /// Возвращает отображенное количество элементов.
       ///
       int StepsVisible()
       {
          return stepsVisible;
-         if(stepHigh <= 0)return 0;
-         int visSteps = (int)MathCeil(High()/(double)stepHigh);
-         if(visSteps > (StepsTotal()-stepCurrent))
-            return (StepsTotal()-stepCurrent);
-         return visSteps;
       }
       ///
       /// Возвращает общую высоту всех строк, находящихся в таблице.
@@ -123,12 +146,41 @@ class WorkArea : public Label
       {
          if(step < 0)step = 0;
          if(step > StepsTotal())step = StepsTotal();
+         if(step == stepCurrent)return stepCurrent;
          RefreshVisibleLines(false);
          stepCurrent = step;
          RefreshVisibleLines(true);
+         ChangeScroll();
          return stepCurrent;
       }
-      
+      ///
+      /// Определяет необходимый цвет для линии.
+      /// \param count - Индекс текущей линии, от которого зависит ее цвет.
+      ///
+      void CheckAndBrushColor(int count)
+      {
+         if(count >= childNodes.Total() || count < 0)return;
+         ProtoNode* node = childNodes.At(count);
+         if(node.TypeElement() == ELEMENT_TYPE_TABLE_SUMMARY)
+            return;
+         color clr;
+         if(CheckPointer(cursor) != POINTER_INVALID && cursor.Index() == node.NLine())
+            clr = Settings.ColorTheme.GetCursorColor();
+         else
+         {
+            clr = count%2 == 0 ?
+                  Settings.ColorTheme.GetSystemColor2() :
+                  Settings.ColorTheme.GetSystemColor1();
+         }
+         InterlacingColor(node, clr);
+      }
+      ///
+      /// Возвращает общее количество линий в таблице.
+      ///
+      int LinesTotal()
+      {
+         return childNodes.Total();
+      }
       /*Функции для совместимости со старой версией*/
       int LinesVisible()
       {
@@ -157,37 +209,94 @@ class WorkArea : public Label
                OnPressKey(event);
                EventSend(event);
                break;
+            case EVENT_NODE_CLICK:
+               OnClickNode(event);
+               break;
             default:
                EventSend(event);
                break;
          }
       }
+      
+      ///
+      /// Обрабатывает нажатие клавиш.
+      ///
       void OnPressKey(EventKeyDown* event)
       {
+         if(!Visible())return;
          switch(event.Code())
          {
             case KEY_ARROW_UP:
-               StepCurrent(stepCurrent-1);
+               cursor.Move(-1);
                break;
             case KEY_ARROW_DOWN:
-               StepCurrent(stepCurrent+1);
+               cursor.Move(1);
+               break;
+            case KEY_ARROW_RIGHT:
+            case KEY_ARROW_LEFT:
+               OnKeyRightOrLeft(event);
                break;
             case KEY_HOME:
-               StepCurrent(0);
+               cursor.Move(0, false);
                break;
-            /*case KEY_END:
-               LineVisibleFirst(CalcTotalStepsForScroll());
-               if(scroll.CurrentStep() + visibleCount >= childNodes.Total())
-                  OnCommand();
+            case KEY_END:
+               cursor.Move(LinesTotal()-1, false);
+               StepCurrent(StepsTotal());
                break;
             case KEY_PAGE_UP:
-               StepCurrent(stepCurrent-StepsVisible()+1);   
+               cursor.Move((-1)*(StepsVisibleTheory()-1));  
                break;
             case KEY_PAGE_DOWN:
-               StepCurrent(stepCurrent+StepsVisible()-1);   
-               break;*/
+               cursor.Move(StepsVisibleTheory()-1);
+               break;
          }  
       }
+      ///
+      /// Обработчик нажатия кнопок "стрелка вправо" и "стрелка влево".
+      ///
+      void OnKeyRightOrLeft(EventKeyDown* event)
+      {
+         if(event.Code() != KEY_ARROW_LEFT &&
+            event.Code() != KEY_ARROW_RIGHT)
+            return;
+         ProtoNode* node = childNodes.At(cursor.Index());
+         if(node.TypeElement() != ELEMENT_TYPE_POSITION)
+            return;
+         PosLine* posLine = node;
+         TreeViewBoxBorder* twb = posLine.GetCell(COLUMN_COLLAPSE);
+         if(twb == NULL)return;
+         if(event.Code() == KEY_ARROW_RIGHT &&
+            twb.State() == BOX_TREE_RESTORE)return;
+         if(event.Code() == KEY_ARROW_LEFT &&
+            twb.State() == BOX_TREE_COLLAPSE)return;
+         //bool res = i == workArea.ChildsTotal()-1;
+         //twb.NeedRefresh();
+         twb.OnPush();
+         //twb.NeedRefresh(true);
+      }
+      ///
+      /// Устанавливает курсор на строку таблицы, по которой
+      /// был произведен щелчок.
+      ///
+      void OnClickNode(EventNodeClick* event)
+      {
+         //Если щелчок был произведен по строке содержащий фиксированный текст,
+         //значит текущую строку надо подкрасить курсором.
+         //В противном случае, произошло другое значимое событие, которое надо передать наверх.
+         ProtoNode* node = event.Node();
+         if(node.TypeElement() == ELEMENT_TYPE_LABEL)
+         {
+            Label* lab = node;
+            //Включаем подсветку строки
+            ProtoNode* parNode = lab.ParentNode();
+            ENUM_ELEMENT_TYPE type = parNode.TypeElement();
+            bool isConvert = parNode.TypeElement() != ELEMENT_TYPE_TABLE_SUMMARY;
+            if(lab.ReadOnly() && isConvert)
+               cursor.Move(parNode.NLine(), false);
+         }
+         EventSend(event);
+      }
+      
       ///
       /// Скрывает либо отображает линии в зависимости от флага .
       /// \param vis - Истина, если необходимо отобразить линии, ложь - если скрыть. 
@@ -198,15 +307,14 @@ class WorkArea : public Label
          int count = 0;
          int total = childNodes.Total();
          ulong m_high = High();
-         //color
-         for(int i = stepCurrent; y_dist < m_high && i < total; i++, y_dist += stepHigh)
+         for(int i = stepCurrent; y_dist <= m_high && i < total; i++, y_dist += stepHigh)
          {
             ProtoNode* node = childNodes.At(i);
             EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), vis, 0, y_dist, Width(), stepHigh);
             node.Event(command);
             delete command;
             if(vis)
-               CheckAndBrushColor(node, count);
+               CheckAndBrushColor(i);
             count++;
          }
          if(!vis)
@@ -214,21 +322,7 @@ class WorkArea : public Label
          else
             stepsVisible = count;
       }
-      ///
-      /// Определяет необходимый цвет для линии.
-      /// \param count - Индекс текущей линии, от которого зависит ее цвет.
-      ///
-      void CheckAndBrushColor(ProtoNode* node, int count)
-      {
-         if(node.TypeElement() == ELEMENT_TYPE_TABLE_SUMMARY)
-            return;
-         if(CheckPointer(cursor) != POINTER_INVALID && cursor.Index() == node.NLine())
-            return;
-         color clr = count%2 == 0 ?
-               Settings.ColorTheme.GetSystemColor2() :
-               Settings.ColorTheme.GetSystemColor1();
-         InterlacingColor(node, clr);
-      }
+      
       ///
       /// Меняет фон всех дочерних элементов линии на заданный.
       ///
@@ -239,6 +333,15 @@ class WorkArea : public Label
             ProtoNode* node = nline.ChildElementAt(i);
             node.BackgroundColor(clr);
             node.BorderColor(clr);
+            if(node.TypeElement() == ELEMENT_TYPE_GCONTAINER)
+            {
+               for(int j = 0; j < node.ChildsTotal(); j++)
+               {
+                  ProtoNode* c_node = node.ChildElementAt(j);
+                  c_node.BackgroundColor(clr);
+                  c_node.BorderColor(clr);
+               }
+            }
          }
       }
       ///
@@ -246,7 +349,28 @@ class WorkArea : public Label
       ///
       void OnCommand(EventNodeCommand* command)
       {
+         
          RefreshVisibleLines(command.Visible());
+         ChangeScroll();
+      }
+      ///
+      /// Обрабатывает отображение.
+      ///
+      void OnVisible(EventVisible* event)
+      {
+         ReadOnly(true);
+         RefreshVisibleLines(event.Visible());   
+      }
+      ///
+      /// Обновляет параметры скролла.
+      ///
+      void ChangeScroll(void)
+      {
+         if(CheckPointer(scroll) != POINTER_INVALID)
+         {
+            scroll.CurrentStep(stepCurrent);
+            scroll.TotalSteps(StepsTotal());
+         }
       }
       ///
       /// Текущий шаг с которого начинается отображение линий.
@@ -268,6 +392,10 @@ class WorkArea : public Label
       /// Курсор.
       ///
       Cursor* cursor;
+      ///
+      /// Индекс курсора.
+      ///
+      int cursorIndex;
 };
 
 ///
@@ -276,36 +404,53 @@ class WorkArea : public Label
 class Cursor
 {
    public:
-      Cursor(CWorkArea* area)
+      Cursor(WorkArea* area)
       {
          workArea = area;
-         currentIndex = -1;
+         index = -1;
       }
       ///
       /// Возвращает текущий индекс курсора.
       ///
-      int Index(){return currentIndex;}
+      int Index(){return index;}
       ///
-      /// Передвигает курсор на одну строку вверх.
+      /// Перемещает курсор на указанное количество позиций вниз или вверх.
+      /// \param delta - В зависимости от флага смещение относительно текущего курсора, либо
+      /// абсолютный индекс.
+      /// \param isDelta - Истина, если delta задается как смешение относительно текущего курсора и
+      /// ложь, если delta указывает на абсолютный индекс.
       ///
-      bool MoveUp()
+      bool Move(int delta, bool isDelta = true)
       {
-         return false;
+         //Переводим абсолютное местоположение в относительное
+         if(!isDelta)
+            delta = delta-index;
+         if(delta == 0)return false;
+         else if(index + delta < 0)
+            index = 0;
+         else if(index + delta >= workArea.LinesTotal()-1)
+            index = workArea.LinesTotal()-2;
+         else
+            index += delta;
+         if(delta < 0)
+            workArea.CheckAndBrushColor(index + MathAbs(delta));
+         if(delta > 0)
+            workArea.CheckAndBrushColor(index - delta);
+         workArea.CheckAndBrushColor(index);
+         if(workArea.StepCurrent() + workArea.StepsVisible() < index+2)
+            workArea.StepCurrent(index - workArea.StepsVisible()+2);
+         if(workArea.StepCurrent() > index)
+            workArea.StepCurrent(index);
+         return true;
       }
-      ///
-      /// Передвигает курсор на одну строку вниз.
-      ///
-      bool MoveDn()
-      {
-         return false;
-      }
+      
    private:
       ///
       /// Содержит текущий индекс курсора.
       ///
-      int currentIndex;
+      int index;
       ///
       /// Содержит указатель на рабочую область таблицы.
       ///
-      CWorkArea* workArea;
+      WorkArea* workArea;
 };

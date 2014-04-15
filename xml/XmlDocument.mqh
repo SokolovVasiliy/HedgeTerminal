@@ -367,7 +367,7 @@ bool CXmlDocument::ReadDocument(int handle, string& err)
    }
    Clear();
    uchar data[];
-   int size = FileSize(handle);
+   int size = (int)FileSize(handle);
    bool complete = FileReadArray(handle, data) == FileSize(handle);
    if(!complete)
    {

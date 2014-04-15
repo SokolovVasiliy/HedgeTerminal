@@ -5,8 +5,14 @@
 #include "TreeViewBox.mqh"
 #include "Line.mqh"
 #include "Label.mqh"
+
+#ifndef NEW_TABLE
 #include "TableWork.mqh"
+#endif
+
+#ifdef NEW_TABLE
 #include "TableWork2.mqh"
+#endif
 
 #ifndef TABLE_MQH
    #define TABLE_MQH
@@ -82,7 +88,8 @@ class Table : public Label
       {
          EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 0, 1, Width()-22, 20);
          bool vis = Visible();
-         lineHeader.Event(command);
+         if(CheckPointer(lineHeader) != POINTER_INVALID)
+            lineHeader.Event(command);
          delete command;
       }
       ///
@@ -91,7 +98,8 @@ class Table : public Label
       void AllocationWorkTable()
       {
          EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 0, 21, Width()-22, High()-24);
-         workArea.Event(command);
+         if(CheckPointer(workArea) != POINTER_INVALID)
+            workArea.Event(command);
          delete command;
       }
       ///
@@ -109,7 +117,8 @@ class Table : public Label
       void AllocationNewScroll()
       {
          EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), Width()-21, 1, 20, High()-2);
-         nscroll.Event(command);
+         if(CheckPointer(nscroll) != POINTER_INVALID)
+            nscroll.Event(command);
          delete command;
          /*command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 2, 2, Width()-4, 20);
          gscroll.Event(command);
@@ -128,8 +137,7 @@ class Table : public Label
          switch(event.EventId())
          {
             case EVENT_SCROLL_CHANGED:
-               if(nscroll != NULL)
-                  workArea.OnScrollChanged();
+               workArea.OnScrollChanged(event);
                break;
          }
       }
@@ -211,18 +219,16 @@ class Table : public Label
       }
       
       
-      virtual void OnCommand(EventVisible* event)
+      virtual void OnVisible(EventVisible* event)
       {
-         if(!event.Visible())return;
          //Размещаем заголовок таблицы.
          AllocationHeader();
          //Размещаем рабочую область.
          AllocationWorkTable();
          //Размещаем скролл.
-         //AllocationScroll();
-         //
          AllocationNewScroll();
       }
+      
       virtual void OnCommand(EventNodeCommand* event)
       {
          //Команды снизу не принимаются.
