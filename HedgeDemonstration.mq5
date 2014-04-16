@@ -42,17 +42,17 @@ void OnDeinit(const int reason)
 ///
 void OnTick()
 {
-   /*for(int i = 0; i < Experts.Total(); i++)
+   for(int i = 0; i < Experts.Total(); i++)
    {
       MAExpert* expert = Experts.At(i);
       expert.Run();
-   }*/
+   }
 }
 
 void PrintResult()
 {
    int total = api.HistoryPosTotal();
-   ExpertRemove();
+   //ExpertRemove();
    /*for(int i = 0; i < total; i++)
    {
       Transaction* trans = api.HistoryPosAt(i);

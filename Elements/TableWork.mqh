@@ -62,6 +62,8 @@ class CWorkArea : public Label
          for(int i = index; i < total; i++)
          {
             ProtoNode* line = ChildElementAt(index);
+            if(line.TypeElement() == ELEMENT_TYPE_TABLE_SUMMARY)
+               printf("Summary Delete!!!!!!!!!");
             EventVisible* vis = new EventVisible(EVENT_FROM_UP, GetPointer(this), false);
             line.Event(vis);
             delete vis;

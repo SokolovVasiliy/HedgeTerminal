@@ -38,12 +38,16 @@ class WorkArea : public Label
       /// Добавляет произвольную строку в таблицу по индексу index. Строка - любой графический узел, чья ширина будет
       /// равна ширине рабочей области.
       ///
-      void Add(ProtoNode* line, int index)
+      void Add(ProtoNode* lineNode, int pos)
       {
-         //if(index > 0 && index childNodes.)
-         childNodes.Insert(line, index);
-         if(index <= stepCurrent + StepsVisible())
-            StepCurrent(stepCurrent);
+         if(pos == childNodes.Total() && pos > 0)
+         {
+            ProtoNode* node = childNodes.At(pos-1);
+            if(node.TypeElement() == ELEMENT_TYPE_TABLE_SUMMARY)
+               pos -= 1;
+         }
+         childNodes.Insert(lineNode, pos);
+         lineNode.NLine(pos);
          ChangeScroll();
       }
       ///
@@ -61,7 +65,7 @@ class WorkArea : public Label
          if(!notVisible)
             RefreshVisibleLines(false);
          childNodes.DeleteRange(index, index+count-1);
-         if(!notVisible)
+         if(!notVisible && Visible())
             RefreshVisibleLines(true);
          ChangeScroll();
       }
@@ -168,6 +172,10 @@ class WorkArea : public Label
             clr = Settings.ColorTheme.GetCursorColor();
          else
          {
+            TablePositions* tPos = parentNode;
+            if(tPos.TableType() == TABLE_POSHISTORY)
+               clr = clrAliceBlue;
+            else
             clr = count%2 == 0 ?
                   Settings.ColorTheme.GetSystemColor2() :
                   Settings.ColorTheme.GetSystemColor1();
@@ -349,8 +357,11 @@ class WorkArea : public Label
       ///
       void OnCommand(EventNodeCommand* command)
       {
-         
-         RefreshVisibleLines(command.Visible());
+         bool vis = command.Visible() && parentNode.Visible();
+         TablePositions* table = parentNode;
+         //if(!parentNode.Visible() && command.Visible())
+            printf("Parent OnCommand " + EnumToString(table.TableType()) +  " vis:" + vis + " event: " + command.Visible());
+         RefreshVisibleLines(vis);
          ChangeScroll();
       }
       ///
@@ -359,7 +370,11 @@ class WorkArea : public Label
       void OnVisible(EventVisible* event)
       {
          ReadOnly(true);
-         RefreshVisibleLines(event.Visible());   
+         bool vis = event.Visible() && parentNode.Visible();
+         TablePositions* table = parentNode;
+         //if(!parentNode.Visible() && command.Visible())
+            printf("Parent OnVisible " + EnumToString(table.TableType()) + " vis:" + vis + " event: " + event.Visible());
+         RefreshVisibleLines(vis);   
       }
       ///
       /// Обновляет параметры скролла.
@@ -396,6 +411,10 @@ class WorkArea : public Label
       /// Индекс курсора.
       ///
       int cursorIndex;
+      ///
+      /// Указатель на результирующую строку, если она добавлена.
+      ///
+      Line* summaryLine;
 };
 
 ///

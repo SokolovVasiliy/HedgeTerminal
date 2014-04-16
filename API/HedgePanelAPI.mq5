@@ -39,10 +39,10 @@ ENUM_HEDGE_ERR GetHedgeError() export
 ///
 /// Install missing files.
 ///
-void InstallMissingFiles()export
+/*void InstallMissingFiles()export
 {
    api.InstallMissingFiles();
-}
+}*/
 ///
 /// Return count active and pending positions.
 /// \return Count of active and pending api position.
