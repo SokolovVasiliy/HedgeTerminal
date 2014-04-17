@@ -1058,7 +1058,6 @@ class Summary : public AbstractLine
    public:
       Summary(ProtoNode* parNode, ENUM_TABLE_TYPE tType) : AbstractLine("Summary", ELEMENT_TYPE_TABLE_SUMMARY, parNode, tType)
       {
-         printf("Greate summary: " + NameID());
          textNode = new Label("summary", GetPointer(this));
          textNode.Font("\Resources\Fonts\Arial Rounded MT Bold Bold.ttf");
          textNode.Font("Arial Rounded MT Bold");

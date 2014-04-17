@@ -245,22 +245,15 @@ class TablePositions : public Table
          switch(event.ChangedType())
          {
             case POSITION_SHOW:
-               printf("Show position " + EnumToString(TableType()));
                CreatePosition(event.Position());
                break;
             case POSITION_REFRESH:
-               printf("Refresh position " + EnumToString(TableType()));
                RefreshPosition(event.Position());
                break;
             case POSITION_HIDE:
-               printf("Hide position " + EnumToString(TableType()));
                DelPosition(event.Position());
                break;
          }
-         int dbg = 4;
-         //EventRefresh* er = new EventRefresh(EVENT_FROM_DOWN, NameID());
-         //EventSend(er);
-         //delete er;
       }
       
       ///

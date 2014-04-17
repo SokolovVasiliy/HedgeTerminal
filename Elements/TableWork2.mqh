@@ -62,7 +62,7 @@ class WorkArea : public Label
             count = childNodes.Total()-index;
          int end = index + count;
          bool notVisible = (end < stepCurrent) || (index > stepCurrent + stepsVisible);
-         if(!notVisible)
+         if(!notVisible && Visible())
             RefreshVisibleLines(false);
          childNodes.DeleteRange(index, index+count-1);
          if(!notVisible && Visible())
@@ -172,10 +172,6 @@ class WorkArea : public Label
             clr = Settings.ColorTheme.GetCursorColor();
          else
          {
-            TablePositions* tPos = parentNode;
-            if(tPos.TableType() == TABLE_POSHISTORY)
-               clr = clrAliceBlue;
-            else
             clr = count%2 == 0 ?
                   Settings.ColorTheme.GetSystemColor2() :
                   Settings.ColorTheme.GetSystemColor1();
@@ -359,8 +355,6 @@ class WorkArea : public Label
       {
          bool vis = command.Visible() && parentNode.Visible();
          TablePositions* table = parentNode;
-         //if(!parentNode.Visible() && command.Visible())
-            printf("Parent OnCommand " + EnumToString(table.TableType()) +  " vis:" + vis + " event: " + command.Visible());
          RefreshVisibleLines(vis);
          ChangeScroll();
       }
@@ -372,8 +366,6 @@ class WorkArea : public Label
          ReadOnly(true);
          bool vis = event.Visible() && parentNode.Visible();
          TablePositions* table = parentNode;
-         //if(!parentNode.Visible() && command.Visible())
-            printf("Parent OnVisible " + EnumToString(table.TableType()) + " vis:" + vis + " event: " + event.Visible());
          RefreshVisibleLines(vis);   
       }
       ///
