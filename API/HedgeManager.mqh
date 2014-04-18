@@ -23,12 +23,6 @@ class HedgeManager
                OnRefresh();
                RefreshActPos(event);
                break;
-            case EVENT_REQUEST_NOTICE:
-               OnRequestNotice(event);
-               break;
-            case EVENT_XML_ACTPOS_REFRESH:
-               //OnXmlActPosRefresh(event);
-               break;
          }
       }
       
@@ -394,7 +388,8 @@ class HedgeManager
          return false;
       }
       ///
-      /// Вызывается сразу после инициализации и отображает активные сделки.
+      /// Вызывается сразу после инициализации и отображает активные сделки, а также
+      /// инициализирует их ссылки на XML файл активных позиций.
       ///
       void ShowPosition()
       {
@@ -402,6 +397,7 @@ class HedgeManager
          {
             Position* pos = ActivePos.At(i);
             pos.SendEventChangedPos(POSITION_SHOW);
+            pos.CreateXmlLink();
          }
          CreateSummary(TABLE_POSACTIVE);
          for(int i = 0; i < HistoryPos.Total(); i++)

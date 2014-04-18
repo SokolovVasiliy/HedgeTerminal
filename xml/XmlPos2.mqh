@@ -6,26 +6,29 @@
 ///
 /// Атрибуты позиции.
 ///
-/*enum ENUM_ATTRIBUTE_POS
+enum ENUM_ATTRIBUTE_POS
 {
-   ///
-   /// Идентификатор счета, к которому принадлежит позиция.
-   ///
-   ATTR_ACCOUNT_ID,
-   ///
-   /// Идентификатор позиции.
-   ///
-   ATTR_POSITION_ID,
-   ///
-   /// Закрывающий комментарий.
-   ///
-   ATTR_EXIT_COMMENT,
-   ///
-   /// Уровень виртуального тейк-профита.
-   ///
-   ATTR_TAKE_PROFIT
-};*/
-
+         ///
+         /// Идентификатор счета, к которому принадлежит позиция.
+         ///
+         ATTR_ACCOUNT_ID,
+         ///
+         /// Идентификатор позиции.
+         ///
+         ATTR_POSITION_ID,
+         ///
+         /// Закрывающий комментарий.
+         ///
+         ATTR_EXIT_COMMENT,
+         ///
+         /// Уровень виртуального тейк-профита.
+         ///
+         ATTR_TAKE_PROFIT,
+         ///
+         /// Аттрибут блокировки позиции.
+         ///
+         ATTR_BLOCKED
+      };
 ///
 /// Тип состояния, которое надо сохранить.
 ///
@@ -83,23 +86,41 @@ class XPosValues
          attr.SetName(GetAttributeName(ATTR_TAKE_PROFIT));
          attr.SetValue(pos.PriceToString(pos.TakeProfitLevel()));
          element.AttributeAdd(attr);
+         //Blocked attribute
+         if(pos.IsBlocked())
+         {
+            printf("XML: position is blocked");
+            attr = new CXmlAttribute();
+            attr.SetName(GetAttributeName(ATTR_BLOCKED));
+            attr.SetValue((string)TimeCurrent());
+            element.AttributeAdd(attr);
+         }
+         else
+            printf("XML: blocked will be reset");
          return element;
       }
       ///
       /// Устанавливает состояние объекта согласно xml елементу.
       ///
-      void SetXmlElement(CXmlElement* element)
+      bool SetXmlElement(CXmlElement* element)
       {
-         if(!IsMyElement(element))return;
+         if(!IsMyElement(element))return false;
          double tp = 0.0;
          string comment = "";
+         datetime time = 0;
          CXmlAttribute* attr = element.GetAttribute(GetAttributeName(ATTR_TAKE_PROFIT));
          if(attr != NULL)
             tp = StringToDouble(attr.GetValue());
          attr = element.GetAttribute(GetAttributeName(ATTR_EXIT_COMMENT));
          if(attr != NULL)
             comment = attr.GetValue();
-         pos.AttributesChanged(tp, comment);
+         attr = element.GetAttribute(GetAttributeName(ATTR_BLOCKED));
+         if(attr != NULL)
+         {
+            string strTime = attr.GetValue();
+            time = (datetime)StringToInteger(strTime);
+         }
+         return pos.AttributesChanged(tp, comment, time);
       }
       ///
       /// Истина, если текущий элемент соответствует текущему экзмемпляру и ложь в противном случае.
@@ -131,6 +152,8 @@ class XPosValues
                return "ExitComment";
             case ATTR_TAKE_PROFIT:
                return "TakeProfit";
+            case ATTR_BLOCKED:
+               return "Blocked";
          }
          return "";
       }
@@ -199,8 +222,9 @@ class XmlPos2
       void CreateMe(void);
       ///
       /// Перечитывает текущий xml-узел из файла.
-      ///
-      void ReadMe(void);
+      /// \return Возвращает истину, если узел был изменен и ложь в противном случае.
+      /// 
+      bool ReadMe(void);
       ///
       /// Истина, если XML-файл содержит текущий xml-узел и ложь в противном случае.
       ///
@@ -221,6 +245,9 @@ class XmlPos2
       /// Возвращает имя xml-аттрибута в зависимости от его типа.
       ///
       string GetAttributeName(ENUM_ATTRIBUTE_POS);
+      ///
+      /// Истина, если последнее состояние позиции было удачно сохраненно и ложь в противном случае.
+      ///
       bool saveState;
 };
 
@@ -275,47 +302,40 @@ void XmlPos2::SaveXmlDoc(int handle)
 
 bool XmlPos2::CheckModify(void)
 {
-   /*(if(!saveState)
-   {
-      SaveState();
-      return false;
-   }*/
    ulong id = xPos.PositionId();
-   if(!file.IsModify())return false;
-   if(!LoadXmlDoc(file.GetHandle()))   
+   bool res = true;
+   int handle = -2;
+   if(!file.IsModify())
       return false;
-   if(!ContainsMe())
-   {
-      file.FileClose();
-      delete doc;
-      SaveState(STATE_REFRESH);
-      return false;
-   }
+   else if(!LoadXmlDoc(file.GetHandle())) 
+      res = false;
+   else if(!ContainsMe())
+      res = false;
    else
-      ReadMe();
-   delete doc;
+      res = ReadMe();
+   if(CheckPointer(doc) != POINTER_INVALID)
+      delete doc;
    file.FileClose();
-   return true;
+   return res;
 }
 
 bool XmlPos2::SaveState(ENUM_STATE_TYPE type = STATE_REFRESH)
 {
-   saveState = false;
+   bool res = true;
    if(file.FileOpen(FILE_WRITE) == INVALID_HANDLE)
       return false;
-   if(!LoadXmlDoc(file.GetHandle()))
+   else if(!LoadXmlDoc(file.GetHandle()))
+      res = false;
+   else
    {
-      file.FileClose();
-      return false;
+      file.FillSpace();
+      DeleteMe();
+      if(type == STATE_REFRESH)
+         CreateMe();
+      SaveXmlDoc(file.GetHandle());
    }
-   file.FillSpace();
-   DeleteMe();
-   if(type == STATE_REFRESH)
-      CreateMe();
-   SaveXmlDoc(file.GetHandle());
    file.FileClose();
-   saveState = true;
-   return true;
+   return res;
 }
 
 bool XmlPos2::ContainsMe(void)
@@ -351,13 +371,14 @@ void XmlPos2::DeleteMe(void)
    }
 }
 
-void XmlPos2::ReadMe()
+bool XmlPos2::ReadMe()
 {
-   if(CheckPointer(doc) == POINTER_INVALID)return;
+   if(CheckPointer(doc) == POINTER_INVALID)return false;
    for(int i = doc.FDocumentElement.GetChildCount()-1; i >= 0 ; i--)
    {
       CXmlElement* element = doc.FDocumentElement.GetChild(i);
       if(xPos.IsMyElement(element))
-         xPos.SetXmlElement(element);
+         return xPos.SetXmlElement(element);
    }
+   return false;
 }

@@ -491,10 +491,9 @@ void MAExpert::TryCloseCurrentPos()
    //request.volume = 0.1;
    request.exit_comment = "exit by signal";
    //request.close_type = CLOSE_AS_MARKET; 
-   HedgePositionClose(request);
    if(!HedgePositionClose(request))
-      printf("MAExpert: " + EnumToString(GetHedgeError()) + " " + GetHedgeError());
-   #endif 
+      printf("Try closing failed: " + EnumToString(GetHedgeError()) + " " + (string)GetHedgeError());
+   #endif
    #ifndef HEDGES
    PositionSelect(symbol);
    ENUM_POSITION_TYPE posType = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);

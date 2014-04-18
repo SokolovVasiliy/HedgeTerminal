@@ -1,7 +1,6 @@
 #include <Arrays\ArrayObj.mqh>
 #include "XmlBase.mqh"
 #include "XmlDocument.mqh"
-#include "XmlPos.mqh"
 ///
 /// —борщик устаревших узлов XML
 ///
@@ -23,7 +22,8 @@ void XmlGarbage::ClearActivePos(string fileName, CArrayObj *posList)
       return;
    ulong accountId = AccountInfoInteger(ACCOUNT_LOGIN);
    bool res = false;
-   XmlPos* xPos;
+   printf("XML garbage must be rewrite");
+   /*XmlPos* xPos;
    for(int i = 0; i < doc.FDocumentElement.GetChildCount(); i++)
    {
       CXmlElement* xmlItem = doc.FDocumentElement.GetChild(i);
@@ -53,5 +53,5 @@ void XmlGarbage::ClearActivePos(string fileName, CArrayObj *posList)
       doc.SaveToFile(fileName);
       doc.Clear();
       doc.CreateFromFile(fileName, error);
-   }
+   }*/
 }

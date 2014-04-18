@@ -431,7 +431,7 @@ class PosLine : public AbstractLine
       void OnCommentModify(EditNode* editNode)
       {
          string comment = editNode.Text();
-         pos.ExitComment(comment);
+         pos.ExitComment(comment, true);
       }
       ///
       /// Отрпавляет приказ на создание/модификацию уровня стоп-лосс.
@@ -439,30 +439,7 @@ class PosLine : public AbstractLine
       void OnStopLossModify(EditNode* editNode)
       {
          double setPrice = StringToDouble(editNode.Text());
-         bool notNull = !Math::DoubleEquals(setPrice, 0.0);
-         if(pos.UsingStopLoss() && !notNull)
-         {
-            pos.AddTask(new TaskDeleteStopLoss(pos, true));
-            return;
-         }
-         if(!pos.UsingStopLoss() && notNull)
-         {
-            pos.AddTask(new TaskSetStopLoss(pos, setPrice, true));
-            return;
-         }
-         if(pos.UsingStopLoss())
-         {
-            if(notNull && !Math::DoubleEquals(setPrice, pos.StopLossLevel()))
-            {
-               pos.AddTask(new TaskModifyStop(pos, setPrice, true));
-               return;
-            }
-         }
-         else
-            RefreshAll();
-         //pos.StopLossModify(setPrice, pos.ExitComment(), true);
-         //TaskModifySL* sl = new TaskModifySL(pos, setPrice, pos.ExitComment());
-         //pos.AddTask(sl);
+         pos.StopLossLevel(setPrice);
       }
       ///
       /// Обработчик модификации уровня тейк-профита.
@@ -470,7 +447,7 @@ class PosLine : public AbstractLine
       void OnTakeProfitModify(EditNode* editNode)
       {
          double setPrice = StringToDouble(editNode.Text());
-         pos.TakeProfitLevel(setPrice);
+         pos.TakeProfitLevel(setPrice, true);
       }
       ///
       /// Обрабатывает событие блокировки позиции.

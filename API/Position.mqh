@@ -7,7 +7,7 @@
 #include <Trade\SymbolInfo.mqh>
 //#include "..\XML\XmlPosition.mqh"
 //#include "..\XML\XmlPosition1.mqh"
-#include "..\XML\XmlPos.mqh"
+//#include "..\XML\XmlPos.mqh"
 #include "..\XML\XmlPos2.mqh"
  
 class Position;
@@ -79,7 +79,7 @@ class Position : public Transaction
       
       string EntryComment(void);
       string ExitComment(void);
-      void ExitComment(string comment);
+      void ExitComment(string comment, bool saveState);
       
       long EntryExecutedTime(void);
       long ExitExecutedTime(void);
@@ -103,7 +103,7 @@ class Position : public Transaction
       double StopLossLevel(void);
       double TakeProfitLevel(void);
       void StopLossLevel(double level);
-      void TakeProfitLevel(double level);
+      uint TakeProfitLevel(double level, bool saveState);
       bool UsingStopLoss(void);
       InfoIntegration* Integrate(Order* order);
       static bool CheckOrderType(Order* checkOrder);
@@ -120,7 +120,6 @@ class Position : public Transaction
       virtual string TypeAsString(void);
       virtual ENUM_DIRECTION_TYPE Direction(void);
       bool IsBlocked();
-      void NoticeModify(void);
       void Event(Event* event);
       void SendEventChangedPos(ENUM_POSITION_CHANGED_TYPE type);
       void Unmanagment(bool isUnmng);
@@ -156,13 +155,23 @@ class Position : public Transaction
       virtual double Commission(void);
       ///
       /// Вызвается при изменении аттрибутов xml активной позиции.
+      /// \return Истина, если хотя бы одно из переданных значений отличается
+      /// от текущего и ложь в противном случае.
       ///
-      void AttributesChanged(double tp, string exComment);
+      bool AttributesChanged(double tp, string exComment, datetime time);
+      ///
+      /// Инициализирует ссылку на XML файл активных позиций.
+      ///
+      void CreateXmlLink(void);
    private:
       ///
-      /// Сохраняет состояние текущей активной позиции в XML-узле.
+      /// Сохраняет информацию о позиции в XML-узле файла активных позиций.
       ///
-      void SaveXmlState(ENUM_POSITION_CHANGED_TYPE type);
+      void SaveXmlActive();
+      ///
+      /// Безусловно удаляет информацию из XML-узла о текущей позиции.
+      ///
+      void DeleteXmlActive();
       ///
       /// Посылает событие обновления состояния в визуальную форму.
       ///
@@ -195,17 +204,8 @@ class Position : public Transaction
          ///
          CHANGED_ORDER_CLOSED
       };
-      
       ///
-      /// Флаг блокировки, истина, если позиция находится в процессе изменения.
-      ///
-      bool blocked;
-      ///
-      /// Показывает, находится ли позиция в состоянии модификации.
-      ///
-      bool isModify;
-      ///
-      /// Время начала блокировки.
+      /// Время начала блокировки. Также используется для определения есть блокировка или нет.
       ///
       CTime blockedTime;
       ///
@@ -232,7 +232,7 @@ class Position : public Transaction
       void InitializePosition(Order* inOrder);
       POSITION_STATUS CheckStatus(void);
       void ResetBlocked(void);
-      void SetBlock(void);
+      void SetBlock(datetime time);
       void OnRequestNotice(EventRequestNotice* notice);
       void OnRejected(TradeResult& result);
       void OnUpdate(ulong OrderId);
@@ -240,8 +240,8 @@ class Position : public Transaction
       void NoticeTask();
       void TaskCollector(void);
       bool IsItMyPendingStop(Order* order);
-      void OnXmlRefresh(EventXmlActPosRefresh* event);
       bool CheckValidTP(double tp);
+      bool CheckValidSL(double sl);
       bool CheckHistSL(double sl);
       bool CheckHistTP(double tp);
       void CloseByVirtualOrder(void);
@@ -292,7 +292,6 @@ class Position : public Transaction
       ///
       /// Содержит XML представление активной позиции.
       ///
-      //XmlPos* activeXmlPos;
       XmlPos2* activeXmlPos;
       ///
       /// Истина, если текущая позиция была отображена. 
@@ -596,7 +595,7 @@ void Position::AddClosingOrder(Order* outOrder, InfoIntegration* info)
    {
       if(!Math::DoubleEquals(TakeProfitLevel(), 0.0))
          Settings.SaveXmlAttr(GetId(), VIRTUAL_TAKE_PROFIT, PriceToString(TakeProfitLevel()));
-      info.HistoryPosition.TakeProfitLevel(TakeProfitLevel());
+      info.HistoryPosition.TakeProfitLevel(TakeProfitLevel(), true);
       info.HistoryPosition.CopyTaskLog(GetPointer(taskLog));
    }
    if(outOrder.Status() != ORDER_NULL)
@@ -822,16 +821,15 @@ string Position::ExitComment(void)
 ///
 /// Устанавливает исходящий комментарий для активной позиции.
 ///
-void Position::ExitComment(string comment)
+void Position::ExitComment(string comment, bool saveState)
 {
    if(status != POSITION_ACTIVE)return;
    if(exitComment == comment)return;
+   if(StringLen(comment) > 31)
+      comment = StringSubstr(comment, 0, 31);
    exitComment = comment;
-   if(CheckPointer(activeXmlPos) != POINTER_INVALID)
-   {
-      activeXmlPos.SaveState();
-      //activeXmlPos.ExitComment(exitComment);
-   }
+   if(saveState)
+      SaveXmlActive();
    if(UsingStopLoss())
       AddTask(new TaskChangeCommentStopLoss(GetPointer(this), true));
 }
@@ -993,9 +991,23 @@ double Position::StopLossLevel(void)
 
 ///
 /// Устанавливает уровень стоп-лосса.
+/// \return Истина, если новый уровень корректен, и на его основе была
+/// сформирована новая задача и ложь в противном случае..
 ///
 void Position::StopLossLevel(double level)
 {
+   double setPrice = level;
+   bool notNull = !Math::DoubleEquals(setPrice, 0.0);
+   if(UsingStopLoss() && !notNull)
+      AddTask(new TaskDeleteStopLoss(GetPointer(this), true));
+   else if(!UsingStopLoss() && notNull)
+      AddTask(new TaskSetStopLoss(GetPointer(this), setPrice, true));
+   else if(UsingStopLoss())
+   {
+      if(notNull && !Math::DoubleEquals(setPrice, StopLossLevel()))
+         AddTask(new TaskModifyStop(GetPointer(this), setPrice, true));
+   }
+   SendEventChangedPos(POSITION_REFRESH);
 }
 
 ///
@@ -1016,17 +1028,22 @@ double Position::TakeProfitLevel(void)
 
 ///
 /// Устанавливает уровень тейк-профита.
+/// \param level - Новый уровень TakeProfit. 
+/// \param saveState - Истина, если требуется сохранить этот уровень в XML файле позиций и ложь в противном случае.
+/// \return Коды результата установки новой цены.
 ///
-void Position::TakeProfitLevel(double level)
+uint Position::TakeProfitLevel(double level, bool saveState)
 {
-   if(Math::DoubleEquals(takeProfit, level))
-      return;
-   if(!CheckValidTP(level))
-      return;
-   if(Math::DoubleEquals(level, takeProfit))
-      return;
-   takeProfit = level;
+   uint retcode = TRADE_RETCODE_INVALID_PRICE;
+   if(CheckValidTP(level) && Status() == POSITION_ACTIVE)
+   {
+      takeProfit = level;
+      retcode = TRADE_RETCODE_PLACED;
+      if(saveState)
+         SaveXmlActive();
+   }
    SendEventChangedPos(POSITION_REFRESH);
+   return retcode;
 }
 
 ///
@@ -1072,21 +1089,27 @@ ENUM_DIRECTION_TYPE Position::Direction()
 ///
 void Position::ResetBlocked(void)
 {
-   blocked = false;
-   blockedTime.Tiks(0);
-   isModify = false;
-   SendEventBlockStatus(false);
-   //SendEventChangedPos(POSITION_REFRESH);
+   if(IsBlocked())
+   {
+      blockedTime.Tiks(0);
+      SendEventBlockStatus(false);
+      if(activeXmlPos != NULL)
+         activeXmlPos.SaveState();
+   }
 }
 
 ///
 /// Блокирует позицию для любых изменений.
 ///
-void Position::SetBlock(void)
+void Position::SetBlock(datetime time)
 {
-   blocked = true;
-   blockedTime.SetDateTime(TimeCurrent()*1000);
-   SendEventBlockStatus(true);
+   if(!IsBlocked())
+   {
+      blockedTime.SetDateTime(time);
+      SendEventBlockStatus(true);
+      if(activeXmlPos != NULL)
+         activeXmlPos.SaveState();
+   }
 }
 
 ///
@@ -1110,7 +1133,17 @@ void Position::SendEventBlockStatus(bool curStatus)
 ///
 bool Position::IsBlocked(void)
 {
-   return isModify || blocked;
+   if(blockedTime.Tiks() == 0)
+      return false;
+   //В случае необходимости снимает блокировку по таймауту.
+   datetime tB = blockedTime.ToDatetime();
+   if(TimeCurrent() - tB >= 180)
+   {
+      blockedTime.Tiks(0);
+      SaveXmlActive();
+      return false;
+   }
+   return true;
 }
 
 ///
@@ -1122,9 +1155,6 @@ void Position::Event(Event* event)
    {
       case EVENT_REQUEST_NOTICE:
          OnRequestNotice(event);
-         break;
-      case EVENT_XML_ACTPOS_REFRESH:
-         OnXmlRefresh(event);
          break;
       case EVENT_REFRESH:
          OnRefresh();
@@ -1151,23 +1181,7 @@ void Position::OnRequestNotice(EventRequestNotice* notice)
       OnUpdate(trans.order);
       isReset = true;
    }
-   //if(isReset && blocked)
-   //   ResetBlocked();
 }
-
-///
-/// Обрабатывает обновления xml хранилища активных позиций.
-///
-void Position::OnXmlRefresh(EventXmlActPosRefresh *event)
-{
-   XmlPos* xPos = event.GetXmlPosition();
-   exitComment = xPos.ExitComment();
-   TakeProfitLevel(xPos.TakeProfit());
-   if(!Math::DoubleEquals(xPos.TakeProfit(), takeProfit))
-      xPos.TakeProfit(takeProfit);
-   SendEventChangedPos(POSITION_REFRESH);
-}
-
 ///
 /// Сохраняет виртиуальный ордер в xml файле виртуальных ордеров.
 ///
@@ -1197,14 +1211,6 @@ void Position::OnUpdate(ulong OrderId)
    Order* changeOrder = FindOrderById(OrderId);
    if(changeOrder != NULL)
       changeOrder.Refresh();
-}
-
-///
-/// Ордер изменяющий позицию находится в процессе модификации.
-///
-void Position::NoticeModify(void)
-{
-   isModify = true;
 }
 
 
@@ -1244,38 +1250,33 @@ void Position::SendEventChangedPos(ENUM_POSITION_CHANGED_TYPE type)
    if(!showed && type != POSITION_SHOW)
       return;
    showed = true;
-   SaveXmlState(type);
+   //SaveXmlState(type);
    RefreshVisualForm(type);
 }
 
-void Position::SaveXmlState(ENUM_POSITION_CHANGED_TYPE type)
+void Position::SaveXmlActive(void)
 {
-   if(Status() == POSITION_ACTIVE || status == POSITION_NULL)
-   {
-      if(type == POSITION_SHOW)
-      {
-         if(CheckPointer(activeXmlPos) != POINTER_INVALID)
-            delete activeXmlPos;
-         //activeXmlPos = new XmlPos(GetPointer(this));
-         if(!MQLInfoInteger(MQL_OPTIMIZATION))
-         {
-            activeXmlPos = new XmlPos2(GetPointer(this));
-            activeXmlPos.CheckModify();
-         }
-      }
-      else if(type == POSITION_HIDE && CheckPointer(activeXmlPos) != POINTER_INVALID)
-      {
-         activeXmlPos.SaveState(STATE_DELETE);
-         delete activeXmlPos;  
-         //activeXmlPos.DeleteXmlNode();
-      }
-      else if(type == POSITION_REFRESH && CheckPointer(activeXmlPos) != POINTER_INVALID)
-      {
-         //activeXmlPos.TakeProfit(takeProfit);
-         //activeXmlPos.ExitComment(exitComment);
-         activeXmlPos.SaveState(STATE_REFRESH);
-      }
-   }
+   if(Status() != POSITION_ACTIVE)
+      return;
+   if(CheckPointer(activeXmlPos) != POINTER_INVALID)
+      activeXmlPos.SaveState(STATE_REFRESH);
+}
+
+void Position::CreateXmlLink()
+{
+   if(Status() != POSITION_ACTIVE)
+      return;
+   if(CheckPointer(activeXmlPos) == POINTER_INVALID)
+      activeXmlPos = new XmlPos2(GetPointer(this));
+}
+
+void Position::DeleteXmlActive()
+{
+   if(Status() != POSITION_ACTIVE)
+      return;
+   if(CheckPointer(activeXmlPos) == POINTER_INVALID)
+      activeXmlPos = new XmlPos2(GetPointer(this));
+   activeXmlPos.SaveState(STATE_DELETE);
 }
 
 void Position::RefreshVisualForm(ENUM_POSITION_CHANGED_TYPE type)
@@ -1312,7 +1313,13 @@ ENUM_HEDGE_ERR Position::AddTask(Task2 *ctask)
 {
    if(CheckPointer(ctask) == POINTER_INVALID)
       return HEDGE_ERR_TASK_FAILED;
-   if(CheckPointer(task2) != POINTER_INVALID)
+   if(IsBlocked())
+   {
+      delete ctask;
+      taskLog.AddRedcode(TARGET_CREATE_TASK, TRADE_RETCODE_FROZEN);
+      return HEDGE_ERR_POS_FROZEN;
+   }
+   /*if(CheckPointer(task2) != POINTER_INVALID)
    {
       if(task2.IsActive())
       {
@@ -1321,7 +1328,8 @@ ENUM_HEDGE_ERR Position::AddTask(Task2 *ctask)
          taskLog.AddRedcode(TARGET_CREATE_TASK, TRADE_RETCODE_FROZEN);
          return HEDGE_ERR_POS_FROZEN;
       }
-   }
+   }*/
+   
    taskLog.Clear();
    task2 = ctask;
    task2.Execute();
@@ -1348,6 +1356,7 @@ void Position::NoticeTask(void)
 ///
 void Position::TaskChanged(void)
 {
+   printf("Task Changed");
    if(CheckPointer(task2) == POINTER_INVALID ||task2.IsFinished())
    {
       task2 = NULL;
@@ -1357,8 +1366,8 @@ void Position::TaskChanged(void)
          PrintTaskLog();
       #endif
    }
-   else if((task2.Status() == TASK_STATUS_EXECUTING) && !blocked)
-      SetBlock();
+   else if((task2.Status() == TASK_STATUS_EXECUTING) && !IsBlocked())
+      SetBlock(TimeCurrent());
 }
 
 ///
@@ -1379,18 +1388,49 @@ Order* Position::FindOrderById(ulong id)
    return NULL;
 }
 ///
-/// Проверяет корректность цены тейк-профит цены.
+/// Проверяет корректность цены тейк-профит.
 ///
 bool Position::CheckValidTP(double tp)
 {
-   if(tp < CurrentPrice() && Direction() == DIRECTION_LONG)
-      return false;
+   string info = "Bad TakeProfit Level. ";
+   bool res = true;
+   bool notChanges = false;
+   bool isNull = false;
+   if(Math::DoubleEquals(tp, 0.0))
+      isNull = true;
+   
+   if(tp < CurrentPrice() && Direction() == DIRECTION_LONG && !isNull)
+   {
+      res = false;
+      info = "Price of TakeProfit must be bigest current price.";
+   }
    if(tp > CurrentPrice() && Direction() == DIRECTION_SHORT)
-      return false;
-   if(tp < 0.0)return false;
-   return true;
+   {
+      res = false;
+      info = "Price of TakeProfit must be less current price";
+   }
+   if(tp < 0.0)
+   {
+      res = false;
+      info = "Price of TakeProfit must be bigest or equal 0.0";
+   }
+   if(Math::DoubleEquals(tp, takeProfit))
+   {
+      res = false;
+      notChanges = true;
+   }
+   if(!res && !notChanges)
+      LogWriter(info, MESSAGE_TYPE_ERROR);
+   return res || isNull;
 }
 
+///
+/// Проверяет на корректность уровень стоп-лосса.
+///
+bool Position::CheckValidSL(double sl)
+{
+   return true;
+}
 ///
 /// Проверяет валидность виртуального стоп-лосса для исторической позиции.
 ///
@@ -1435,7 +1475,8 @@ bool Position::CheckHistTP(double tp)
 
 void Position::OnRefresh(void)
 {
-   CloseByVirtualOrder();
+   if(!IsBlocked())
+      CloseByVirtualOrder();
    if(CheckPointer(activeXmlPos) != POINTER_INVALID)
       activeXmlPos.CheckModify();
 }
@@ -1581,10 +1622,20 @@ double Position::Commission(void)
    return commission;
 }
 
-void Position::AttributesChanged(double tp, string exComment)
+bool Position::AttributesChanged(double tp, string exComment, datetime time)
 {
-   if(CheckValidTP(tp))
-      takeProfit = tp;
-   exitComment = exComment;
+   if(Math::DoubleEquals(tp, takeProfit) &&
+      exComment == exitComment &&
+      time == blockedTime.ToDatetime())
+   {
+      return false;
+   }
+   TakeProfitLevel(tp, false);
+   ExitComment(exComment, false);
+   if(time > 0 && !IsBlocked())
+      SetBlock(time);
+   else if(time == 0 && IsBlocked())
+      ResetBlocked();
    RefreshVisualForm(POSITION_REFRESH);
+   return true;
 }

@@ -19,6 +19,7 @@
 ///
 CArrayObj Experts;
 
+input int MaPeriod = 3;
 ///
 /// Init experts.
 ///
@@ -26,7 +27,7 @@ int OnInit()
 {
    PrintResult();
    MAExpert* maexp = new MAExpert();
-   maexp.SetSlowMA(3);
+   maexp.SetSlowMA(MaPeriod);
    Experts.Add(maexp);
    
    return(INIT_SUCCEEDED);

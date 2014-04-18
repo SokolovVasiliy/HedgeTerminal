@@ -230,7 +230,7 @@ class Task2 : public CObject
          return currTarget;
       }
       ///
-      /// Истина, если позиция активна, и ложь в противном случае.
+      /// Истина, если позиция не активна или ссылка на нее отсутствует, и ложь в противном случае.
       ///
       bool FailedIfNotActivePos()
       {
@@ -343,13 +343,6 @@ class TaskSetStopLoss : public Task2
          if(FailedIfNotActivePos())
             return;
          if(pos.UsingStopLoss())
-         {
-            status = TASK_STATUS_FAILED;
-            taskLog.Status(status);
-            taskLog.AddRedcode(TARGET_CREATE_TASK, TRADE_RETCODE_INVALID_STOPS);
-            return;
-         }
-         else
          {
             status = TASK_STATUS_FAILED;
             taskLog.Status(status);

@@ -40,7 +40,7 @@ class FileInfo : CObject
       bool IsModify(void);
       string Name(){return fileName;}
       int FlagDist(){return flagDist;}
-      datetime ModifyTime(){return modifyTime;}
+      datetime LastAccess(){return lastAccess;}
       ///
       /// Создает файл.
       /// \name - Имя файла.
@@ -75,6 +75,10 @@ class FileInfo : CObject
          FileSeek(handle, 0, SEEK_SET);
          FileWriteArray(handle, spaces, 0, ArraySize(spaces));
       }
+      ///
+      /// Истина, если файл открыт только для чтения и ложь в противном случае.
+      ///
+      bool ReadOnly();
    private:
       ///
       /// Истина, если файл изменен и ложь в противном случае.
@@ -103,11 +107,11 @@ class FileInfo : CObject
       ///
       /// Время модификации файла.
       ///
-      datetime modifyTime;
+      datetime lastAccess;
       ///
       /// Время последнего доступа к файлу.
       ///
-      datetime lastAccess;
+      datetime deltaAccess;
 };
 
 ///
@@ -115,44 +119,50 @@ class FileInfo : CObject
 ///
 bool FileInfo::IsModify(void)
 {
-   if(TimeCurrent() - lastAccess < refresh)
+   if(TimeLocal() - deltaAccess < refresh)
       return false;
-   lastAccess = TimeCurrent();
+   deltaAccess = TimeLocal();
    if(handle != INVALID_HANDLE)
       return modify;
    if(this.FileOpen() == INVALID_HANDLE)
       return false;
    datetime modifyNow = (datetime)FileGetInteger(handle, FILE_MODIFY_DATE);
-   modify = modifyTime < modifyNow;
+   modify = lastAccess != modifyNow;
    if(modify)
-   {
-      //printf("Now modify time: " + TimeToString(modifyNow, TIME_MINUTES|TIME_SECONDS) +
-      //       " Last modify time: " + TimeToString(modifyTime, TIME_MINUTES|TIME_SECONDS));
-      modifyTime = modifyNow;
-   }
+      lastAccess = modifyNow;
    if(accessType == ACCESS_CHECK_AND_CLOSE || !modify)
-   {
-      FileClose(handle);
-      handle = INVALID_HANDLE;
-   }
+      this.FileClose();
    return modify;
 }
 
 int FileInfo::FileOpen(int writeMode = 0)
 {
-   //FileDelete
+   if(handle != INVALID_HANDLE)
+      return -1;
    if(writeMode == FILE_WRITE)
       handle = FileOpen(fileName, FILE_BIN|FILE_READ|FILE_WRITE|flagDist);
    else 
       handle = FileOpen(fileName, FILE_BIN|FILE_READ|flagDist);
-   int size = (int)FileSize(handle);
    return handle;
 }
 void FileInfo::FileClose()
 {
-   if(handle != INVALID_HANDLE)
-      FileClose(handle);
-   modifyTime = TimeLocal();
+   if(handle == INVALID_HANDLE)
+      return;
+   if(ReadOnly())
+      lastAccess = (datetime)FileGetInteger(handle, FILE_MODIFY_DATE);
+   else
+      lastAccess = TimeLocal();   
+   FileClose(handle);
    modify = false;
    handle = INVALID_HANDLE;
+}
+
+bool FileInfo::ReadOnly(void)
+{
+   if(handle == INVALID_HANDLE)
+      return false;
+   bool w = FileGetInteger(handle, FILE_IS_READABLE);
+   bool r = FileGetInteger(handle, FILE_IS_WRITABLE);
+   return w&&!r;
 }

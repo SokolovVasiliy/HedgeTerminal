@@ -200,11 +200,7 @@ enum ENUM_EVENT
    ///
    EVENT_ORDER_PENDING,
    ///
-   /// Идентификатор события данные xml активной позиции изменились. (31-ое событие)
-   ///
-   EVENT_XML_ACTPOS_REFRESH,
-   ///
-   /// Идентификатор приказа удаления xml позиции и лежащего в его основе xml узла.
+   /// Идентификатор приказа удаления xml позиции и лежащего в его основе xml узла (31 событие).
    ///
    EVENT_DELETE_XML_POS,
    ///
@@ -1079,27 +1075,6 @@ class EventAddDeal : public Event
       /// Ордер, на основании которого совершен трейд.
       ///
       ulong orderId;
-};
-
-class XmlPos;
-///
-/// Событие xml данные активной позиции изменились.
-///
-class EventXmlActPosRefresh : public Event
-{
-   public:
-      XmlPos* GetXmlPosition(void){return xPos;}
-      virtual Event* Clone()
-      {
-         return new EventXmlActPosRefresh(xPos);
-      }
-      EventXmlActPosRefresh(XmlPos* xmlPos):
-      Event(EVENT_FROM_UP, EVENT_XML_ACTPOS_REFRESH, "TERMINAL_WINDOW")
-      {
-         xPos = xmlPos;
-      }
-   private:
-      XmlPos* xPos;
 };
 
 #ifdef HEDGE_PANEL
