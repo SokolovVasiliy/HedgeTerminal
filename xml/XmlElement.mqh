@@ -19,24 +19,24 @@ public:
    //--- constructor methods
    void              CXmlElement();
    void             ~CXmlElement();
-   void              Init(const string aName,const CXmlElement *aParent=NULL,const string aText="");
+   void              Init(  string aName,  CXmlElement *aParent=NULL,  string aText="");
    void              CopyTo(CXmlElement &aDst);
    virtual void      Clear();
 
    //--- main service methods
-   string            GetName() const;
-   void              SetName(const string aName);
-   string            GetText() const;
-   void              SetText(const string aText);
-   CXmlElement      *GetParent() const;
+   string            GetName()  ;
+   void              SetName(  string aName);
+   string            GetText()  ;
+   void              SetText(  string aText);
+   CXmlElement      *GetParent()  ;
    void              SetParent(CXmlElement *aParent);
 
    //--- attribute service methods
-   int               GetAttributeCount() const;
-   int               GetAttributeIndex(CXmlAttribute *aAttr) const;
-   CXmlAttribute    *GetAttribute(const string aName) const;
-   CXmlAttribute    *GetAttribute(int aPos) const;
-   string            GetAttributeValue(const string aName) const;
+   int               GetAttributeCount()  ;
+   int               GetAttributeIndex(CXmlAttribute *aAttr)  ;
+   CXmlAttribute    *GetAttribute(  string aName)  ;
+   CXmlAttribute    *GetAttribute(int aPos)  ;
+   string            GetAttributeValue(  string aName)  ;
 
    CXmlAttribute    *AttributeInsertAt(CXmlAttribute *aAttr,int aPos);
    CXmlAttribute    *AttributeAdd(CXmlAttribute *aAttr);
@@ -49,11 +49,11 @@ public:
    void              AttributeDeleteAll();
 
    //--- child service methods
-   int               GetChildCount() const;
-   int               GetChildIndex(CXmlElement *aElement) const;
-   CXmlElement      *GetChild(const string aName) const;
-   CXmlElement      *GetChild(int aPos) const;
-   string            GetChildText(const string aName) const;
+   int               GetChildCount()  ;
+   int               GetChildIndex(CXmlElement *aElement)  ;
+   CXmlElement      *GetChild(  string aName)  ;
+   CXmlElement      *GetChild(int aPos)  ;
+   string            GetChildText(  string aName)  ;
 
    CXmlElement      *ChildInsertAt(CXmlElement *aElement,int aPos);
    CXmlElement      *ChildAdd(CXmlElement *aElement);
@@ -88,7 +88,7 @@ void CXmlElement::~CXmlElement()
 //+------------------------------------------------------------------+
 //| Init                                                             |
 //+------------------------------------------------------------------+
-void CXmlElement::Init(const string aName,const CXmlElement *aParent=NULL,const string aText="")
+void CXmlElement::Init(  string aName,  CXmlElement *aParent=NULL,  string aText="")
   {
    Clear();
    SetName(aName);
@@ -131,35 +131,35 @@ void CXmlElement::Clear()
 //+------------------------------------------------------------------+
 //| GetName                                                          |
 //+------------------------------------------------------------------+
-string CXmlElement::GetName() const
+string CXmlElement::GetName()  
   {
    return FName;
   };
 //+------------------------------------------------------------------+
 //| SetName                                                          |
 //+------------------------------------------------------------------+
-void CXmlElement::SetName(const string aName)
+void CXmlElement::SetName(  string aName)
   {
    FName=aName;
   };
 //+------------------------------------------------------------------+
 //| GetText                                                          |
 //+------------------------------------------------------------------+
-string CXmlElement::GetText() const
+string CXmlElement::GetText()  
   {
    return FText;
   };
 //+------------------------------------------------------------------+
 //| SetText                                                          |
 //+------------------------------------------------------------------+
-void CXmlElement::SetText(const string aText)
+void CXmlElement::SetText(  string aText)
   {
    FText=aText;
   };
 //+------------------------------------------------------------------+
 //| GetParent                                                        |
 //+------------------------------------------------------------------+
-CXmlElement *CXmlElement::GetParent() const
+CXmlElement *CXmlElement::GetParent()  
   {
    return FParent;
   };
@@ -175,14 +175,14 @@ void CXmlElement::SetParent(CXmlElement *aParent)
 //+------------------------------------------------------------------+
 //| GetAttributeCount                                                |
 //+------------------------------------------------------------------+
-int CXmlElement::GetAttributeCount() const
+int CXmlElement::GetAttributeCount()  
   {
    return ArraySize(FAttributes);
   };
 //+------------------------------------------------------------------+
 //| GetAttributeIndex                                                |
 //+------------------------------------------------------------------+
-int CXmlElement::GetAttributeIndex(CXmlAttribute *aAttr) const
+int CXmlElement::GetAttributeIndex(CXmlAttribute *aAttr)  
   {
    int i=0;
    while((i<ArraySize(FAttributes)) && (FAttributes[i]!=aAttr))
@@ -193,7 +193,7 @@ int CXmlElement::GetAttributeIndex(CXmlAttribute *aAttr) const
 //+------------------------------------------------------------------+
 //| GetAttribute                                                     |
 //+------------------------------------------------------------------+
-CXmlAttribute *CXmlElement::GetAttribute(const string aName) const
+CXmlAttribute *CXmlElement::GetAttribute(  string aName)  
   {
    int i=0;
    while((i<ArraySize(FAttributes)) && (aName!=FAttributes[i].GetName()))
@@ -207,14 +207,14 @@ CXmlAttribute *CXmlElement::GetAttribute(const string aName) const
 //+------------------------------------------------------------------+
 //| GetAttribute                                                     |
 //+------------------------------------------------------------------+
-CXmlAttribute *CXmlElement::GetAttribute(int aPos) const
+CXmlAttribute *CXmlElement::GetAttribute(int aPos)  
   {
    return FAttributes[aPos];
   };
 //+------------------------------------------------------------------+
 //| GetAttributeValue                                                |
 //+------------------------------------------------------------------+
-string CXmlElement::GetAttributeValue(const string aName) const
+string CXmlElement::GetAttributeValue(  string aName)  
   {
    int i=0;
    while((i<ArraySize(FAttributes)) && (aName!=FAttributes[i].GetName()))
@@ -302,14 +302,14 @@ void CXmlElement::AttributeDeleteAll()
 //+------------------------------------------------------------------+
 //| GetChildCount                                                    |
 //+------------------------------------------------------------------+
-int CXmlElement::GetChildCount() const
+int CXmlElement::GetChildCount()  
   {
    return ArraySize(FElements);
   };
 //+------------------------------------------------------------------+
 //| GetChildIndex                                                    |
 //+------------------------------------------------------------------+
-int CXmlElement::GetChildIndex(CXmlElement *aElement) const
+int CXmlElement::GetChildIndex(CXmlElement *aElement)  
   {
    int i=0;
    while((i<ArraySize(FElements)) && (FElements[i]!=aElement))
@@ -320,7 +320,7 @@ int CXmlElement::GetChildIndex(CXmlElement *aElement) const
 //+------------------------------------------------------------------+
 //| GetChild                                                         |
 //+------------------------------------------------------------------+
-CXmlElement *CXmlElement::GetChild(const string aName) const
+CXmlElement *CXmlElement::GetChild(  string aName)  
   {
    int i=0;
    while((i<ArraySize(FElements)) && (aName!=FElements[i].GetName()))
@@ -334,14 +334,14 @@ CXmlElement *CXmlElement::GetChild(const string aName) const
 //+------------------------------------------------------------------+
 //| GetChild                                                         |
 //+------------------------------------------------------------------+
-CXmlElement *CXmlElement::GetChild(int aPos) const
+CXmlElement *CXmlElement::GetChild(int aPos)  
   {
    return FElements[aPos];
   };
 //+------------------------------------------------------------------+
 //| GetChildText                                                     |
 //+------------------------------------------------------------------+
-string CXmlElement::GetChildText(const string aName) const
+string CXmlElement::GetChildText(  string aName)  
   {
    CXmlElement *child=GetChild(aName);
    return child!=NULL ? child.GetText() : "";
@@ -462,7 +462,7 @@ string CXmlElement::GetXml(int aLevel)
 //+------------------------------------------------------------------+
 //| TextPreProcess                                                   |
 //+------------------------------------------------------------------+
-string TextPreProcess(const string s)
+string TextPreProcess(  string s)
   {
 // Заменить " & < > на &quote, ...
    return(s);

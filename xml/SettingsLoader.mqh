@@ -90,9 +90,9 @@ class XmlLoader
                name = ex_name;
             }
          private:
-            virtual int Compare(const CObject* node, const int mode=0)const
+            virtual int Compare(CObject* node, int mode=0)
             {
-               const Aliase* aliase = node;
+               Aliase* aliase = node;
                if(magic > aliase.Magic())return 1;
                if(magic < aliase.Magic())return -1;
                return 0;
@@ -208,9 +208,9 @@ void XmlLoader::SaveXmlAttr(ulong id, ENUM_VIRTUAL_ORDER_TYPE type, string level
       attr.SetValue(level);
       xmlItem.AttributeAdd(attr);
       XmlHistFile.FDocumentElement.ChildAdd(xmlItem);
-      XmlHistFile.SaveToFile(Resources::GetFileNameByType(RES_HISTORY_POS_XML));
+      XmlHistFile.SaveToFile(Resources.GetFileNameByType(RES_HISTORY_POS_XML));
       string err;
-      XmlHistFile.CreateFromFile(Resources::GetFileNameByType(RES_HISTORY_POS_XML), err);
+      XmlHistFile.CreateFromFile(Resources.GetFileNameByType(RES_HISTORY_POS_XML), err);
    }
    
 }
@@ -221,7 +221,7 @@ void XmlLoader::LoadHistOrders(void)
       HistPos.Sort();
    
    string err;
-   string path = Resources::GetFileNameByType(RES_HISTORY_POS_XML);
+   string path = Resources.GetFileNameByType(RES_HISTORY_POS_XML);
    if(!XmlHistFile.CreateFromFile(path, err))
    {
       printf(err);

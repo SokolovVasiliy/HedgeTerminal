@@ -126,7 +126,7 @@ class AbstractLine : public Line
       ///
       void BuilderLine()
       {
-         if(CheckPointer(Settings) == POINTER_INVALID)return;
+         //if(CheckPointer(Settings) == POINTER_INVALID)return;
          //Получаем список колонок, которые надо сгенерировать.
          CArrayObj* scolumns = NULL;
          switch(tblType)
@@ -308,9 +308,9 @@ class PosLine : public AbstractLine
          return pos;
       }
       
-      virtual int Compare(const CObject *node, const int mode=0) const
+      virtual int Compare(  CObject *node,   int mode=0)  
       {
-         //const AbstractLine* posLine = node;
+         //  AbstractLine* posLine = node;
          //Position* fpos = posLine.Position();
          //return pos.Compare(fpos, mode);
          return 0;

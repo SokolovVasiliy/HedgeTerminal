@@ -1,4 +1,4 @@
-#include <Arrays\ArrayObj.mqh>
+//#include <Arrays\ArrayObj.mqh>
 #include "\API\MqlTransactions.mqh"
 #ifndef EVENTS_MQH
    #define EVENTS_MQH
@@ -16,11 +16,11 @@ class Position;
 ///
 ///  ласс-адаптер позвол€ющий обмениватьс€ событи€ми двум независимым классам.
 ///
-class EventExchange
+class CEventExchange
 {
    
    public:
-      static void PushEvent(Event* myEvent)
+      void PushEvent(Event* myEvent)
       {
          if(api != NULL)
             api.Event(myEvent);
@@ -30,38 +30,38 @@ class EventExchange
          #endif
       }
       
-      static Event* PopEvent()
+      Event* PopEvent()
       {
          return event;
       }
-      static void DeleteEvent()
+      void DeleteEvent()
       {
          event = NULL;
       }
-      static void Add(HedgeManager* myHedge)
+      void Add(HedgeManager* myHedge)
       {
          api = myHedge;
       }
       #ifdef HEDGE_PANEL
-      static void Add(ProtoNode* node)
+      void Add(ProtoNode* node)
       {
          panel = node;
       }
       #endif
-      static HedgeManager* GetAPI(void)
+      HedgeManager* GetAPI(void)
       {
          return api;
       }
-      static HedgeManager* api;
+      HedgeManager* api;
       #ifdef HEDGE_PANEL
-      static ProtoNode* panel;
+      ProtoNode* panel;
       #endif
    private:
       void ExecuteEvent()
       {
          ;
       }
-      static Event* event;
+      Event* event;
       
 };
 
@@ -326,7 +326,7 @@ class Event
 class EventRequestNotice : public Event
 {
    public:
-      EventRequestNotice(const MqlTradeTransaction& mqlTrans, const MqlTradeRequest& mqlRequest, const MqlTradeResult& mqlResult) :
+      EventRequestNotice(const  MqlTradeTransaction& mqlTrans, const MqlTradeRequest& mqlRequest, const MqlTradeResult& mqlResult) :
       Event(EVENT_FROM_UP, EVENT_REQUEST_NOTICE, "WINDOW TERMINAL")
       {
          trans = new TradeTransaction(mqlTrans);

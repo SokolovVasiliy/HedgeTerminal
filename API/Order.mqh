@@ -222,7 +222,7 @@ Order::Order(TradeRequest& request) : Transaction(TRANS_ORDER)
    //ѕытаемс€ получить маджиг из аткивных ордеров
    if(magic == 0)
    {
-      OrderSelect(GetId());
+      bool t = OrderSelect(GetId());
       magic = OrderGetInteger(ORDER_MAGIC);
    }
    RecalcPosId();
@@ -659,7 +659,7 @@ void Order::RecalcValues(void)
    //calc setup price and comment.
    if(IsPending())
    {
-      OrderSelect(GetId());
+      bool t = OrderSelect(GetId());
       symbol = OrderGetString(ORDER_SYMBOL);
       priceSetup = NormalizePrice(OrderGetDouble(ORDER_PRICE_OPEN));
       volumeSetup = OrderGetDouble(ORDER_VOLUME_INITIAL);

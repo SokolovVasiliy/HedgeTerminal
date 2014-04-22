@@ -10,7 +10,7 @@ class SwapPosition : public CObject
       ulong PositionId(void){return posId;}
       double Swap(void){return swap;}
       void Swap(double value){swap = value;}
-      virtual int Compare(const CObject *node,const int mode=0) const;
+      virtual int Compare(  CObject *node,  int mode=0)  ;
       string Symbol(){return symbol;}
       void Symbol(string smb){symbol = smb;}
       void FirstSwapTime(ulong tiks){firstSwapTime.Tiks(tiks);}
@@ -49,9 +49,9 @@ class SwapPosition : public CObject
 ///
 /// Сравнивает текущий SwapPosition с переданным по PositionId()
 ///
-int SwapPosition::Compare(const CObject *node,const int mode=0)const
+int SwapPosition::Compare(  CObject *node,  int mode=0) 
 {
-   const SwapPosition* sp = node;
+     SwapPosition* sp = node;
    if(sp.PositionId() == posId)return 0;
    if(sp.PositionId() < posId)return 1;
    else return -1;

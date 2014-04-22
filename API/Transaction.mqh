@@ -1,5 +1,5 @@
-#include <Arrays\ArrayObj.mqh>
-#include <Arrays\ArrayLong.mqh>
+//#include <Arrays\ArrayObj.mqh>
+//#include <Arrays\ArrayLong.mqh>
 #include <Trade\Trade.mqh>
 #include "..\Time.mqh"
 
@@ -209,9 +209,9 @@ class Transaction : public CObject
       ///
       /// Переопределяем сравнение.
       ///
-      virtual int Compare(const CObject *node, const int mode=0)
+      virtual int Compare(  CObject *node,   int mode=0)
       {
-         const Transaction* myTrans = node;
+           Transaction* myTrans = node;
          ulong nodeValue = myTrans.GetCompareValueInt((ENUM_SORT_TRANSACTION)mode);
          ulong myValue = GetCompareValueInt((ENUM_SORT_TRANSACTION)mode);
          if(myValue > nodeValue)return GREATE;
@@ -299,7 +299,7 @@ class Transaction : public CObject
       {
          if(transType == TRANS_ORDER ||
             transType == TRANS_POSITION)
-            OrderSelect(currId);   
+            bool t = OrderSelect(currId);   
       }
       
       /*Для ускореня рассчетов, запоминает ранее рассчитанные цены, которые в дальнейшем будут неизменны*/

@@ -114,7 +114,7 @@ class Position : public Transaction
       Order* ExitOrder(){return closingOrder;}
       Order* StopOrder(){return slOrder;}
       bool Compatible(Position* pos);
-      virtual int Compare(const CObject* node, const int mode=0);
+      virtual int Compare(  CObject* node,   int mode=0);
       void OrderChanged(Order* order);
       void Refresh();
       virtual string TypeAsString(void);
@@ -593,8 +593,10 @@ void Position::AddClosingOrder(Order* outOrder, InfoIntegration* info)
    info.HistoryPosition = OrderManager(initOrder, outOrder);
    if(initOrder.Status() == ORDER_NULL)
    {
-      if(!Math::DoubleEquals(TakeProfitLevel(), 0.0))
-         Settings.SaveXmlAttr(GetId(), VIRTUAL_TAKE_PROFIT, PriceToString(TakeProfitLevel()));
+      if(CheckPointer(activeXmlPos) != POINTER_INVALID)
+         activeXmlPos.SaveState(STATE_DELETE);
+      //if(!Math::DoubleEquals(TakeProfitLevel(), 0.0))
+      //   Settings.SaveXmlAttr(GetId(), VIRTUAL_TAKE_PROFIT, PriceToString(TakeProfitLevel()));
       info.HistoryPosition.TakeProfitLevel(TakeProfitLevel(), true);
       info.HistoryPosition.CopyTaskLog(GetPointer(taskLog));
    }
@@ -725,13 +727,13 @@ Position* Position::OrderManager(Order* inOrder, Order* outOrder)
    return histPos;
 }
 
-int Position::Compare(const CObject* node, const int mode=0)
+int Position::Compare(  CObject* node,   int mode=0)
 {
    switch(mode)
    {
       case SORT_ORDER_ID:
       {
-         const Transaction* trans = node;
+           Transaction* trans = node;
          ulong my_id = GetId();
          ulong trans_id = trans.GetId();
          if(GetId() == trans.GetId())
@@ -1107,8 +1109,9 @@ void Position::SetBlock(datetime time)
    {
       blockedTime.SetDateTime(time);
       SendEventBlockStatus(true);
-      if(activeXmlPos != NULL)
-         activeXmlPos.SaveState();
+      SaveXmlActive();
+      //if(activeXmlPos != NULL)
+      //   activeXmlPos.SaveState();
    }
 }
 
@@ -1258,8 +1261,9 @@ void Position::SaveXmlActive(void)
 {
    if(Status() != POSITION_ACTIVE)
       return;
-   if(CheckPointer(activeXmlPos) != POINTER_INVALID)
-      activeXmlPos.SaveState(STATE_REFRESH);
+   if(CheckPointer(activeXmlPos) == POINTER_INVALID)
+      activeXmlPos = new XmlPos2(GetPointer(this));
+   activeXmlPos.SaveState(STATE_REFRESH);
 }
 
 void Position::CreateXmlLink()
@@ -1285,7 +1289,7 @@ void Position::RefreshVisualForm(ENUM_POSITION_CHANGED_TYPE type)
       if(type != POSITION_SHOW && positionLine == NULL)
          return;
       EventPositionChanged* event = new EventPositionChanged(GetPointer(this), type);
-      EventExchange::PushEvent(event);
+      EventExchange.PushEvent(event);
       delete event;
    #endif
 }
@@ -1356,7 +1360,7 @@ void Position::NoticeTask(void)
 ///
 void Position::TaskChanged(void)
 {
-   printf("Task Changed");
+   //printf("Task Changed");
    if(CheckPointer(task2) == POINTER_INVALID ||task2.IsFinished())
    {
       task2 = NULL;
@@ -1477,6 +1481,8 @@ void Position::OnRefresh(void)
 {
    if(!IsBlocked())
       CloseByVirtualOrder();
+   if(CheckPointer(activeXmlPos) == POINTER_INVALID && api.IsInit())
+      activeXmlPos = new XmlPos2(GetPointer(this));
    if(CheckPointer(activeXmlPos) != POINTER_INVALID)
       activeXmlPos.CheckModify();
 }

@@ -8,13 +8,13 @@ class TradeTransaction
 {
    public:
       TradeTransaction(void);
-      TradeTransaction(MqlTradeTransaction& trans);
+      //TradeTransaction(MqlTradeTransaction& trans);
       TradeTransaction(const MqlTradeTransaction& trans);
       bool IsUpdate(void);
       bool IsDelete(void);
       bool IsRequest(void);
-      void CopyFrom(MqlTradeTransaction& trans);
       void CopyFrom(const MqlTradeTransaction& trans);
+      //void CopyFrom(  MqlTradeTransaction& trans);
       ulong deal;
       ulong order;
       string symbol;
@@ -100,7 +100,7 @@ class TradeRequest
 {
    public:
       TradeRequest(void);
-      TradeRequest(const MqlTradeRequest& request);
+      TradeRequest(const  MqlTradeRequest& request);
       void CopyFrom(const MqlTradeRequest& request);
       ENUM_TRADE_REQUEST_ACTIONS    action;           // Тип выполняемого действия
       ulong                         magic;            // Штамп эксперта (идентификатор magic number)
@@ -188,7 +188,7 @@ TradeResult::TradeResult(const MqlTradeResult &result)
 ///
 /// Заполняет текущий экземпляр значениями из MqlTradeResult.
 ///
-TradeResult::CopyFrom(const MqlTradeResult& result)
+TradeResult::CopyFrom(const  MqlTradeResult& result)
 {
    retcode = result.retcode;
    deal = result.deal;

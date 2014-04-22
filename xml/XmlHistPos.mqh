@@ -37,9 +37,9 @@ class XmlHistPos : public CObject
       ///
       double StopLoss(){return sl_level;}
    private:
-      virtual int Compare(const CObject *node,const int mode=0)const
+      virtual int Compare(  CObject *node,  int mode=0) 
       {
-         const XmlHistPos* hPos = node;
+         XmlHistPos* hPos = node;
          if(posId > hPos.PosId())return 1;
          if(posId < hPos.PosId())return -1;
          return 0;

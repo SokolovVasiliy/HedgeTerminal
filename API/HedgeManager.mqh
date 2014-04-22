@@ -31,10 +31,10 @@ class HedgeManager
       ///
       HedgeManager()
       {
-         if(Settings == NULL)
-            Settings = PanelSettings::Init();
-         if(Settings == NULL)
-            ExpertRemove();
+         //if(Settings == NULL)
+         //   Settings = new PanelSettings();
+         //if(Settings == NULL)
+         //   ExpertRemove();
          ActivePos = new CArrayObj();
          HistoryPos = new CArrayObj();
          ActivePos.Sort(SORT_ORDER_ID);
@@ -44,7 +44,7 @@ class HedgeManager
          //printf(tick + " " + HistoryPos.Total());
          OnRefresh();
          //printf(tick + " " + HistoryPos.Total());
-         xmlGarbage.ClearActivePos(Resources::GetFileNameByType(RES_ACTIVE_POS_XML), ActivePos);
+         xmlGarbage.ClearActivePos(Resources.GetFileNameByType(RES_ACTIVE_POS_XML), ActivePos);
          isInit = true;
          ShowPosition();
          PrintPerfomanceParsing(tick);
@@ -62,8 +62,8 @@ class HedgeManager
             HistoryPos.Clear();
             delete HistoryPos;
          }
-         if(CheckPointer(Settings) != POINTER_INVALID)
-            delete Settings;
+         //if(CheckPointer(Settings) != POINTER_INVALID)
+         //   delete Settings;
          tasks.Shutdown();
       }
       
@@ -99,6 +99,13 @@ class HedgeManager
             delete refresh;
          #endif
       }
+      
+      ///
+      /// »стина, если HedgeManager работает в режиме реального времени и
+      /// ложь, если происходит парсинг историческиих позиций.
+      ///
+      bool IsInit(){return isInit;}
+      
       ///
       /// For API: ¬озвращает количество активных позиций
       ///
@@ -603,8 +610,9 @@ class HedgeManager
          int dTotal = HistoryDealsTotal();
          int oTotal = HistoryOrdersTotal();
          string seconds = (string)isec + "." + srest;
+         int ram = MQLInfoInteger(MQL_MEMORY_USED);
          string line = "We are begin. Parsing of history deals (" + (string)dTotal +
-         ") and orders (" + (string)oTotal + ") completed for " + seconds + " sec.";
+         ") and orders (" + (string)oTotal + ") completed for " + seconds + " sec. " + (string)ram + "MB RAM used.";
          printf(line);
       }
       ///

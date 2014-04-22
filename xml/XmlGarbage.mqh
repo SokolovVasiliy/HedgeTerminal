@@ -1,6 +1,7 @@
 #include <Arrays\ArrayObj.mqh>
 #include "XmlBase.mqh"
 #include "XmlDocument.mqh"
+#include "..\Log.mqh"
 ///
 /// —борщик устаревших узлов XML
 ///
@@ -12,6 +13,8 @@ class XmlGarbage
       /// одной из активных позиций в списке активных позиций.
       ///
       void ClearActivePos(string fileName, CArrayObj* posList);
+   private:
+      bool FindPosWithId(long id, CArrayObj* posList);
 };
 
 void XmlGarbage::ClearActivePos(string fileName, CArrayObj *posList)
@@ -22,36 +25,46 @@ void XmlGarbage::ClearActivePos(string fileName, CArrayObj *posList)
       return;
    ulong accountId = AccountInfoInteger(ACCOUNT_LOGIN);
    bool res = false;
-   printf("XML garbage must be rewrite");
-   /*XmlPos* xPos;
-   for(int i = 0; i < doc.FDocumentElement.GetChildCount(); i++)
+   //XmlPos* xPos;
+   for(int i = doc.FDocumentElement.GetChildCount()-1; i >= 0; i--)
    {
       CXmlElement* xmlItem = doc.FDocumentElement.GetChild(i);
-      xPos = new XmlPos(xmlItem);
-      if(!xPos.IsValid())
+      CXmlAttribute* attr = xmlItem.GetAttribute("AccountID");
+      if(attr != NULL)
       {
-         doc.FDocumentElement.ChildDelete(i);
-         i--;
-         res = true;
-      }  
-      else if((xPos.IsValid() && xPos.AccountId() == accountId))
-      {
-         TransId* trans = new TransId(xPos.Id());
-         int index = posList.Search(trans);
-         delete trans;
-         if(index == -1)
-         {
-            doc.FDocumentElement.ChildDelete(i);
-            i--;
-            res = true;
-         }
+         long id = StringToInteger(attr.GetValue());
+         if(id != accountId)continue;
       }
-      delete xPos;
+      else
+      {
+         LogWriter(fileName + ": Detect bad xml node. Attribute \'AccountID\'. Node will be removed.", MESSAGE_TYPE_ERROR);
+         doc.FDocumentElement.ChildDelete(i);
+         continue;
+      }
+      attr = xmlItem.GetAttribute("ID");
+      if(attr != NULL)
+      {
+         long id = StringToInteger(attr.GetValue());
+         if(!FindPosWithId(id, posList))
+            doc.FDocumentElement.ChildDelete(i);
+      }
+      else
+      {
+         LogWriter(fileName + ": Detect bad xml node. Attribute \'ID\' missing. Node will be removed.", MESSAGE_TYPE_ERROR);
+         doc.FDocumentElement.ChildDelete(i);
+         continue;
+      }
    }
-   if(res)
+   doc.SaveToFile(fileName);
+}
+
+bool XmlGarbage::FindPosWithId(long id, CArrayObj* posList)
+{
+   for(int i = 0; i < posList.Total(); i++)
    {
-      doc.SaveToFile(fileName);
-      doc.Clear();
-      doc.CreateFromFile(fileName, error);
-   }*/
+      Transaction* trans = posList.At(i);
+      if(trans.GetId() == id)
+         return true;
+   }
+   return false;
 }

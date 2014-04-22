@@ -89,7 +89,7 @@ class XPosValues
          //Blocked attribute
          if(pos.IsBlocked())
          {
-            printf("XML: position is blocked");
+            printf("XML: position #" + (string)pos.GetId() + " is blocked.");
             attr = new CXmlAttribute();
             attr.SetName(GetAttributeName(ATTR_BLOCKED));
             attr.SetValue((string)TimeCurrent());
@@ -255,7 +255,7 @@ XmlPos2::XmlPos2(Position* pos)
 {
    saveState = true;
    xPos = new XPosValues(pos);
-   string fileName = Resources::GetFileNameByType(RES_ACTIVE_POS_XML);
+   string fileName = Resources.GetFileNameByType(RES_ACTIVE_POS_XML);
    file = new FileInfo(fileName, 0, 1);
    file.SetMode(ACCESS_CHECK_AND_BLOCKED);
 }

@@ -515,16 +515,16 @@ class ProtoNode : public CObject
       {
          color m_borderColor;
          color m_bgColor;
-         if(CheckPointer(Settings) != POINTER_INVALID)
-         {
+         //if(CheckPointer(Settings) != POINTER_INVALID)
+         //{
             m_borderColor = Settings.ColorTheme.GetBorderColor();
             m_bgColor = Settings.ColorTheme.GetSystemColor1();
-         }
-         else
+         //}
+         /*else
          {
             m_borderColor = clrBlack;
             m_bgColor = clrWhiteSmoke;
-         }
+         }*/
          BorderColor(m_borderColor);
          BackgroundColor(m_bgColor);
       }
@@ -1047,10 +1047,10 @@ class ProtoNode : public CObject
          borderType = BORDER_RAISED;
          borderColor = clrWhite;
          bgColor = clrWhite;
-         if(CheckPointer(Settings) != POINTER_INVALID)
-         {
+         //if(CheckPointer(Settings) != POINTER_INVALID)
+         //{
             borderColor = Settings.ColorTheme.GetBorderColor();
             bgColor = Settings.ColorTheme.GetSystemColor2();
-         }
+         //}
       }
 };

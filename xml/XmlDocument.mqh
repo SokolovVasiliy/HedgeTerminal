@@ -37,9 +37,9 @@ public:
    void              Clear();
    void              CopyTo(CXmlDocument &xmlDoc);
 
-   bool              CreateFromText(const string &xml,string &err);
-   bool              CreateFromFile(const string filename,string &err);
-   bool              SaveToFile(const string filename);
+   bool              CreateFromText(  string &xml,string &err);
+   bool              CreateFromFile(  string filename,string &err);
+   bool              SaveToFile(  string filename);
 
    string            GetXml();
   };
@@ -79,7 +79,7 @@ void CXmlDocument::CopyTo(CXmlDocument &aDst)
 //+------------------------------------------------------------------+
 //| CreateFromText                                                   |
 //+------------------------------------------------------------------+
-bool CXmlDocument::CreateFromText(const string &text,string &err)
+bool CXmlDocument::CreateFromText(  string &text,string &err)
   {
 /* В text приходит текст XML документа
      - переведенный в Юникод
@@ -87,11 +87,11 @@ bool CXmlDocument::CreateFromText(const string &text,string &err)
 
 // #define _PubidChar   _WhiteSpace+_LatinLetter+_Digit+"\'" + "-()+,./:=?;!*#@$_%"
 // #define Utf8BOM    "\xEF\xBB\xBF"
-   const string  WhiteSpace  = " \r\n\t";
-   const string  LatinLetter = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-   const string  ANSIILetter = "\xC0\xC1\xC2\xC3\xC4\xC5\xC6\xC7\xC8\xC9\xCA\xCB\xCC\xCD\xCE\xCF\xD0\xD1\xD2\xD3\xD4\xD5\xD6\xD8\xD9\xDA\xDB\xDC\xDD\xDE\xDF\xE0\xE1\xE2\xE3\xE4\xE5\xE6\xE7\xE8\xE9\xEA\xEB\xEC\xED\xEE\xEF\xF0\xF1\xF2\xF3\xF4\xF5\xF6\xF8\xF9\xFA\xFB\xFC\xFD\xFE\xFF";
-   const string  Digit       = "0123456789";
-   const string  QuoteChar   = "\'\"";
+     string  WhiteSpace  = " \r\n\t";
+     string  LatinLetter = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+     string  ANSIILetter = "\xC0\xC1\xC2\xC3\xC4\xC5\xC6\xC7\xC8\xC9\xCA\xCB\xCC\xCD\xCE\xCF\xD0\xD1\xD2\xD3\xD4\xD5\xD6\xD8\xD9\xDA\xDB\xDC\xDD\xDE\xDF\xE0\xE1\xE2\xE3\xE4\xE5\xE6\xE7\xE8\xE9\xEA\xEB\xEC\xED\xEE\xEF\xF0\xF1\xF2\xF3\xF4\xF5\xF6\xF8\xF9\xFA\xFB\xFC\xFD\xFE\xFF";
+     string  Digit       = "0123456789";
+     string  QuoteChar   = "\'\"";
    string  Letter      = LatinLetter + ANSIILetter;
    string  NameChar    = Letter + Digit + ".-_:\xB7";
    string  NameStart   = Letter + "_:";
@@ -306,7 +306,7 @@ string CXmlDocument::GetXml()
 //+------------------------------------------------------------------+
 //| CreateFromFile                                                   |
 //+------------------------------------------------------------------+
-bool CXmlDocument::CreateFromFile(const string filename,string &err) 
+bool CXmlDocument::CreateFromFile(  string filename,string &err) 
   {
    ResetLastError();
    int h=FileOpen(filename,FILE_BIN|FILE_READ|FILE_WRITE| common);
@@ -327,7 +327,7 @@ bool CXmlDocument::CreateFromFile(const string filename,string &err)
 //+------------------------------------------------------------------+
 //| SaveToFile                                                 | | | |
 //+------------------------------------------------------------------+
-bool CXmlDocument::SaveToFile(const string filename) 
+bool CXmlDocument::SaveToFile(  string filename) 
   {
    ResetLastError();
    int h=FileOpen(filename,FILE_BIN|FILE_WRITE|common);

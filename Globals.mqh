@@ -11,7 +11,7 @@ class PanelSettings;
    //#resource "Resources\\Fonts\\test.fon"
 #endif
 #include "Prototypes.mqh"
-PanelSettings* Settings;
+
 
 enum ENUM_COLOR_TYPE
 {
@@ -293,3 +293,7 @@ enum ENUM_BUTTON_STATE
    #include "Elements\Elements.mqh"
 #endif
 
+PanelSettings Settings;
+CResources Resources;
+//class CEventExchange;
+CEventExchange EventExchange;

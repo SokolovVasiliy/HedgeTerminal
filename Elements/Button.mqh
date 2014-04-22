@@ -48,16 +48,16 @@ class Button : public TextNode
       {
          color m_borderColor;
          color m_bgColor;
-         if(CheckPointer(Settings) != POINTER_INVALID)
-         {
+         //if(CheckPointer(Settings) != POINTER_INVALID)
+         //{
             m_borderColor = Settings.ColorTheme.GetBorderColor();
             m_bgColor = Settings.ColorTheme.GetSystemColor1();
-         }
-         else
-         {
-            m_borderColor = clrBlack;
-            m_bgColor = clrWhiteSmoke;
-         }
+         //}
+         //else
+         //{
+            //m_borderColor = clrBlack;
+            //m_bgColor = clrWhiteSmoke;
+         //}
          BorderColor(m_borderColor);
          BackgroundColor(m_bgColor);
       }

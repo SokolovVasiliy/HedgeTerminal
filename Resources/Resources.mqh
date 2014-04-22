@@ -28,7 +28,6 @@
       #include "Prototypes.mqh.mqh"
    #endif
 #endif
-
 #include <Files\File.mqh>
 ///
 /// Тип ресурса
@@ -63,15 +62,14 @@ enum ENUM_RESOURCES
 ///
 /// Инсталлирует ресурс на жесткий диск пользователя.
 ///
-class Resources
+class CResources
 {
    public:
-      
       ///
       /// Возвращает истину, если терминал определил, что он используется
       /// впервые на этом комьютере. В противном случае возвращает ложь.
       ///
-      static bool UsingFirstTime()
+      bool UsingFirstTime()
       {
          string name;
          long handle = FileFindFirst(".\HedgeTerminal\*", name);
@@ -85,7 +83,7 @@ class Resources
       ///
       /// Мастер инсталяции HedgeTerminal запускаемый в первый раз.
       ///
-      static bool WizardForUseFirstTime()
+      bool WizardForUseFirstTime()
       {
          int res =  MessageBox("HedgeTerminal detected first time use. This master help you install" + 
          " HedgeTerminal on your PC. Press \'OK' for continue or cancel for exit HedgeTerminal.", VERSION, MB_OKCANCEL);
@@ -110,26 +108,26 @@ class Resources
       ///
       /// Инсталлирует отсутствующие файлы в директорию HedgeTerminal.
       ///
-      static bool InstallMissingFiles(void)
+      bool InstallMissingFiles(void)
       {
          bool res = true;
-         if(!Resources::CheckResource(RES_SETTINGS_XML))
-            res = Resources::InstallResource(RES_SETTINGS_XML);
-         if(!Resources::CheckResource(RES_ACTIVE_POS_XML))
-            res = Resources::InstallResource(RES_ACTIVE_POS_XML);
-         if(!Resources::CheckResource(RES_HISTORY_POS_XML))
-            res = Resources::InstallResource(RES_HISTORY_POS_XML);
-         if(!Resources::CheckResource(RES_EXPERT_ALIASES))
-            res = Resources::InstallResource(RES_EXPERT_ALIASES);
-         if(!Resources::CheckResource(RES_FONT_MT_BOLT))
-            res = Resources::InstallResource(RES_FONT_MT_BOLT);
+         if(!CheckResource(RES_SETTINGS_XML))
+            res = InstallResource(RES_SETTINGS_XML);
+         if(!CheckResource(RES_ACTIVE_POS_XML))
+            res = InstallResource(RES_ACTIVE_POS_XML);
+         if(!CheckResource(RES_HISTORY_POS_XML))
+            res = InstallResource(RES_HISTORY_POS_XML);
+         if(!CheckResource(RES_EXPERT_ALIASES))
+            res = InstallResource(RES_EXPERT_ALIASES);
+         if(!CheckResource(RES_FONT_MT_BOLT))
+            res = InstallResource(RES_FONT_MT_BOLT);
          return res;
       }
       ///
       /// Проверяет существование файла ресурса.
       /// Возвращает истину если ресурс существует и ложь в противном случае.
       ///
-      static bool CheckResource(ENUM_RESOURCES typeRes)
+      bool CheckResource(ENUM_RESOURCES typeRes)
       {
          string fileName = GetFileNameByType(typeRes);
          if(file.IsExist(fileName))
@@ -139,7 +137,7 @@ class Resources
       ///
       /// Возвращает имя файла в зависимости от типа ресурса.
       ///
-      static string GetFileNameByType(ENUM_RESOURCES typeRes)
+      string GetFileNameByType(ENUM_RESOURCES typeRes)
       {
          string fileName = "";
          switch(typeRes)
@@ -169,7 +167,7 @@ class Resources
       /// Инсталлирует файл соответствующего типа.
       /// \param typeRes - Тип инсталлируемого файла.
       ///
-      static bool InstallResource(ENUM_RESOURCES typeRes)
+      bool InstallResource(ENUM_RESOURCES typeRes)
       {
          string fileName = GetFileNameByType(typeRes);
          if(!CheckCreateFile(fileName))return false;
@@ -213,7 +211,7 @@ class Resources
       /// Проверяет возможность создания файла. Возвращает истину,
       /// если файл можно создать и ложь в противном случае.
       ///
-      static bool CheckCreateFile(string fileName)
+      bool CheckCreateFile(string fileName)
       {
          bool res = FolderCreate("HedgeTerminal");
          if(!res)
@@ -231,13 +229,12 @@ class Resources
       ///
       /// Открывает файл для записи и возвращает его хэндл. Возвращает -1 в случае неудачи.
       ///
-      static int CreateFile(string fileName)
+      int CreateFile(string fileName)
       {
          int handle = FileOpen(fileName, FILE_BIN|FILE_WRITE, "");
          if(handle == -1)
             printf("Failed create file \'" + fileName + "\'. LastError: " + (string)GetLastError());
          return handle;
       }
-      
-      static CFile file;
+      /*static*/ CFile file;
 };

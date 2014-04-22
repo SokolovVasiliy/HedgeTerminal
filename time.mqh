@@ -62,62 +62,62 @@ class CTime
          return out;
       }
       /* >/<*/
-      bool operator>(const CTime* t)const
+      bool operator>(  CTime* t) 
       {
          if(this.tiks > t.Tiks())return true;
          else return false;
       }
-      bool operator<(const CTime* t)const
+      bool operator<(  CTime* t) 
       {
          if(this.tiks > t.Tiks())return false;
          else return true;
       }
-      bool operator>(const long t)const
+      bool operator>(  long t) 
       {
          if(this.tiks > t)return true;
          else return false;
       }
-      bool operator<(const long t)const
+      bool operator<(  long t) 
       {
          if(this.tiks > t)return false;
          else return true;
       }
-      bool operator>(const datetime t)const
+      bool operator>(  datetime t) 
       {
          if(this.tiks > t*1000)return true;
          else return false;
       }
-      bool operator<(const datetime t)const
+      bool operator<(  datetime t) 
       {
          if(this.tiks > t*1000)return false;
          else return true;
       }
       /* == */
-      bool operator==(const CTime* t)const
+      bool operator==(  CTime* t) 
       {
          if(this.tiks == t.Tiks())return true;
          else return false;
       }
-      bool operator==(const long t)const
+      bool operator==(  long t) 
       {
          if(this.tiks == t)return true;
          else return false;
       }
-      bool operator==(const datetime t)const
+      bool operator==(  datetime t) 
       {
          if(this.tiks == t*1000)return true;
          else return false;
       }
       /*Set timer*/
-      void operator=(const CTime* value)
+      void operator=(  CTime* value)
       {
          tiks = value.Tiks();
       }
-      void operator=(const long value)
+      void operator=(  long value)
       {
          tiks = value;
       }
-      void operator=(const datetime t)
+      void operator=(  datetime t)
       {
          tiks = t*1000;
       }

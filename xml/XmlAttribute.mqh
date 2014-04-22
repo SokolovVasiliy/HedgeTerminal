@@ -16,15 +16,15 @@ public:
    void              CXmlAttribute();
    void             ~CXmlAttribute();
 
-   void              Init(const string aName,const string aValue);
+   void              Init(  string aName,  string aValue);
    virtual void      Clear();
    virtual CXmlAttribute *Clone();
 
    //--- service methods
-   string            GetName() const;
-   void              SetName(const string aName);
-   string            GetValue() const;
-   void              SetValue(const string aValue);
+   string            GetName()  ;
+   void              SetName(  string aName);
+   string            GetValue()  ;
+   void              SetValue(  string aValue);
   };
 //--------------------------------------------------------------------------------/
 //                              CXmlAttribute :: implementation                   /
@@ -48,7 +48,7 @@ void CXmlAttribute::~CXmlAttribute()
 //+------------------------------------------------------------------+
 //| Init                                                             |
 //+------------------------------------------------------------------+
-void CXmlAttribute::Init(const string aName,const string aValue="")
+void CXmlAttribute::Init(  string aName,  string aValue="")
   {
    SetName(aName);
    SetValue(aValue);
@@ -72,28 +72,28 @@ CXmlAttribute *CXmlAttribute::Clone()
 //+------------------------------------------------------------------+
 //| GetName                                                          |
 //+------------------------------------------------------------------+
-string CXmlAttribute::GetName() const
+string CXmlAttribute::GetName()  
   {
    return FName;
   };
 //+------------------------------------------------------------------+
 //| SetName                                                          |
 //+------------------------------------------------------------------+
-void CXmlAttribute::SetName(const string aName)
+void CXmlAttribute::SetName(  string aName)
   {
    FName=aName;
   };
 //+------------------------------------------------------------------+
 //|                                                                  |
 //+------------------------------------------------------------------+
-string CXmlAttribute::GetValue() const
+string CXmlAttribute::GetValue()  
   {
    return FValue;
   };
 //+------------------------------------------------------------------+
 //| SetValue                                                         |
 //+------------------------------------------------------------------+
-void CXmlAttribute::SetValue(const string aValue)
+void CXmlAttribute::SetValue(  string aValue)
   {
    FValue=aValue;
   };

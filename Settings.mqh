@@ -173,7 +173,7 @@ class PanelSettings
       /// Если класс был уже ранее создан, будет возвращен указатель на ранее
       /// созданный класс.
       ///
-      static PanelSettings* Init()
+      /*PanelSettings* Init()
       {
          if(CheckPointer(set) == POINTER_INVALID)
          {
@@ -182,7 +182,7 @@ class PanelSettings
             set = new PanelSettings();
          }
          return set;
-      }
+      }*/
       
       CTheme ColorTheme;
       //CNameColumns ColumnsName;
@@ -215,8 +215,18 @@ class PanelSettings
       {
          loader.SaveXmlAttr(id, type, level);
       }
+      ///
+      /// Конструктор скрыт для создания объекта из вне.
+      ///
+      PanelSettings()
+      {
+         //EventExchange = new CEventExchange();
+         //Resources = new CResources();
+         setForActivePos.AssignArray(loader.GetActiveColumns());
+         setForHistoryPos.AssignArray(loader.GetHistoryColumns());
+      }
    private:        
-      static PanelSettings* set;
+      /*static*/ PanelSettings* set;
       ///
       /// Список настроек, для элементов таблицы активных позиций.
       ///
@@ -229,23 +239,16 @@ class PanelSettings
       /// Загрузчик XML настроек.
       ///
       XmlLoader loader;
-      ///
-      /// Конструктор скрыт для создания объекта из вне.
-      ///
-      PanelSettings()
-      {
-         setForActivePos.AssignArray(loader.GetActiveColumns());
-         setForHistoryPos.AssignArray(loader.GetHistoryColumns());
-      }
+      
       ///
       /// Проверяет инсталляцию файлов. (Только для HLYBRARY)
       ///
-      static bool CheckInstall()
+      bool CheckInstall()
       {
          bool res = true;
-         if(Resources::UsingFirstTime())
+         if(Resources.UsingFirstTime())
          {
-            if(!Resources::WizardForUseFirstTime())
+            if(!Resources.WizardForUseFirstTime())
             {
                printf("Installing HedgeTerminal filed. Unable to continue. Goodbuy:(");
                ExpertRemove();
@@ -253,9 +256,9 @@ class PanelSettings
             }
          }
          else
-            res = Resources::InstallMissingFiles();
+            res = Resources.InstallMissingFiles();
          return res;
       }
       
-      PanelSettings* operator=(const PanelSettings*);
+      PanelSettings* operator=(  PanelSettings*);
 };

@@ -8,7 +8,7 @@
 #property version   "1.00"
 #include <Arrays\ArrayObj.mqh>
 ///
-/// if this const define using Hedge API library, otherwise using classic mode for only one expert.
+/// if this   define using Hedge API library, otherwise using classic mode for only one expert.
 ///
 #define HEDGES
 #define API_INTRO

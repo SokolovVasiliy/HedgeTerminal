@@ -242,6 +242,7 @@ void MAExpert::RebuildIndicators(void)
    handleFastMA = iMA(symbol, timeframe, fastMA, shift, typeMA, applyPrice);
    handleSlowMA = iMA(symbol, timeframe, slowMA, shift, typeMA, applyPrice);
    GenerateMagic();
+   ChartSetString(0, CHART_COMMENT, IntegerToString(magic)); 
 }
 
 bool MAExpert::CheckHandles(void)
@@ -433,8 +434,11 @@ double MAExpert::GetLot(void)
 void MAExpert::TryOpenShortPos(void)
 {
    if(CrossUnder())
+   {
+      //printf("Try entry short by cross under.");
       if(!trade.Sell(GetLot(), symbol, 0.0, 0.0, 0.0, "Entry short by cross over."))
          printf(trade.ResultRetcodeDescription());
+   }
 }
 
 void MAExpert::TryCloseAllShortPos(void)
@@ -457,6 +461,7 @@ void MAExpert::TryOpenLongPos(void)
 {
    if(CrossOver())
    {
+      //printf("Try entry long by cross over.");
       if(!trade.Buy(GetLot(), symbol, 0.0, 0.0, 0.0, "Entry long by cross over."))
          printf(trade.ResultRetcodeDescription());
    }
@@ -491,8 +496,12 @@ void MAExpert::TryCloseCurrentPos()
    //request.volume = 0.1;
    request.exit_comment = "exit by signal";
    //request.close_type = CLOSE_AS_MARKET; 
+   ulong id = HedgePositionGetInteger(HEDGE_POSITION_ENTRY_ORDER);
+   printf("Try close position #" + id);
    if(!HedgePositionClose(request))
       printf("Try closing failed: " + EnumToString(GetHedgeError()) + " " + (string)GetHedgeError());
+   else
+      printf("Current position " +(string)id + " was closed.");
    #endif
    #ifndef HEDGES
    PositionSelect(symbol);

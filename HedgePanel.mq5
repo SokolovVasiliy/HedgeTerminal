@@ -28,17 +28,17 @@ MainForm* HedgePanel;
 ///
 void OnInit(void)
 {  
-   Settings = PanelSettings::Init();
-   if(Settings == NULL)
-      ExpertRemove();
+   //Settings = new PanelSettings();
+   //if(Settings == NULL)
+   //   ExpertRemove();
    EventSetMillisecondTimer(RefreshRate);
    HedgePanel = new MainForm();
-   EventExchange::Add(HedgePanel);
+   EventExchange.Add(HedgePanel);
    EventRefresh* refresh = new EventRefresh(EVENT_FROM_UP, "TERMINAL REFRESH");
    HedgePanel.Event(refresh);
    delete refresh;
    api = new HedgeManager();
-   EventExchange::Add(api);
+   EventExchange.Add(api);
    ChartSetInteger(0, CHART_EVENT_MOUSE_MOVE, true);
 }
 
@@ -96,12 +96,6 @@ void  OnTradeTransaction(
    )
 {
    
-   bool isDebug = MQLInfoInteger(MQL_DEBUG);
-   string debug = "";
-   
-   if(isDebug)debug = " (MQL_DEBUG)";
-   else debug = " (MQL_EXE)";
-   ENUM_TRADE_TRANSACTION_TYPE type = trans.type;
    EventRequestNotice* event_request = new EventRequestNotice(trans, request, result);
    //printf("request id: " + (string)result.request_id + "   " + EnumToString(trans.type) + " " +
    //(string)result.retcode + " magic: " + (string)request.magic + " order: " + (string)request.order +

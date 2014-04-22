@@ -75,7 +75,7 @@ bool HedgePositionClose(HedgeClosingRequest& request)export
 {
    if(!CheckRequest(request))
       return false;
-   CurrentPosition.ExitComment(request.exit_comment);
+   CurrentPosition.ExitComment(request.exit_comment, false);
    ENUM_HEDGE_ERR err = CurrentPosition.AddTask(new TaskClosePartPosition(CurrentPosition, request.volume));
    hedgeErr = err;
    if(hedgeErr == HEDGE_ERR_NOT_ERROR)
@@ -182,6 +182,8 @@ ulong HedgePositionGetInteger(ENUM_HEDGE_POSITION_PROP_INTEGER property) export
          return CurrentPosition.EntryExecutedTime();
       case HEDGE_POSITION_ENTRY_TIME_EXECUTED:
          return CurrentPosition.EntryExecutedTime();
+      case HEDGE_POSITION_ENTRY_ORDER:
+         return CurrentPosition.GetId();
       case HEDGE_POSITION_EXIT_TIME_SETUP:
          return CurrentPosition.ExitExecutedTime(); 
       case HEDGE_POSITION_EXIT_TIME_EXECUTED:
@@ -202,6 +204,7 @@ ulong HedgePositionGetInteger(ENUM_HEDGE_POSITION_PROP_INTEGER property) export
          TaskLog* taskLog = CurrentPosition.GetTaskLog();
          return taskLog.Status();
       }
+      
    }
    return 0;
 }

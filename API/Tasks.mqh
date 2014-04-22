@@ -187,7 +187,7 @@ class Task2 : public CObject
       
       Task2()
       {
-         HedgeManager* hm = EventExchange::GetAPI();
+         HedgeManager* hm = EventExchange.GetAPI();
          hm.AddTask(GetPointer(this));
       }
       
