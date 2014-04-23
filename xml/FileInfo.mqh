@@ -143,6 +143,8 @@ int FileInfo::FileOpen(int writeMode = 0)
       handle = FileOpen(fileName, FILE_BIN|FILE_READ|FILE_WRITE|flagDist);
    else 
       handle = FileOpen(fileName, FILE_BIN|FILE_READ|flagDist);
+   if(handle == -1)
+      LogWriter("FileInfo: Error read|write file. Last Error:" + (string)GetLastError(), MESSAGE_TYPE_ERROR);
    return handle;
 }
 void FileInfo::FileClose()

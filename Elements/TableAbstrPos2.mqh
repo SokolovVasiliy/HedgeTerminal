@@ -421,7 +421,7 @@ class PosLine : public AbstractLine
          editNode.Text(pos.VolumeToString(setVol)+"...");
          //string exitComment = GetStringValue(COLUMN_EXIT_COMMENT);
          double vol = curVol < setVol ? setVol : curVol - setVol;
-         pos.AddTask(new TaskClosePartPosition(pos, vol));
+         pos.AddTask(new TaskClosePartPosition(pos, vol, true));
          //pos.AsynchClose(vol, exitComment);
       }
       

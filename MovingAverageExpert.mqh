@@ -495,6 +495,7 @@ void MAExpert::TryCloseCurrentPos()
    request.asynch_mode = true;
    //request.volume = 0.1;
    request.exit_comment = "exit by signal";
+   request.asynch_mode = false;
    //request.close_type = CLOSE_AS_MARKET; 
    ulong id = HedgePositionGetInteger(HEDGE_POSITION_ENTRY_ORDER);
    printf("Try close position #" + id);

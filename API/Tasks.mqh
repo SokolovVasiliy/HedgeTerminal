@@ -55,6 +55,8 @@ class Task2 : public CObject
          }
          if(!isContinue && targets.Total())
          {
+            if(CheckPointer(position) != POINTER_INVALID)
+               position.SetBlock(TimeCurrent());
             currTarget = targets.GetFirstNode();
             isContinue = true;
             //Раз проваленую задачу больше не исполняем.
@@ -182,7 +184,11 @@ class Task2 : public CObject
                status = TASK_STATUS_FAILED;
          }
          if(CheckPointer(position) != POINTER_INVALID)
+         {
+            if(IsFinished())
+               position.ResetBlocked();
             position.TaskChanged();
+         }
       }
       
       Task2()
@@ -420,7 +426,7 @@ class TaskClosePartPosition : public Task2
       /// \param pos - Позиция, часть объема которой требуется закрыть.
       /// \param volume - объем, который требуется закрыть.
       ///
-      TaskClosePartPosition(Position* pos, double volume) : Task2(pos)
+      TaskClosePartPosition(Position* pos, double volume, bool asynchMode) : Task2(pos)
       {
          if(FailedIfNotActivePos())
             return;
@@ -436,18 +442,19 @@ class TaskClosePartPosition : public Task2
          {
             stopLevel = pos.StopLossLevel();
             slOrder = pos.StopOrder();
-            AddTarget(new TargetDeletePendingOrder(slOrder.GetId(), true));
+            AddTarget(new TargetDeletePendingOrder(slOrder.GetId(), asynchMode));
          }
          ENUM_DIRECTION_TYPE dir = pos.Direction() == DIRECTION_LONG ? DIRECTION_SHORT: DIRECTION_LONG;
          Order* initOrder = pos.EntryOrder();
          ulong magic = initOrder.GetMagic(MAGIC_TYPE_MARKET);
-         AddTarget(new TargetTradeByMarket(pos.Symbol(), dir, volume, pos.ExitComment(), magic, true));
-         if(pos.UsingStopLoss())
+         AddTarget(new TargetTradeByMarket(pos.Symbol(), dir, volume, pos.ExitComment(), magic, asynchMode));
+         //Восстанавливаем стоп ордер если необходимо.
+         if(pos.UsingStopLoss() && volume < pos.VolumeExecuted())
          {
             ENUM_ORDER_TYPE type = pos.Direction() == DIRECTION_LONG ? ORDER_TYPE_SELL_STOP : ORDER_TYPE_BUY_STOP;
             magic = initOrder.GetMagic(MAGIC_TYPE_SL);
             double nVol = pos.VolumeExecuted() - volume;
-            AddTarget(new TargetSetPendingOrder(pos.Symbol(), type, nVol, stopLevel, slOrder.Comment(),  magic, true));
+            AddTarget(new TargetSetPendingOrder(pos.Symbol(), type, nVol, stopLevel, slOrder.Comment(),  magic, asynchMode));
          }
       }
    private:

@@ -75,13 +75,52 @@ bool HedgePositionClose(HedgeClosingRequest& request)export
 {
    if(!CheckRequest(request))
       return false;
+   if(request.asynch_mode)
+      return AsynchClose(request);  
+   else
+      return SynchClose(request);
+}
+
+///
+/// Closing of selected active position if seleted asynch mode.
+///
+bool AsynchClose(HedgeClosingRequest& request)
+{
    CurrentPosition.ExitComment(request.exit_comment, false);
-   ENUM_HEDGE_ERR err = CurrentPosition.AddTask(new TaskClosePartPosition(CurrentPosition, request.volume));
+   ENUM_HEDGE_ERR err = CurrentPosition.AddTask(new TaskClosePartPosition(CurrentPosition, request.volume, true));
    hedgeErr = err;
    if(hedgeErr == HEDGE_ERR_NOT_ERROR)
       return true;
-   else
-      return false;
+   return false;
+}
+///
+/// Closing of selected active position if seleted synch mode.
+///
+bool SynchClose(HedgeClosingRequest& request)
+{
+   CurrentPosition.ExitComment(request.exit_comment, false);
+   ENUM_HEDGE_ERR err = CurrentPosition.AddTask(new TaskClosePartPosition(CurrentPosition, request.volume, false));
+   int risk = 0;
+   while(true)
+   {
+      api.OnRefresh();
+      if(CheckPointer(CurrentPosition) == POINTER_INVALID)
+         return true;
+      Task2* task = CurrentPosition.GetTask();
+      ENUM_TASK_STATUS status = task.Status();
+      if(status == TASK_STATUS_COMPLETE)
+         return true;
+      if(status == TASK_STATUS_FAILED)
+         return false;
+      if(status == TASK_STATUS_WAITING || status == TASK_STATUS_EXECUTING)
+         printf("Eror executing task. Task not to be " + EnumToString(status));
+      if(risk > 20)
+      {
+         printf("Eternal cycle detected. Crash task.");
+         return false;
+      }
+   }
+   return false;
 }
 
 ///

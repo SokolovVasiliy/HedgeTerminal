@@ -573,6 +573,12 @@ long Order::TimeExecuted()
 ///
 double Order::PriceSetup(void)
 {
+   if(status == ORDER_PENDING)
+   {
+      if(!OrderSelect(GetId()))
+         return priceSetup;
+      return OrderGetDouble(ORDER_PRICE_OPEN);
+   }
    return priceSetup;
 }
 

@@ -21,7 +21,9 @@ class HedgeManager
          {
             case EVENT_REFRESH:
                OnRefresh();
-               RefreshActPos(event);
+               break;
+            case EVENT_REQUEST_NOTICE:
+               OnRequestNotice(event);
                break;
          }
       }
@@ -84,6 +86,7 @@ class HedgeManager
          TrackingHistoryDeals();
          TrackingHistoryOrders();
          TrackingPendingOrders();
+         RefreshActPos();
          RefreshPanel();
       }
       ///
@@ -159,14 +162,16 @@ class HedgeManager
       ///
       /// Посылает уведомление о изменении каждой активной позиции.
       ///
-      void RefreshActPos(EventRefresh* event)
+      void RefreshActPos()
       {
          if(!isInit)return;
+         EventRefresh* event = new EventRefresh(EVENT_FROM_UP, "TERMINAL API");
          for(int i = 0; i < ActivePos.Total(); i++)
          {
             Position* pos = ActivePos.At(i);
             pos.Event(event);
          }
+         delete event;
       }
       ///
       /// Отслеживает поступление новых трейдов в истории трейдов.
@@ -549,21 +554,7 @@ class HedgeManager
             else
                task.Event(event);
          }
-         /*for(int i = 0; i < tasks.Total();i++)
-         {
-            int total = tasks.Total();
-            CObject* obj = tasks.At(i);
-            Task2* task = obj;
-            if(task.IsFinished())
-            {
-               tasks.Delete(i);
-               //i--;
-               //continue;
-               break;
-            }
-            task.Event(event);
-            //i++;
-         }*/
+         
       }
    
       ///

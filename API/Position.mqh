@@ -127,6 +127,7 @@ class Position : public Transaction
       bool VirtualStopLoss(){return isVirtualStopLoss;}
       
       ENUM_HEDGE_ERR AddTask(Task2* task);
+      Task2* GetTask(void);
       Order* FindOrderById(ulong id);
       void TaskChanged();
       ///
@@ -160,9 +161,22 @@ class Position : public Transaction
       ///
       bool AttributesChanged(double tp, string exComment, datetime time);
       ///
+      /// Проверяет на изменения значения аттрибутов. Возвращает истину, если аттрибут был изменен.
+      /// и ложь в противном случае.
+      ///
+      bool CheckChangesAttributes(double tp, string exComment, datetime time);
+      ///
       /// Инициализирует ссылку на XML файл активных позиций.
       ///
       void CreateXmlLink(void);
+      ///
+      /// Снимает блокировку с текущей позиции.
+      ///
+      void ResetBlocked(void);
+      ///
+      /// Устанавливает блокировку на текущую позицию.
+      ///
+      void SetBlock(datetime time);
    private:
       ///
       /// Сохраняет информацию о позиции в XML-узле файла активных позиций.
@@ -231,8 +245,7 @@ class Position : public Transaction
       void AddClosingOrder(Order* outOrder, InfoIntegration* info);
       void InitializePosition(Order* inOrder);
       POSITION_STATUS CheckStatus(void);
-      void ResetBlocked(void);
-      void SetBlock(datetime time);
+      
       void OnRequestNotice(EventRequestNotice* notice);
       void OnRejected(TradeResult& result);
       void OnUpdate(ulong OrderId);
@@ -316,6 +329,7 @@ Position::~Position()
 ///
 Position::Position() : Transaction(TRANS_POSITION)
 {
+   Init();
    status = POSITION_NULL;
 }
 
@@ -325,6 +339,7 @@ Position::Position() : Transaction(TRANS_POSITION)
 ///
 Position::Position(Order* inOrder) : Transaction(TRANS_POSITION)
 {
+   Init();
    InfoIntegration* info = Integrate(inOrder);
    delete info;
 }
@@ -333,6 +348,7 @@ Position::Position(Order* inOrder) : Transaction(TRANS_POSITION)
 ///
 Position::Position(Order* inOrder, Order* outOrder) : Transaction(TRANS_POSITION)
 {
+   Init();
    if(inOrder == NULL || outOrder == NULL)
       return;
    if(inOrder.VolumeExecuted() != outOrder.VolumeExecuted())
@@ -352,6 +368,15 @@ Position::Position(Order* inOrder, Order* outOrder) : Transaction(TRANS_POSITION
       slOrder.LinkWithPosition(GetPointer(this));
       Refresh();
    }
+}
+///
+/// Инициализирует поля нулевыми значениями.
+///
+void Position::Init(void)
+{
+   exitComment = "";
+   takeProfit = 0.0;
+   slLevel = 0.0;
 }
 
 bool Position::Compatible(Position *pos)
@@ -832,7 +857,7 @@ void Position::ExitComment(string comment, bool saveState)
    exitComment = comment;
    if(saveState)
       SaveXmlActive();
-   if(UsingStopLoss())
+   if(UsingStopLoss() && slOrder.Comment() != comment)
       AddTask(new TaskChangeCommentStopLoss(GetPointer(this), true));
 }
 ///
@@ -1323,17 +1348,6 @@ ENUM_HEDGE_ERR Position::AddTask(Task2 *ctask)
       taskLog.AddRedcode(TARGET_CREATE_TASK, TRADE_RETCODE_FROZEN);
       return HEDGE_ERR_POS_FROZEN;
    }
-   /*if(CheckPointer(task2) != POINTER_INVALID)
-   {
-      if(task2.IsActive())
-      {
-         ctask.Status(TASK_STATUS_FAILED);
-         delete ctask;
-         taskLog.AddRedcode(TARGET_CREATE_TASK, TRADE_RETCODE_FROZEN);
-         return HEDGE_ERR_POS_FROZEN;
-      }
-   }*/
-   
    taskLog.Clear();
    task2 = ctask;
    task2.Execute();
@@ -1341,6 +1355,17 @@ ENUM_HEDGE_ERR Position::AddTask(Task2 *ctask)
       return HEDGE_ERR_TASK_FAILED;
    else
       return HEDGE_ERR_NOT_ERROR;
+}
+
+///
+/// Возвращает текущее выполненяемое задание, либо NULL, если
+/// задание отсутствует.
+///
+Task2* Position::GetTask(void)
+{
+   if(CheckPointer(task2) == POINTER_INVALID)
+      return NULL;
+   return task2;
 }
 
 ///
@@ -1364,14 +1389,14 @@ void Position::TaskChanged(void)
    if(CheckPointer(task2) == POINTER_INVALID ||task2.IsFinished())
    {
       task2 = NULL;
-      ResetBlocked();
+      //ResetBlocked();
       SendEventChangedPos(POSITION_REFRESH);
       #ifdef HEDGE_PANEL
          PrintTaskLog();
       #endif
    }
-   else if((task2.Status() == TASK_STATUS_EXECUTING) && !IsBlocked())
-      SetBlock(TimeCurrent());
+   //else if((task2.Status() == TASK_STATUS_EXECUTING) && !IsBlocked())
+   //   SetBlock(TimeCurrent());
 }
 
 ///
@@ -1638,10 +1663,19 @@ bool Position::AttributesChanged(double tp, string exComment, datetime time)
    }
    TakeProfitLevel(tp, false);
    ExitComment(exComment, false);
-   if(time > 0 && !IsBlocked())
-      SetBlock(time);
-   else if(time == 0 && IsBlocked())
-      ResetBlocked();
+   //if(time > 0 && !IsBlocked())
+   //   SetBlock(time);
+   //else if(time == 0 && IsBlocked())
+   //   ResetBlocked();
    RefreshVisualForm(POSITION_REFRESH);
    return true;
 }
+
+/*bool Position::CheckChangesAttributes(double tp,string exComment,datetime time)
+{
+   if(exitComment == NULL)
+      exitComment = "";
+   if(exComment == NULL)
+      exComment = "";
+   bool tp_eq = Math::DoubleEquals(tp, takeProfit);
+}*/
