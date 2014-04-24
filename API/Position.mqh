@@ -171,12 +171,15 @@ class Position : public Transaction
       void CreateXmlLink(void);
       ///
       /// Снимает блокировку с текущей позиции.
+      /// \param saveState - Истина, если требуется перезаписать сосотояние блокировки в файл.
       ///
-      void ResetBlocked(void);
+      void ResetBlocked(bool saveState);
       ///
       /// Устанавливает блокировку на текущую позицию.
+      /// \param time - Время начала блокировки.
+      /// \param saveState - Истина, если требуется перезаписать сосотояние блокировки в файл.
       ///
-      void SetBlock(datetime time);
+      void SetBlock(datetime time, bool saveState);
    private:
       ///
       /// Сохраняет информацию о позиции в XML-узле файла активных позиций.
@@ -806,7 +809,7 @@ void Position::DeleteAllOrders(void)
 {
    DeleteOrder(initOrder);
    DeleteOrder(closingOrder);
-   if(slOrder != NULL)
+   if(CheckPointer(slOrder) != POINTER_INVALID)
    {
       delete slOrder;
       slOrder = NULL;
@@ -842,6 +845,8 @@ string Position::ExitComment(void)
 {
    if(closingOrder != NULL)
       return closingOrder.Comment();
+   if(CheckPointer(slOrder) != POINTER_INVALID)
+      return slOrder.Comment();
    return exitComment;
 }
 
@@ -851,14 +856,14 @@ string Position::ExitComment(void)
 void Position::ExitComment(string comment, bool saveState)
 {
    if(status != POSITION_ACTIVE)return;
-   if(exitComment == comment)return;
    if(StringLen(comment) > 31)
       comment = StringSubstr(comment, 0, 31);
+   if(exitComment == comment)return;
    exitComment = comment;
-   if(saveState)
-      SaveXmlActive();
    if(UsingStopLoss() && slOrder.Comment() != comment)
-      AddTask(new TaskChangeCommentStopLoss(GetPointer(this), true));
+      AddTask(new TaskChangeCommentStopLoss(GetPointer(this), exitComment, true));
+   else if(saveState && !UsingStopLoss())
+      SaveXmlActive();
 }
 ///
 /// Возвращает точное время установки позиции, в виде
@@ -1114,13 +1119,14 @@ ENUM_DIRECTION_TYPE Position::Direction()
 ///
 /// Сбрасывает блокировку позиции.
 ///
-void Position::ResetBlocked(void)
+void Position::ResetBlocked(bool saveState)
 {
    if(IsBlocked())
    {
+      printf("ResetBlock #" + (string)GetId());
       blockedTime.Tiks(0);
       SendEventBlockStatus(false);
-      if(activeXmlPos != NULL)
+      if(activeXmlPos != NULL && saveState)
          activeXmlPos.SaveState();
    }
 }
@@ -1128,13 +1134,16 @@ void Position::ResetBlocked(void)
 ///
 /// Блокирует позицию для любых изменений.
 ///
-void Position::SetBlock(datetime time)
+void Position::SetBlock(datetime time, bool saveState)
 {
    if(!IsBlocked())
    {
+      printf("SetBlock #" + (string)GetId());
       blockedTime.SetDateTime(time);
+      datetime myTime = blockedTime.ToDatetime();
       SendEventBlockStatus(true);
-      SaveXmlActive();
+      if(saveState)
+         SaveXmlActive();
       //if(activeXmlPos != NULL)
       //   activeXmlPos.SaveState();
    }
@@ -1342,6 +1351,8 @@ ENUM_HEDGE_ERR Position::AddTask(Task2 *ctask)
 {
    if(CheckPointer(ctask) == POINTER_INVALID)
       return HEDGE_ERR_TASK_FAILED;
+   // Обновляем терминал.
+   api.OnRefresh();
    if(IsBlocked())
    {
       delete ctask;
@@ -1509,7 +1520,7 @@ void Position::OnRefresh(void)
    if(CheckPointer(activeXmlPos) == POINTER_INVALID && api.IsInit())
       activeXmlPos = new XmlPos2(GetPointer(this));
    if(CheckPointer(activeXmlPos) != POINTER_INVALID)
-      activeXmlPos.CheckModify();
+      activeXmlPos.LoadState();
 }
 
 ///
@@ -1661,12 +1672,14 @@ bool Position::AttributesChanged(double tp, string exComment, datetime time)
    {
       return false;
    }
+   printf("Attributes changed #" + (string)GetId());
    TakeProfitLevel(tp, false);
-   ExitComment(exComment, false);
-   //if(time > 0 && !IsBlocked())
-   //   SetBlock(time);
-   //else if(time == 0 && IsBlocked())
-   //   ResetBlocked();
+   if(!UsingStopLoss())
+      ExitComment(exComment, false);
+   if(time > 0 && !IsBlocked())
+      SetBlock(time, false);
+   else if(time == 0 && IsBlocked())
+      ResetBlocked(false);
    RefreshVisualForm(POSITION_REFRESH);
    return true;
 }

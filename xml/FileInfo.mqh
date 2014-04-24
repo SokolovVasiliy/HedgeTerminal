@@ -1,5 +1,6 @@
 #include <Arrays\ArrayObj.mqh>
 #include "..\Log.mqh"
+#include ".\MD5Hash.mqh"
 ///
 /// Тип доступа к файлу.
 ///
@@ -80,6 +81,7 @@ class FileInfo : CObject
       ///
       bool ReadOnly();
    private:
+      
       ///
       /// Истина, если файл изменен и ложь в противном случае.
       ///
@@ -126,10 +128,15 @@ bool FileInfo::IsModify(void)
       return modify;
    if(this.FileOpen() == INVALID_HANDLE)
       return false;
+   uchar array[];
+   FileReadArray(handle, array);
    datetime modifyNow = (datetime)FileGetInteger(handle, FILE_MODIFY_DATE);
    modify = lastAccess != modifyNow;
    if(modify)
+   {
+      //printf("IsModify: " + TimeToString(modifyNow));
       lastAccess = modifyNow;
+   }
    if(accessType == ACCESS_CHECK_AND_CLOSE || !modify)
       this.FileClose();
    return modify;
@@ -143,8 +150,8 @@ int FileInfo::FileOpen(int writeMode = 0)
       handle = FileOpen(fileName, FILE_BIN|FILE_READ|FILE_WRITE|flagDist);
    else 
       handle = FileOpen(fileName, FILE_BIN|FILE_READ|flagDist);
-   if(handle == -1)
-      LogWriter("FileInfo: Error read|write file. Last Error:" + (string)GetLastError(), MESSAGE_TYPE_ERROR);
+   //if(handle == -1)
+   //   LogWriter("FileInfo: Error read|write file. Last Error:" + (string)GetLastError(), MESSAGE_TYPE_ERROR);
    return handle;
 }
 void FileInfo::FileClose()
@@ -168,3 +175,36 @@ bool FileInfo::ReadOnly(void)
    bool r = FileGetInteger(handle, FILE_IS_WRITABLE);
    return w&&!r;
 }
+
+class ModifyDetect
+{
+   public:
+      ModifyDetect(){prevHash = "";}
+      ///
+      /// Истина, если файл был изменен и ложь в противном случае.
+      ///
+      bool IsModify(int handle)
+      {
+         uchar array[];
+         FileReadArray(handle, array);
+         int size = (int)ArraySize(array);
+         if(size == 0)
+            return false;
+         string nextHash = md5.Hash(array, size);
+         if(nextHash == prevHash)
+            return false;
+         return true;
+      }
+      /*void RefreshHash(int handle)
+      {
+      }*/
+   private:
+      ///
+      /// MD5-хеш функция для определения изменения файла.
+      ///
+      CMD5Hash md5;
+      ///
+      /// Предыдущий хеш файла.
+      ///
+      string prevHash;
+};

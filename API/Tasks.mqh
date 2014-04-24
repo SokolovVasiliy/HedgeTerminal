@@ -56,7 +56,7 @@ class Task2 : public CObject
          if(!isContinue && targets.Total())
          {
             if(CheckPointer(position) != POINTER_INVALID)
-               position.SetBlock(TimeCurrent());
+               position.SetBlock(TimeCurrent(), true);
             currTarget = targets.GetFirstNode();
             isContinue = true;
             //–аз проваленую задачу больше не исполн€ем.
@@ -186,7 +186,7 @@ class Task2 : public CObject
          if(CheckPointer(position) != POINTER_INVALID)
          {
             if(IsFinished())
-               position.ResetBlocked();
+               position.ResetBlocked(true);
             position.TaskChanged();
          }
       }
@@ -308,7 +308,7 @@ class TaskDeleteStopLoss : public Task2
 class TaskChangeCommentStopLoss : public Task2
 {
    public:
-      TaskChangeCommentStopLoss(Position* pos, bool asynch_mode) : Task2(pos)
+      TaskChangeCommentStopLoss(Position* pos, string comment, bool asynch_mode) : Task2(pos)
       {
          ulong stopId = 0;
          Order* stopOrder;
@@ -335,7 +335,7 @@ class TaskChangeCommentStopLoss : public Task2
             orderType = ORDER_TYPE_BUY_STOP;
          Order* initOrder = pos.EntryOrder();
          ulong magic = initOrder.GetMagic(MAGIC_TYPE_SL);
-         AddTarget(new TargetSetPendingOrder(pos.Symbol(), orderType, pos.VolumeExecuted(), price, pos.ExitComment(), magic, true));
+         AddTarget(new TargetSetPendingOrder(pos.Symbol(), orderType, pos.VolumeExecuted(), price, comment, magic, true));
       }  
       private:
          string oldComment;

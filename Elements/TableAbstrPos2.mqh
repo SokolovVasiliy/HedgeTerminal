@@ -456,25 +456,32 @@ class PosLine : public AbstractLine
       {
          if(pos != event.Position())return;
          if(event.Status())
-         {
-            BlockedCell();
-         }
+            BlockedCell(true);
          else
-            UnBlockedCell();
-         
+            BlockedCell(false);
       }
       ///
       /// Ѕлокирует редактирование текста в €чейках, которые позвол€ют
       /// его редактировать.
       ///
-      void BlockedCell()
+      void BlockedCell(bool block)
       {
-         tiks = GetTickCount();
          EditNode* cell = GetCell(COLUMN_VOLUME);
-         cell.ReadOnly(true);
+         if(cell != NULL)
+            cell.ReadOnly(block);
          cell = GetCell(COLUMN_SL);
-         cell.ReadOnly(true);
-         SetColorLine(clrRed);
+         if(cell != NULL)
+            cell.ReadOnly(block);
+         cell = GetCell(COLUMN_TP);
+         if(cell != NULL)   
+            cell.ReadOnly(block);
+         cell = GetCell(COLUMN_EXIT_COMMENT);
+         if(cell != NULL)
+            cell.ReadOnly(block);
+         if(block)
+            SetColorLine(clrRed);
+         else
+            SetColorLine(Settings.ColorTheme.GetTextColor());
       }
       
       ///

@@ -89,14 +89,14 @@ class XPosValues
          //Blocked attribute
          if(pos.IsBlocked())
          {
-            printf("XML: position #" + (string)pos.GetId() + " is blocked.");
+            //printf("XML: position #" + (string)pos.GetId() + " is blocked.");
             attr = new CXmlAttribute();
             attr.SetName(GetAttributeName(ATTR_BLOCKED));
             attr.SetValue((string)TimeCurrent());
             element.AttributeAdd(attr);
          }
-         else
-            printf("XML: blocked will be reset");
+         //else
+         //   printf("XML: blocked will be reset");
          return element;
       }
       ///
@@ -118,7 +118,7 @@ class XPosValues
          if(attr != NULL)
          {
             string strTime = attr.GetValue();
-            time = (datetime)StringToInteger(strTime);
+            time = StringToTime(strTime);
          }
          return pos.AttributesChanged(tp, comment, time);
       }
@@ -127,6 +127,8 @@ class XPosValues
       ///
       bool IsMyElement(CXmlElement* element)
       {
+         if(CheckPointer(element) == POINTER_INVALID)
+            return false;
          CXmlAttribute* attr = element.GetAttribute(GetAttributeName(ATTR_ACCOUNT_ID));
          if(attr == NULL)return false;
          if(StringToInteger(attr.GetValue()) != accountId)
@@ -135,6 +137,55 @@ class XPosValues
          if(attr == NULL)return false;
          if(StringToInteger(attr.GetValue()) != posId)
             return false;
+         return true;
+      }
+      ///
+      /// Истина, если переданный элемент принадлежит текущей позиции, но его параметры
+      /// отличаются от нее.
+      ///
+      bool DetectModify(CXmlElement* element)
+      {
+         if(!IsMyElement(element))
+            return false;
+         CXmlAttribute* attr = element.GetAttribute(GetAttributeName(ATTR_TAKE_PROFIT));
+         if(DiffTP(attr))return true;
+         if(!pos.UsingStopLoss())
+         {
+            attr = element.GetAttribute(GetAttributeName(ATTR_EXIT_COMMENT));
+            if(DiffComment(attr))return true;
+         }
+         attr = element.GetAttribute(GetAttributeName(ATTR_BLOCKED));
+         if(DiffBlock(attr))return true;
+         return false;
+      }
+      ///
+      /// Истина, если тейкпрофит аттрибута различается от тейк-профит позиции.
+      ///
+      bool DiffTP(CXmlAttribute* attr)
+      {
+         if(attr == NULL)return true;
+         double tp = StringToDouble(attr.GetValue());
+         if(Math::DoubleEquals(pos.TakeProfitLevel(), tp))
+            return false;
+         return true;
+      }
+      ///
+      /// Истина, если комментарий аттрибута различается от тейк-профит позиции.
+      ///
+      bool DiffComment(CXmlAttribute* attr)
+      {
+         if(attr == NULL)return true;
+         if(pos.ExitComment() == attr.GetValue())
+            return false;
+         return true;
+      }
+      ///
+      /// Истина, если комментарий аттрибута различается от тейк-профит позиции.
+      ///
+      bool DiffBlock(CXmlAttribute* attr)
+      {
+         if(attr == NULL && !pos.IsBlocked())return false;
+         if(attr != NULL && pos.IsBlocked())return false;
          return true;
       }
       ///
@@ -179,6 +230,10 @@ class XPosValues
       /// Исходящий комментарий.
       ///
       //string exitComment;
+      ///
+      /// Текстовое значение предыдущего узла.
+      ///
+      string prevText;
 };
 
 ///
@@ -196,16 +251,16 @@ class XmlPos2
       ///
       ~XmlPos2();
       ///
-      /// Проверяет файл на изменения.
+      /// Проверяет файл на изменения (новая версия CheckModify).
       ///
-      bool CheckModify();
+      bool LoadState();
       ///
       /// Сохраняет текущее состояние.
       ///
       bool SaveState(ENUM_STATE_TYPE type);
    private:
       ///
-      /// В случае успеха возвращает указатель на XML-документ, в случае неудачи возвращает NULL
+      /// Истина, если документ был загружен, ложь если загрузка неудалась.
       ///
       bool LoadXmlDoc(int handle);
       ///
@@ -230,6 +285,10 @@ class XmlPos2
       ///
       bool ContainsMe(void);
       ///
+      /// Истина, если загруженный xml документ отличается от старого.
+      ///
+      bool DetectModify(void);
+      ///
       /// Загруженный Xml-документ.
       ///
       CXmlDocument* doc;
@@ -249,13 +308,26 @@ class XmlPos2
       /// Истина, если последнее состояние позиции было удачно сохраненно и ложь в противном случае.
       ///
       bool saveState;
+      ///
+      /// Имя XML файла активных позиций.
+      ///
+      string fileName;
+      ///
+      /// Версия последнего известного XML документа.
+      ///
+      string prevDoc;
+      ///
+      /// Указатель на текущий xml-елемент, соответствующий позиции (инициализируется LoadXmlDoc).
+      ///
+      CXmlElement* currElement;
 };
 
 XmlPos2::XmlPos2(Position* pos)
 {
    saveState = true;
    xPos = new XPosValues(pos);
-   string fileName = Resources.GetFileNameByType(RES_ACTIVE_POS_XML);
+   fileName = Resources.GetFileNameByType(RES_ACTIVE_POS_XML);
+   prevDoc = "";
    file = new FileInfo(fileName, 0, 1);
    file.SetMode(ACCESS_CHECK_AND_BLOCKED);
 }
@@ -274,23 +346,19 @@ bool XmlPos2::LoadXmlDoc(int handle)
    string err;
    bool res = doc.ReadDocument(handle, err);
    if(!res)
-      delete doc;
-   return res;
-}
-
-/*bool XmlPos2::LoadXmlDoc(string name)
-{
-   if(CheckPointer(doc) == POINTER_INVALID)
-      doc = new CXmlDocument();
-   string err;
-   doc.Clear();
-   if(!doc.CreateFromFile(name , err))
    {
       delete doc;
-      return false;
+      return res;
    }
-   return true;
-}*/
+   //Ищим текущий xml-елемент, соответствующий позиции.
+   for(int i = doc.FDocumentElement.GetChildCount()-1; i >= 0 ; i--)
+   {
+      CXmlElement* element = doc.FDocumentElement.GetChild(i);
+      if(xPos.IsMyElement(element))
+         currElement = element;
+   }
+   return res;
+}
 
 void XmlPos2::SaveXmlDoc(int handle)
 {
@@ -300,22 +368,23 @@ void XmlPos2::SaveXmlDoc(int handle)
    delete doc;
 }
 
-bool XmlPos2::CheckModify(void)
+
+bool XmlPos2::LoadState()
 {
-   ulong id = xPos.PositionId();
-   bool res = true;
-   int handle = -2;
-   if(!file.IsModify())
-      return false;
-   else if(!LoadXmlDoc(file.GetHandle())) 
+   bool res = false;
+   int handle = FileOpen(fileName, FILE_BIN|FILE_READ);
+   if(handle == INVALID_HANDLE || !LoadXmlDoc(handle))
       res = false;
-   else if(!ContainsMe())
+   else if(!xPos.DetectModify(currElement))
       res = false;
    else
+   {
+      printf("LoadState: I am changes");
       res = ReadMe();
+   }
    if(CheckPointer(doc) != POINTER_INVALID)
       delete doc;
-   file.FileClose();
+   FileClose(handle);
    return res;
 }
 
@@ -328,6 +397,7 @@ bool XmlPos2::SaveState(ENUM_STATE_TYPE type = STATE_REFRESH)
       res = false;
    else
    {
+      printf("I save new XML state" + (string)xPos.PositionId());
       file.FillSpace();
       DeleteMe();
       if(type == STATE_REFRESH)
@@ -340,45 +410,52 @@ bool XmlPos2::SaveState(ENUM_STATE_TYPE type = STATE_REFRESH)
 
 bool XmlPos2::ContainsMe(void)
 {
-   if(CheckPointer(doc) == POINTER_INVALID)return false;
+   if(CheckPointer(currElement) != POINTER_INVALID)
+      return true;
+   return false;
+   /*if(CheckPointer(doc) == POINTER_INVALID)return false;
    for(int i = doc.FDocumentElement.GetChildCount()-1; i >= 0 ; i--)
    {
       CXmlElement* element = doc.FDocumentElement.GetChild(i);
       if(xPos.IsMyElement(element))
          return true;
    }
-   return false;
+   return false;*/
 }
 
 void XmlPos2::CreateMe(void)
 {
+   if(CheckPointer(doc) == POINTER_INVALID)return;
    if(ContainsMe())
       DeleteMe();
-   if(CheckPointer(doc) == POINTER_INVALID)return;
    CXmlElement* element = xPos.GetXmlElement();
    doc.FDocumentElement.ChildAdd(element);
 }
 
 void XmlPos2::DeleteMe(void)
 {
-   if(CheckPointer(doc) == POINTER_INVALID)return;
-   int count = doc.FDocumentElement.GetChildCount();
+   if(!ContainsMe())return;
+   doc.FDocumentElement.ChildDelete(currElement);
+   /*int count = doc.FDocumentElement.GetChildCount();
    for(int i = count-1; i >= 0 ; i--)
    {
       CXmlElement* element = doc.FDocumentElement.GetChild(i);
       if(xPos.IsMyElement(element))
          doc.FDocumentElement.ChildDelete(i);
-   }
+   }*/
 }
 
 bool XmlPos2::ReadMe()
 {
-   if(CheckPointer(doc) == POINTER_INVALID)return false;
+   if(ContainsMe())
+      return xPos.SetXmlElement(currElement);
+   return false;
+   /*if(CheckPointer(doc) == POINTER_INVALID)return false;
    for(int i = doc.FDocumentElement.GetChildCount()-1; i >= 0 ; i--)
    {
       CXmlElement* element = doc.FDocumentElement.GetChild(i);
       if(xPos.IsMyElement(element))
          return xPos.SetXmlElement(element);
    }
-   return false;
+   return false;*/
 }
