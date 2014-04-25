@@ -95,8 +95,7 @@ class XPosValues
             attr.SetValue((string)TimeCurrent());
             element.AttributeAdd(attr);
          }
-         //else
-         //   printf("XML: blocked will be reset");
+         //printf("Create: " + element.GetXml(3));
          return element;
       }
       ///
@@ -159,7 +158,7 @@ class XPosValues
          return false;
       }
       ///
-      /// Истина, если тейкпрофит аттрибута различается от тейк-профит позиции.
+      /// Истина, если аттрибут тейкпрофита различается от тейк-профит позиции.
       ///
       bool DiffTP(CXmlAttribute* attr)
       {
@@ -170,7 +169,7 @@ class XPosValues
          return true;
       }
       ///
-      /// Истина, если комментарий аттрибута различается от тейк-профит позиции.
+      /// Истина, если аттрибут исходящего комментария различается от исходящего комментария позиции.
       ///
       bool DiffComment(CXmlAttribute* attr)
       {
@@ -180,7 +179,7 @@ class XPosValues
          return true;
       }
       ///
-      /// Истина, если комментарий аттрибута различается от тейк-профит позиции.
+      /// Истина, статус блокировки указанный в аттрибуте, отличается от статуса блокировки позиции.
       ///
       bool DiffBlock(CXmlAttribute* attr)
       {
@@ -258,6 +257,7 @@ class XmlPos2
       /// Сохраняет текущее состояние.
       ///
       bool SaveState(ENUM_STATE_TYPE type);
+      bool SaveState2(ENUM_STATE_TYPE type);
    private:
       ///
       /// Истина, если документ был загружен, ложь если загрузка неудалась.
@@ -289,6 +289,16 @@ class XmlPos2
       ///
       bool DetectModify(void);
       ///
+      /// Меняет содержимое открытого файла на пробелы.
+      ///
+      void FillSpace(int handle);
+      ///
+      /// Пытается открыть файл. В случае успеха возвращает файловый дискриптор не него, в 
+      /// случае неудачу константу INVALID_HANDLE.
+      /// \param flags - Набор флагов, устанавливающих режимы открытия файла.
+      ///
+      int TryOpenFile(int flags);
+      ///
       /// Загруженный Xml-документ.
       ///
       CXmlDocument* doc;
@@ -299,7 +309,7 @@ class XmlPos2
       ///
       /// XML файл, который необходимо отслеживать.
       ///
-      FileInfo* file;
+      //FileInfo* file;
       ///
       /// Возвращает имя xml-аттрибута в зависимости от его типа.
       ///
@@ -328,14 +338,14 @@ XmlPos2::XmlPos2(Position* pos)
    xPos = new XPosValues(pos);
    fileName = Resources.GetFileNameByType(RES_ACTIVE_POS_XML);
    prevDoc = "";
-   file = new FileInfo(fileName, 0, 1);
-   file.SetMode(ACCESS_CHECK_AND_BLOCKED);
+   //file = new FileInfo(fileName, 0, 1);
+   //file.SetMode(ACCESS_CHECK_AND_BLOCKED);
 }
 
 XmlPos2::~XmlPos2()
 {
    delete xPos;
-   delete file;
+   //delete file;
 }
 
 bool XmlPos2::LoadXmlDoc(int handle)
@@ -368,27 +378,47 @@ void XmlPos2::SaveXmlDoc(int handle)
    delete doc;
 }
 
+int XmlPos2::TryOpenFile(int flags)
+{
+   int handle = INVALID_HANDLE;
+   //Количество попыток открытия файла.
+   int attempts = 3;
+   for(int i = 0; i < attempts; i++)
+   {
+      handle = FileOpen(fileName, flags);
+      if(handle != INVALID_HANDLE)
+         break;
+      //Устанавливаем генератор в уникальное значение для текущего экземпляра.
+      uint chartHandle = (int)ChartGetInteger(0, CHART_WINDOW_HANDLE);
+      srand(chartHandle);
+      //Задержка от 10 до 100 мсек каждую попытку.
+      int msec = 10 + (rand()%90); 
+      Sleep(msec);
+   }
+   return handle;
+}
 
 bool XmlPos2::LoadState()
 {
    bool res = false;
-   int handle = FileOpen(fileName, FILE_BIN|FILE_READ);
+   int handle = TryOpenFile(FILE_BIN|FILE_READ);
    if(handle == INVALID_HANDLE || !LoadXmlDoc(handle))
       res = false;
-   else if(!xPos.DetectModify(currElement))
+   else
+      FileClose(handle);
+   if(!xPos.DetectModify(currElement))
       res = false;
    else
    {
-      printf("LoadState: I am changes");
+      //printf("Load: Changes detected");
       res = ReadMe();
    }
    if(CheckPointer(doc) != POINTER_INVALID)
       delete doc;
-   FileClose(handle);
    return res;
 }
 
-bool XmlPos2::SaveState(ENUM_STATE_TYPE type = STATE_REFRESH)
+/*bool XmlPos2::SaveState2(ENUM_STATE_TYPE type = STATE_REFRESH)
 {
    bool res = true;
    if(file.FileOpen(FILE_WRITE) == INVALID_HANDLE)
@@ -397,7 +427,7 @@ bool XmlPos2::SaveState(ENUM_STATE_TYPE type = STATE_REFRESH)
       res = false;
    else
    {
-      printf("I save new XML state" + (string)xPos.PositionId());
+      //printf("I save new XML state" + (string)xPos.PositionId());
       file.FillSpace();
       DeleteMe();
       if(type == STATE_REFRESH)
@@ -406,6 +436,35 @@ bool XmlPos2::SaveState(ENUM_STATE_TYPE type = STATE_REFRESH)
    }
    file.FileClose();
    return res;
+}*/
+
+bool XmlPos2::SaveState(ENUM_STATE_TYPE type = STATE_REFRESH)
+{
+   int handle = TryOpenFile(FILE_BIN|FILE_READ|FILE_WRITE);
+   bool res = false;
+   if(handle != INVALID_HANDLE && LoadXmlDoc(handle))
+   {
+      FillSpace(handle);
+      DeleteMe();
+      if(type == STATE_REFRESH)
+         CreateMe();
+      SaveXmlDoc(handle);
+      res = true;
+   }
+   if(handle != INVALID_HANDLE)
+      FileClose(handle);
+   return res;
+}
+
+void XmlPos2::FillSpace(int handle)
+{
+   int size = (int)FileSize(handle);
+   uchar spaces[];
+   ArrayResize(spaces, size);
+   uchar ch = ' '; 
+   ArrayInitialize(spaces, ch);
+   FileSeek(handle, 0, SEEK_SET);
+   FileWriteArray(handle, spaces, 0, ArraySize(spaces));
 }
 
 bool XmlPos2::ContainsMe(void)

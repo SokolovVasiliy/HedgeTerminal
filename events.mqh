@@ -22,7 +22,7 @@ class CEventExchange
    public:
       void PushEvent(Event* myEvent)
       {
-         if(api != NULL)
+         if(CheckPointer(api) != POINTER_INVALID)
             api.Event(myEvent);
          #ifdef HEDGE_PANEL
          if(panel != NULL)

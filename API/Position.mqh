@@ -538,6 +538,7 @@ bool Position::IntegrateStopActPos(Order *order)
       //Проверяем актуальность нашего стопа.
       if(UsingStopLoss() && !slOrder.IsPending())
       {
+         exitComment = slOrder.Comment();
          DeleteOrder(slOrder);
          SendEventChangedPos(POSITION_REFRESH);
       }
@@ -1123,7 +1124,8 @@ void Position::ResetBlocked(bool saveState)
 {
    if(IsBlocked())
    {
-      printf("ResetBlock #" + (string)GetId());
+      printf("Sleep at 20 sec and ResetBlock #" + (string)GetId());
+      Sleep(20000);
       blockedTime.Tiks(0);
       SendEventBlockStatus(false);
       if(activeXmlPos != NULL && saveState)
@@ -1144,8 +1146,6 @@ void Position::SetBlock(datetime time, bool saveState)
       SendEventBlockStatus(true);
       if(saveState)
          SaveXmlActive();
-      //if(activeXmlPos != NULL)
-      //   activeXmlPos.SaveState();
    }
 }
 
@@ -1287,8 +1287,19 @@ void Position::SendEventChangedPos(ENUM_POSITION_CHANGED_TYPE type)
    if(!showed && type != POSITION_SHOW)
       return;
    showed = true;
-   //SaveXmlState(type);
    RefreshVisualForm(type);
+}
+
+void Position::RefreshVisualForm(ENUM_POSITION_CHANGED_TYPE type)
+{
+   #ifdef HEDGE_PANEL
+      if(type != POSITION_SHOW && positionLine == NULL)
+         return;
+      EventPositionChanged* event = new EventPositionChanged(GetPointer(this), type);
+      HedgePanel.Event(event);
+      //EventExchange.PushEvent(event);
+      delete event;
+   #endif
 }
 
 void Position::SaveXmlActive(void)
@@ -1317,16 +1328,6 @@ void Position::DeleteXmlActive()
    activeXmlPos.SaveState(STATE_DELETE);
 }
 
-void Position::RefreshVisualForm(ENUM_POSITION_CHANGED_TYPE type)
-{
-   #ifdef HEDGE_PANEL
-      if(type != POSITION_SHOW && positionLine == NULL)
-         return;
-      EventPositionChanged* event = new EventPositionChanged(GetPointer(this), type);
-      EventExchange.PushEvent(event);
-      delete event;
-   #endif
-}
 
 ///
 /// Устанавливает статус неуправляемой позиции.
@@ -1355,6 +1356,10 @@ ENUM_HEDGE_ERR Position::AddTask(Task2 *ctask)
    api.OnRefresh();
    if(IsBlocked())
    {
+      #ifdef HEDGE_PANEL
+      LogWriter("Current position is frozen and not be changed. Try later.", MESSAGE_TYPE_WARNING);
+      SendEventChangedPos(POSITION_REFRESH);
+      #endif
       delete ctask;
       taskLog.AddRedcode(TARGET_CREATE_TASK, TRADE_RETCODE_FROZEN);
       return HEDGE_ERR_POS_FROZEN;
@@ -1666,13 +1671,14 @@ double Position::Commission(void)
 
 bool Position::AttributesChanged(double tp, string exComment, datetime time)
 {
+   /*datetime btime = blockedTime.ToDatetime();
+   string myComment = ExitComment();
    if(Math::DoubleEquals(tp, takeProfit) &&
-      exComment == exitComment &&
-      time == blockedTime.ToDatetime())
+      exComment == myComment && time == btime)
    {
       return false;
    }
-   printf("Attributes changed #" + (string)GetId());
+   printf("Attributes changed #" + (string)GetId());*/
    TakeProfitLevel(tp, false);
    if(!UsingStopLoss())
       ExitComment(exComment, false);
@@ -1690,5 +1696,8 @@ bool Position::AttributesChanged(double tp, string exComment, datetime time)
       exitComment = "";
    if(exComment == NULL)
       exComment = "";
-   bool tp_eq = Math::DoubleEquals(tp, takeProfit);
+   if(!Math::DoubleEquals(tp, takeProfit))
+   {
+      printf("");
+   }
 }*/

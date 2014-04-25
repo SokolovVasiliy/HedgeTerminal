@@ -42,6 +42,7 @@ class HedgeManager
          ActivePos.Sort(SORT_ORDER_ID);
          HistoryPos.Sort(SORT_ORDER_ID);
          ticketOrders.Sort();
+         listPendingOrders.Sort();
          long tick = GetTickCount();
          //printf(tick + " " + HistoryPos.Total());
          OnRefresh();
@@ -210,7 +211,7 @@ class HedgeManager
       ///
       /// Отслеживает поступление новых отложенных активных ордеров.
       ///
-      void TrackingPendingOrders()
+      void TrackingPendingOrders2()
       {
          int total = OrdersTotal();
          if(ordersPendingNow > total)
@@ -218,6 +219,7 @@ class HedgeManager
          for(; ordersPendingNow < total; ordersPendingNow++)
          {
             ulong ticket = OrderGetTicket(ordersPendingNow);
+            
             if(!OrderSelect(ticket))continue;
             Order* order = new Order(ticket);
             bool isIntegrate = SendPendingOrder(order);
@@ -231,6 +233,34 @@ class HedgeManager
          ordersPendingNow = OrdersTotal();
       }
       
+      void TrackingPendingOrders()
+      {
+         for(int i = 0; i < OrdersTotal(); i++)
+         {
+            ulong ticket = OrderGetTicket(i);
+            if(!IsNewOrder(ticket))continue;
+            if(!OrderSelect(ticket))continue;
+            Order* order = new Order(ticket);
+            bool isIntegrate = SendPendingOrder(order);
+            EventOrderPending* pendingOrder = new EventOrderPending(order);
+            SendTaskEvent(pendingOrder);
+            delete pendingOrder;
+            if(!isIntegrate)
+               delete order;
+            graphRebuild = true;
+         }
+      }
+      ///
+      /// Истина, если отложенный ордер с текущим тикетом является новым, появившемся ордером,
+      /// и ложь в противном случае. 
+      ///
+      bool IsNewOrder(ulong ticket)
+      {
+         int index = listPendingOrders.Search(ticket);
+         if(index == -1)
+            listPendingOrders.InsertSort(ticket);
+         return index != -1;
+      }
       ///
       /// Отправляет поступивший отложенный ордер активной позиции, которой он принадлежит.
       /// \return Истина, если поступивший ордер был отправлен позиции и ложь, если соответствующая
@@ -666,4 +696,8 @@ class HedgeManager
       /// Истина, если требуется послать уведомление о перестройки графики в HedgePanel.
       ///
       bool graphRebuild;
+      ///
+      /// Список запомненных отложеных ордеров.
+      ///
+      CArrayLong listPendingOrders;
 };

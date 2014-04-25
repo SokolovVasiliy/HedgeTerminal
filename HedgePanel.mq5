@@ -22,7 +22,7 @@ input int RefreshRate = 200;
 HedgeManager* api;
 MainForm* HedgePanel;
 /// Временный глобальный указатель.
-//TablePositions* tableHistory;
+/// TablePositions* tableHistory;
 ///
 /// Инициализирующая функция.
 ///
