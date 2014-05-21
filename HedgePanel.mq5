@@ -28,9 +28,6 @@ MainForm* HedgePanel;
 ///
 void OnInit(void)
 {  
-   //Settings = new PanelSettings();
-   //if(Settings == NULL)
-   //   ExpertRemove();
    EventSetMillisecondTimer(RefreshRate);
    HedgePanel = new MainForm();
    EventExchange.Add(HedgePanel);
@@ -58,35 +55,13 @@ void OnDeinit(const int reason)
 ///
 /// Вызывает логику эксперта с определенной периодичностью.
 ///
-int counts;
-int l;
 void OnTimer(void)
 {
-   /*if(tableHistory != NULL && counts++%5==0)
-   {
-      printf("table move...");
-      int ind = 0;
-      if(l < tableHistory.LinesTotal())
-         ind = l++;
-      else
-         ind = tableHistory.LinesTotal();
-      tableHistory.LineVisibleFirst(ind);
-   }*/
    EventRefresh* refresh = new EventRefresh(EVENT_FROM_UP, "TERMINAL REFRESH");
    api.Event(refresh);
    HedgePanel.Event(refresh);
-   //EventExchange::PushEvent(refresh);
    delete refresh;
    ChartRedraw(MAIN_WINDOW);
-   
-   //Принудительно обновляем положение (только для выходных дней)
-   /*long X = ChartGetInteger(MAIN_WINDOW, CHART_WIDTH_IN_PIXELS, MAIN_SUBWINDOW);
-   long Y = ChartGetInteger(MAIN_WINDOW, CHART_HEIGHT_IN_PIXELS, MAIN_SUBWINDOW);
-   string str = "X: " + (string)X + " Y:" + (string)Y;
-   //Print("Получены новые размеры окна X:" + (string)X + " Y:" + (string)Y);
-   EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, "TERMINAL WINDOW", true, 0, 0, X, Y);
-   HedgePanel.Event(command);
-   delete command;*/
 }
 
 void  OnTradeTransaction(

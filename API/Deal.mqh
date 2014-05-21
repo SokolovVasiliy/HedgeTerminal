@@ -50,6 +50,12 @@ class Deal : public Transaction
       ///
       double commission;
    private:
+      ///
+      /// Истина, если свойства текущего ордера доступны в истории терминала,
+      /// ложь в противном случае.
+      ///
+      bool IsSelected(ulong id);
+      
       virtual bool IsHistory();
       ///
       /// Если сделка принадлежит к ордеру, содержит ссылку на него.
@@ -144,6 +150,9 @@ DEAL_STATUS Deal::Status()
 
 void Deal::Init(ulong dealId)
 {
+   bool isSelected = IsSelected(dealId);
+   if(!isSelected)
+      HistoryOrderSelect(dealId);
    SetId(dealId);
    if(!IsHistory())
       return;
@@ -155,9 +164,14 @@ void Deal::Init(ulong dealId)
       commission = 0.0;
    else
       commission = commission/volumeExecuted;
-   timeExecuted.Tiks(HistoryDealGetInteger(dealId, DEAL_TIME_MSC));
+   ulong msc = HistoryDealGetInteger(dealId, DEAL_TIME_MSC);
+   //Из-за гребанного глюка МТ5 милисекунды недоступны из под теста.
+   if(msc != 0)
+      timeExecuted.Tiks(msc);
+   else
+      timeExecuted.Tiks(HistoryDealGetInteger(dealId, DEAL_TIME)*1000);
    priceExecuted = NormalizePrice(HistoryDealGetDouble(dealId, DEAL_PRICE));
-   type = (ENUM_DEAL_TYPE)HistoryDealGetInteger(GetId(), DEAL_TYPE);
+   type = (ENUM_DEAL_TYPE)HistoryDealGetInteger(dealId, DEAL_TYPE);
    comment = HistoryDealGetString(dealId, DEAL_COMMENT);
    magic = HistoryDealGetInteger(dealId, DEAL_MAGIC);
    if(type == DEAL_TYPE_BUY || type == DEAL_TYPE_SELL)
@@ -166,9 +180,9 @@ void Deal::Init(ulong dealId)
       orderId = HistoryDealGetInteger(GetId(), DEAL_ORDER);
    }
    else
-   {
       status = DEAL_BROKERAGE;
-   }
+   if(!isSelected)
+      HistorySelect(0, TimeCurrent());
 }
 
 ///
@@ -278,4 +292,12 @@ ENUM_DIRECTION_TYPE Deal::Direction()
 double Deal::Commission()
 {
    return commission*volumeExecuted;
+}
+
+
+bool Deal::IsSelected(ulong id)
+{
+   long time = HistoryDealGetInteger(id, DEAL_TIME);
+   if(time == 0)return false;
+   return true;
 }

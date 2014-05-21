@@ -277,10 +277,7 @@ enum ENUM_BUTTON_STATE
 //
 #include "Math.mqh"
 #include "Log.mqh"
-
-#ifndef SETTINGS_MQH
-   #include "Settings.mqh"
-#endif
+#include "Settings.mqh"
 #include "Keys.mqh"
 #include "Time.mqh"
 #include "Log.mqh"
@@ -293,7 +290,7 @@ enum ENUM_BUTTON_STATE
    #include "Elements\Elements.mqh"
 #endif
 
-PanelSettings Settings;
 CResources Resources;
+PanelSettings Settings;
 //class CEventExchange;
 CEventExchange EventExchange;

@@ -1,0 +1,6 @@
+///
+///
+///
+class Deal : public Transaction
+{
+};

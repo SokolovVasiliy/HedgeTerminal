@@ -1,0 +1,8 @@
+///
+///
+///
+class Param
+{
+   protected:
+      Param(){;}
+};

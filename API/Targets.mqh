@@ -372,6 +372,7 @@ class TargetModifyPendingOrder : Target
    public:
       TargetModifyPendingOrder(ulong orderId, double newPrice, bool asynchMode) : Target(TARGET_MODIFY_PENDING_ORDER)
       {
+         asynch_mode = asynchMode;
          orderModify = new MethodModifyPendingOrder(orderId, newPrice, asynchMode);
       }
       ~TargetModifyPendingOrder()
@@ -403,7 +404,12 @@ class TargetModifyPendingOrder : Target
          else
             res = orderModify.Execute();
          if(res)
-            Status(TARGET_STATUS_EXECUTING);
+         {
+            if(asynch_mode)
+               Status(TARGET_STATUS_EXECUTING);
+            else
+               Status(TARGET_STATUS_COMLETE);
+         }
          else
             Status(TARGET_STATUS_FAILED);
          AddTaskLog(orderModify.Retcode());
@@ -466,6 +472,10 @@ class TargetModifyPendingOrder : Target
       /// Метод модификации отложенного ордера.
       ///
       MethodModifyPendingOrder* orderModify;
+      ///
+      /// Флаг асинхронного режима.
+      ///
+      bool asynch_mode;
 };
 
 ///

@@ -55,8 +55,10 @@ class TreeViewBox : public Label
             Text("+");
          else if(/*isGrafh && */boxTreeType == BOX_TREE_GENERAL && state == BOX_TREE_RESTORE)
             Text("-");
-         else if(boxTreeType != BOX_TREE_GENERAL)
+         else if(boxTreeType == BOX_TREE_SLAVE)
             Text(CharToString(3));
+         else if(boxTreeType == BOX_TREE_ENDSLAVE)
+            Text(CharToString(5));
          else
             Text("");
       }

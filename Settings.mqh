@@ -1,4 +1,5 @@
 #include <Arrays\ArrayObj.mqh>
+#include <Arrays\ArrayLong.mqh>
 
 #define SETTINGS_MQH
 ///
@@ -187,6 +188,10 @@ class PanelSettings
       CTheme ColorTheme;
       //CNameColumns ColumnsName;
       //CWidthColumns ColumnsWidth;
+      CArrayLong* GetExcludeOrders()
+      {
+         return loader.GetExcludeOrders();
+      }
       ///
       /// Возвращает список настроек для каждого элемента таблицы активных позиций.
       ///
@@ -204,10 +209,14 @@ class PanelSettings
       ///
       string GetNameExpertByMagic(ulong magic)
       {
+         if(MQLInfoInteger(MQL_TESTER))
+            return IntegerToString(magic);
          return loader.GetNameExpertByMagic(magic);
       }
       double GetLevelVirtualOrder(ulong id, ENUM_VIRTUAL_ORDER_TYPE type)
       {
+         if(MQLInfoInteger(MQL_TESTER))
+            return 0.0;
          return loader.GetLevelVirtualOrder(id, type);
       }
       
@@ -216,14 +225,21 @@ class PanelSettings
          loader.SaveXmlAttr(id, type, level);
       }
       ///
-      /// Конструктор скрыт для создания объекта из вне.
+      /// Конструктор.
       ///
       PanelSettings()
       {
-         //EventExchange = new CEventExchange();
-         //Resources = new CResources();
-         setForActivePos.AssignArray(loader.GetActiveColumns());
-         setForHistoryPos.AssignArray(loader.GetHistoryColumns());
+         if(!MQLInfoInteger(MQL_TESTER))
+         {
+            loader = new XmlLoader();
+            setForActivePos.AssignArray(loader.GetActiveColumns());
+            setForHistoryPos.AssignArray(loader.GetHistoryColumns());
+         }
+      }
+      ~PanelSettings()
+      {
+         if(CheckPointer(loader) != POINTER_INVALID)
+            delete loader;
       }
    private:        
       /*static*/ PanelSettings* set;
@@ -238,7 +254,7 @@ class PanelSettings
       ///
       /// Загрузчик XML настроек.
       ///
-      XmlLoader loader;
+      XmlLoader* loader;
       
       ///
       /// Проверяет инсталляцию файлов. (Только для HLYBRARY)

@@ -38,7 +38,7 @@ enum ENUM_LAST_OPERATION_STATUS
   2. Объект, к которому будут применяться задачи
   3. Последовательность действий исполнения задач.
   4. Итоговую цель.
- */
+*/
 ///
 ///
 /// Task2 - содержит список подзадач и алгоритм их выполнения.
@@ -90,7 +90,7 @@ class Task2 : public CObject
                {
                   OnCrashed();
                   TaskChanged();
-                  continue;
+                  return;
                }
                //Ушли на выполнение.
                else
@@ -157,6 +157,10 @@ class Task2 : public CObject
       /// Существование позиции не гарантируется.
       ///
       Position* GetPosition(){return position;}
+      ///
+      /// Истина, если задание выполняется в асинхронном режиме. Ложь в противном случае.
+      ///
+      bool AsynchMode(){return asynch_mode;}
    protected:
       ///
       /// Последовательность кодов результатов выполнения операций.
@@ -191,19 +195,14 @@ class Task2 : public CObject
          }
       }
       
-      Task2()
-      {
-         HedgeManager* hm = EventExchange.GetAPI();
-         hm.AddTask(GetPointer(this));
-      }
-      
-      Task2(Position* pos)
+      Task2(Position* pos, bool asynchMode)
       {
          position = pos;
          taskLog = pos.GetTaskLog();
          taskLog.Clear();
          //HedgeManager* hm = EventExchange::GetAPI();
          api.AddTask(GetPointer(this));
+         asynch_mode = asynchMode;
       }
       ///
       /// Добавляет новое задание в конец списка подзаданий.
@@ -274,6 +273,10 @@ class Task2 : public CObject
       /// 
       ///
       bool isContinue;
+      ///
+      /// Истина, если задание выполняется в асинхронном режиме. Ложь в противном случае.
+      ///
+      bool asynch_mode;
 };
 
 ///
@@ -282,7 +285,7 @@ class Task2 : public CObject
 class TaskDeleteStopLoss : public Task2
 {
    public:
-      TaskDeleteStopLoss(Position* pos, bool asynch_mode) : Task2(pos)
+      TaskDeleteStopLoss(Position* pos, bool asynchMode) : Task2(pos, asynchMode)
       {
          ulong stopId = 0;
          Order* stopOrder;
@@ -292,7 +295,7 @@ class TaskDeleteStopLoss : public Task2
          {
             stopOrder = pos.StopOrder();
             stopId = stopOrder.GetId();
-            AddTarget(new TargetDeletePendingOrder(stopId, asynch_mode));
+            AddTarget(new TargetDeletePendingOrder(stopId, asynchMode));
          }
          else
          {
@@ -308,7 +311,7 @@ class TaskDeleteStopLoss : public Task2
 class TaskChangeCommentStopLoss : public Task2
 {
    public:
-      TaskChangeCommentStopLoss(Position* pos, string comment, bool asynch_mode) : Task2(pos)
+      TaskChangeCommentStopLoss(Position* pos, string comment, bool asynchMode) : Task2(pos, asynchMode)
       {
          ulong stopId = 0;
          Order* stopOrder;
@@ -327,7 +330,7 @@ class TaskChangeCommentStopLoss : public Task2
             return;
          }
          double price = stopOrder.PriceSetup();
-         AddTarget(new TargetDeletePendingOrder(stopId, asynch_mode));
+         AddTarget(new TargetDeletePendingOrder(stopId, asynchMode));
          ENUM_ORDER_TYPE orderType = ORDER_TYPE_SELL;
          if(pos.Direction() == DIRECTION_LONG)
             orderType = ORDER_TYPE_SELL_STOP;
@@ -344,7 +347,7 @@ class TaskChangeCommentStopLoss : public Task2
 class TaskSetStopLoss : public Task2
 {
    public:
-      TaskSetStopLoss(Position* pos, double price, bool asynch_mode) : Task2(pos)
+      TaskSetStopLoss(Position* pos, double price, bool asynchMode) : Task2(pos, asynchMode)
       {
          if(FailedIfNotActivePos())
             return;
@@ -362,7 +365,7 @@ class TaskSetStopLoss : public Task2
             orderType = ORDER_TYPE_BUY_STOP;
          Order* initOrder = pos.EntryOrder();
          ulong magic = initOrder.GetMagic(MAGIC_TYPE_SL);
-         AddTarget(new TargetSetPendingOrder(pos.Symbol(), orderType, pos.VolumeExecuted(), price, pos.ExitComment(), magic, asynch_mode));
+         AddTarget(new TargetSetPendingOrder(pos.Symbol(), orderType, pos.VolumeExecuted(), price, pos.ExitComment(), magic, asynchMode));
       }
 };
 
@@ -372,7 +375,7 @@ class TaskSetStopLoss : public Task2
 class TaskModifyStop : public Task2
 {
    public:
-      TaskModifyStop(Position* pos, double newPrice, bool asynchMode) : Task2(pos)
+      TaskModifyStop(Position* pos, double newPrice, bool asynchMode) : Task2(pos, asynchMode)
       {
          ulong stopId = 0;
          Order* stopOrder;
@@ -399,7 +402,7 @@ class TaskModifyStop : public Task2
 class TaskClosePosition : public Task2
 {
    public:
-      TaskClosePosition(Position* pos, ENUM_MAGIC_TYPE type) : Task2(pos)
+      TaskClosePosition(Position* pos, ENUM_MAGIC_TYPE type, bool asynchMode) : Task2(pos, asynchMode)
       {
          ENUM_DIRECTION_TYPE dir = pos.Direction() == DIRECTION_LONG ? DIRECTION_SHORT: DIRECTION_LONG;
          Order* initOrder = pos.EntryOrder();
@@ -409,7 +412,7 @@ class TaskClosePosition : public Task2
          if(pos.UsingStopLoss())
          {
             Order* slOrder = pos.StopOrder();
-            AddTarget(new TargetDeletePendingOrder(slOrder.GetId(), true));
+            AddTarget(new TargetDeletePendingOrder(slOrder.GetId(), asynchMode));
          }
          AddTarget(new TargetTradeByMarket(pos.Symbol(), dir, pos.VolumeExecuted(), pos.ExitComment(), magic, true));
       }
@@ -426,7 +429,7 @@ class TaskClosePartPosition : public Task2
       /// \param pos - Позиция, часть объема которой требуется закрыть.
       /// \param volume - объем, который требуется закрыть.
       ///
-      TaskClosePartPosition(Position* pos, double volume, bool asynchMode) : Task2(pos)
+      TaskClosePartPosition(Position* pos, double volume, bool asynchMode) : Task2(pos, asynchMode)
       {
          if(FailedIfNotActivePos())
             return;

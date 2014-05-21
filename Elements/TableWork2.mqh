@@ -293,6 +293,10 @@ class WorkArea : public Label
             Label* lab = node;
             //Включаем подсветку строки
             ProtoNode* parNode = lab.ParentNode();
+            //Удостоверяемся что родительский узел именно строка в составе TableWork,
+            //а не более глубокий элемент в иерархии элементов.
+            ProtoNode* ppNode = parNode.ParentNode();
+            if(GetPointer(ppNode) != GetPointer(this))return;
             ENUM_ELEMENT_TYPE type = parNode.TypeElement();
             bool isConvert = parNode.TypeElement() != ELEMENT_TYPE_TABLE_SUMMARY;
             if(lab.ReadOnly() && isConvert)

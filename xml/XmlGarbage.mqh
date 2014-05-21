@@ -19,6 +19,8 @@ class XmlGarbage
 
 void XmlGarbage::ClearActivePos(string fileName, CArrayObj *posList)
 {
+   if(MQLInfoInteger(MQL_TESTER))
+      return;
    CXmlDocument doc;
    string error;
    if(!doc.CreateFromFile(fileName, error))

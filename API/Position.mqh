@@ -9,7 +9,8 @@
 //#include "..\XML\XmlPosition1.mqh"
 //#include "..\XML\XmlPos.mqh"
 #include "..\XML\XmlPos2.mqh"
- 
+#include "TralStopLoss.mqh"
+
 class Position;
 
 ///
@@ -25,7 +26,7 @@ class InfoIntegration
 };
 
 ///
-/// Статус позиции.
+/// State of position.
 ///
 enum POSITION_STATUS
 {
@@ -79,7 +80,7 @@ class Position : public Transaction
       
       string EntryComment(void);
       string ExitComment(void);
-      void ExitComment(string comment, bool saveState);
+      void ExitComment(string comment, bool saveState, bool asynchMode=true);
       
       long EntryExecutedTime(void);
       long ExitExecutedTime(void);
@@ -102,9 +103,10 @@ class Position : public Transaction
       
       double StopLossLevel(void);
       double TakeProfitLevel(void);
-      void StopLossLevel(double level);
-      uint TakeProfitLevel(double level, bool saveState);
+      ENUM_HEDGE_ERR StopLossLevel(double level, bool asynch_mode);
+      ENUM_HEDGE_ERR TakeProfitLevel(double level, bool saveState);
       bool UsingStopLoss(void);
+      bool UsingTakeProfit(void);
       InfoIntegration* Integrate(Order* order);
       static bool CheckOrderType(Order* checkOrder);
       POSITION_STATUS Status();
@@ -180,6 +182,14 @@ class Position : public Transaction
       /// \param saveState - Истина, если требуется перезаписать сосотояние блокировки в файл.
       ///
       void SetBlock(datetime time, bool saveState);
+      ///
+      /// Трейлинг стоп-ордера.
+      ///
+      TrallStopLoss* TralStopOrder;
+      ///
+      /// Возвращает величину общего проскальзывания позиции в пунктах.
+      ///
+      double Slippage();
    private:
       ///
       /// Сохраняет информацию о позиции в XML-узле файла активных позиций.
@@ -326,6 +336,8 @@ Position::~Position()
    DeleteAllOrders();
    if(CheckPointer(activeXmlPos) != POINTER_INVALID)
       delete activeXmlPos;
+   if(CheckPointer(TralStopOrder) != POINTER_INVALID)
+      delete TralStopOrder;
 }
 ///
 /// Создает неактивную позицию со статусом POSITION_NULL.
@@ -377,6 +389,7 @@ Position::Position(Order* inOrder, Order* outOrder) : Transaction(TRANS_POSITION
 ///
 void Position::Init(void)
 {
+   TralStopOrder = new TrallStopLoss(GetPointer(this));
    exitComment = "";
    takeProfit = 0.0;
    slLevel = 0.0;
@@ -624,8 +637,6 @@ void Position::AddClosingOrder(Order* outOrder, InfoIntegration* info)
    {
       if(CheckPointer(activeXmlPos) != POINTER_INVALID)
          activeXmlPos.SaveState(STATE_DELETE);
-      //if(!Math::DoubleEquals(TakeProfitLevel(), 0.0))
-      //   Settings.SaveXmlAttr(GetId(), VIRTUAL_TAKE_PROFIT, PriceToString(TakeProfitLevel()));
       info.HistoryPosition.TakeProfitLevel(TakeProfitLevel(), true);
       info.HistoryPosition.CopyTaskLog(GetPointer(taskLog));
    }
@@ -854,7 +865,7 @@ string Position::ExitComment(void)
 ///
 /// Устанавливает исходящий комментарий для активной позиции.
 ///
-void Position::ExitComment(string comment, bool saveState)
+void Position::ExitComment(string comment, bool saveState, bool asynchMode=true)
 {
    if(status != POSITION_ACTIVE)return;
    if(StringLen(comment) > 31)
@@ -862,7 +873,7 @@ void Position::ExitComment(string comment, bool saveState)
    if(exitComment == comment)return;
    exitComment = comment;
    if(UsingStopLoss() && slOrder.Comment() != comment)
-      AddTask(new TaskChangeCommentStopLoss(GetPointer(this), exitComment, true));
+      AddTask(new TaskChangeCommentStopLoss(GetPointer(this), exitComment, asynchMode));
    else if(saveState && !UsingStopLoss())
       SaveXmlActive();
 }
@@ -1027,20 +1038,22 @@ double Position::StopLossLevel(void)
 /// \return Истина, если новый уровень корректен, и на его основе была
 /// сформирована новая задача и ложь в противном случае..
 ///
-void Position::StopLossLevel(double level)
+ENUM_HEDGE_ERR Position::StopLossLevel(double level, bool asynch_mode = true)
 {
+   ENUM_HEDGE_ERR err = HEDGE_ERR_NOT_ERROR;
    double setPrice = level;
    bool notNull = !Math::DoubleEquals(setPrice, 0.0);
    if(UsingStopLoss() && !notNull)
-      AddTask(new TaskDeleteStopLoss(GetPointer(this), true));
+      err = AddTask(new TaskDeleteStopLoss(GetPointer(this), asynch_mode));
    else if(!UsingStopLoss() && notNull)
-      AddTask(new TaskSetStopLoss(GetPointer(this), setPrice, true));
+      err = AddTask(new TaskSetStopLoss(GetPointer(this), setPrice, asynch_mode));
    else if(UsingStopLoss())
    {
       if(notNull && !Math::DoubleEquals(setPrice, StopLossLevel()))
-         AddTask(new TaskModifyStop(GetPointer(this), setPrice, true));
+         err = AddTask(new TaskModifyStop(GetPointer(this), setPrice, asynch_mode));
    }
    SendEventChangedPos(POSITION_REFRESH);
+   return err;
 }
 
 ///
@@ -1065,18 +1078,20 @@ double Position::TakeProfitLevel(void)
 /// \param saveState - Истина, если требуется сохранить этот уровень в XML файле позиций и ложь в противном случае.
 /// \return Коды результата установки новой цены.
 ///
-uint Position::TakeProfitLevel(double level, bool saveState)
+ENUM_HEDGE_ERR Position::TakeProfitLevel(double level, bool saveState)
 {
-   uint retcode = TRADE_RETCODE_INVALID_PRICE;
-   if(CheckValidTP(level) && Status() == POSITION_ACTIVE)
+   ENUM_HEDGE_ERR err = HEDGE_ERR_NOT_ERROR;
+   bool check = CheckValidTP(level);
+   if(!check)
+      err = HEDGE_ERR_WRONG_PARAMETER;
+   if(check && Status() == POSITION_ACTIVE)
    {
       takeProfit = level;
-      retcode = TRADE_RETCODE_PLACED;
       if(saveState)
          SaveXmlActive();
    }
    SendEventChangedPos(POSITION_REFRESH);
-   return retcode;
+   return err;
 }
 
 ///
@@ -1085,6 +1100,11 @@ uint Position::TakeProfitLevel(double level, bool saveState)
 bool Position::UsingStopLoss(void)
 {
    return CheckPointer(slOrder) != POINTER_INVALID;
+}
+
+bool Position::UsingTakeProfit(void)
+{
+   return !Math::DoubleEquals(takeProfit,0.0);
 }
 
 ///
@@ -1118,14 +1138,33 @@ ENUM_DIRECTION_TYPE Position::Direction()
 }
 
 ///
+/// Возвращает истину, если позиция находится в состоянии изменения и ложь в противном случае.
+///
+bool Position::IsBlocked(void)
+{
+   if(blockedTime.Tiks() == 0)
+      return false;
+   //В случае необходимости снимает блокировку по таймауту.
+   datetime tB = blockedTime.ToDatetime();
+   if(TimeCurrent() - tB >= 180)
+   {
+      blockedTime.Tiks(0);
+      SendEventBlockStatus(false);
+      if(activeXmlPos != NULL)
+         activeXmlPos.SaveState();
+      return false;
+   }
+   return true;
+}
+
+///
 /// Сбрасывает блокировку позиции.
 ///
 void Position::ResetBlocked(bool saveState)
 {
    if(IsBlocked())
    {
-      //printf("Sleep at 20 sec and ResetBlock #" + (string)GetId());
-      //Sleep(20000);
+      //printf("Reset block");
       blockedTime.Tiks(0);
       SendEventBlockStatus(false);
       if(activeXmlPos != NULL && saveState)
@@ -1140,7 +1179,7 @@ void Position::SetBlock(datetime time, bool saveState)
 {
    if(!IsBlocked())
    {
-      printf("SetBlock #" + (string)GetId());
+      //printf("SetBlock #" + (string)GetId());
       blockedTime.SetDateTime(time);
       datetime myTime = blockedTime.ToDatetime();
       SendEventBlockStatus(true);
@@ -1165,23 +1204,6 @@ void Position::SendEventBlockStatus(bool curStatus)
    #endif
 }
 
-///
-/// Возвращает истину, если позиция находится в состоянии изменения и ложь в противном случае.
-///
-bool Position::IsBlocked(void)
-{
-   if(blockedTime.Tiks() == 0)
-      return false;
-   //В случае необходимости снимает блокировку по таймауту.
-   datetime tB = blockedTime.ToDatetime();
-   if(TimeCurrent() - tB >= 180)
-   {
-      blockedTime.Tiks(0);
-      SaveXmlActive();
-      return false;
-   }
-   return true;
-}
 
 ///
 /// Обрабатывает поступающие события.
@@ -1304,6 +1326,8 @@ void Position::RefreshVisualForm(ENUM_POSITION_CHANGED_TYPE type)
 
 void Position::SaveXmlActive(void)
 {
+   if(MQLInfoInteger(MQL_TESTER))
+      return;
    if(Status() != POSITION_ACTIVE)
       return;
    if(CheckPointer(activeXmlPos) == POINTER_INVALID)
@@ -1313,6 +1337,8 @@ void Position::SaveXmlActive(void)
 
 void Position::CreateXmlLink()
 {
+   if(MQLInfoInteger(MQL_TESTER))
+      return;
    if(Status() != POSITION_ACTIVE)
       return;
    if(CheckPointer(activeXmlPos) == POINTER_INVALID)
@@ -1321,6 +1347,8 @@ void Position::CreateXmlLink()
 
 void Position::DeleteXmlActive()
 {
+   if(MQLInfoInteger(MQL_TESTER))
+      return;
    if(Status() != POSITION_ACTIVE)
       return;
    if(CheckPointer(activeXmlPos) == POINTER_INVALID)
@@ -1372,6 +1400,33 @@ ENUM_HEDGE_ERR Position::AddTask(Task2 *ctask)
    else
       return HEDGE_ERR_NOT_ERROR;
 }
+
+/*ENUM_HEDGE_ERR Position::AddTask(Task2 *ctask)
+{
+   if(CheckPointer(ctask) == POINTER_INVALID)
+      return HEDGE_ERR_TASK_FAILED;
+   api.OnRefresh();
+   if(IsBlocked())
+   {
+      #ifdef HEDGE_PANEL
+      LogWriter("Current position is frozen and not be changed. Try later.", MESSAGE_TYPE_WARNING);
+      SendEventChangedPos(POSITION_REFRESH);
+      #endif
+      delete ctask;
+      taskLog.AddRedcode(TARGET_CREATE_TASK, TRADE_RETCODE_FROZEN);
+      return HEDGE_ERR_POS_FROZEN;
+   }
+   taskLog.Clear();
+   task2 = ctask;
+   task2.Execute();
+   //Синхронная задача не может превышать двадцать шагов.
+   for(int attemps = 0; attemps < 20; attemps++)
+   {
+      api.OnRefresh();
+      
+   }
+   return HEDGE_ERR_NOT_ERROR;
+}*/
 
 ///
 /// Возвращает текущее выполненяемое задание, либо NULL, если
@@ -1521,11 +1576,18 @@ bool Position::CheckHistTP(double tp)
 void Position::OnRefresh(void)
 {
    if(!IsBlocked())
+   {
       CloseByVirtualOrder();
-   if(CheckPointer(activeXmlPos) == POINTER_INVALID && api.IsInit())
+      TralStopOrder.Trailing();
+   }
+   if(CheckPointer(activeXmlPos) == POINTER_INVALID &&
+      api.IsInit() && !MQLInfoInteger(MQL_TESTER))
       activeXmlPos = new XmlPos2(GetPointer(this));
    if(CheckPointer(activeXmlPos) != POINTER_INVALID)
       activeXmlPos.LoadState();
+   #ifdef HEDGE_PANEL
+      positionLine.RefreshPrices();
+   #endif
 }
 
 ///
@@ -1541,16 +1603,17 @@ void Position::CloseByVirtualOrder(void)
       double cur_price = CurrentPrice();
       bool res = Math::DoubleEquals(takeProfit, cur_price) || takeProfit < cur_price;
       if(res)
-         AddTask(new TaskClosePosition(GetPointer(this), MAGIC_TYPE_TP));
+         AddTask(new TaskClosePosition(GetPointer(this), MAGIC_TYPE_TP, true));
    }
    if(Direction() == DIRECTION_SHORT)
    {
       double cur_price = CurrentPrice();
       bool res = Math::DoubleEquals(takeProfit, cur_price) || takeProfit > cur_price;
       if(res)
-         AddTask(new TaskClosePosition(GetPointer(this), MAGIC_TYPE_TP));
+         AddTask(new TaskClosePosition(GetPointer(this), MAGIC_TYPE_TP, true));
    }
 }
+
 ///
 /// Функция ограничивает количество транзакций в еденицу времени в случае возникновения ошибок.
 /// \param seconds - Количество секунд, через которое можно будет повторить попытку.
@@ -1667,6 +1730,15 @@ double Position::Commission(void)
    if(status == POSITION_HISTORY)
       commission += closingOrder.Commission();
    return commission;
+}
+double Position::Slippage(void)
+{
+   if(status == POSITION_NULL)
+      return 0.0;
+   double slippage = initOrder.Slippage();
+   if(status == POSITION_HISTORY)
+      slippage += closingOrder.Slippage();
+   return slippage;
 }
 
 bool Position::AttributesChanged(double tp, string exComment, datetime time)

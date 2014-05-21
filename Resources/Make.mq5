@@ -6,38 +6,41 @@
 
 void OnStart()
 {
-   
+   CCreatedResources CreatedResources;
    // Файл настроек
-   CreatedResources::LoadResource(".\HedgeTerminal\HedgeTerminalSettings.xml");
-   CreatedResources::SaveResurce(".\HedgeTerminal\MQH\HedgeTerminalSettings.xml.mqh", "array_settings");
+   CreatedResources.LoadResource(".\HedgeTerminal\Settings.xml");
+   CreatedResources.SaveResurce(".\HedgeTerminal\MQH\Settings.xml.mqh", "array_settings");
    // Файл активных позиций.
-   CreatedResources::LoadResource(".\HedgeTerminal\ActivePositions.xml");
-   CreatedResources::SaveResurce(".\HedgeTerminal\MQH\ActivePositions.xml.mqh", "array_active_pos");
+   CreatedResources.LoadResource(".\HedgeTerminal\ActivePositions.xml");
+   CreatedResources.SaveResurce(".\HedgeTerminal\MQH\ActivePositions.xml.mqh", "array_active_pos");
    // Файл исторических позиций.
-   CreatedResources::LoadResource(".\HedgeTerminal\HistoryPositions.xml");
-   CreatedResources::SaveResurce(".\HedgeTerminal\MQH\HistoryPositions.xml.mqh", "array_hist_pos");
+   CreatedResources.LoadResource(".\HedgeTerminal\HistoryPositions.xml");
+   CreatedResources.SaveResurce(".\HedgeTerminal\MQH\HistoryPositions.xml.mqh", "array_hist_pos");
    // Файл псевдонимов.
-   CreatedResources::LoadResource(".\HedgeTerminal\ExpertAliases.xml");
-   CreatedResources::SaveResurce(".\HedgeTerminal\MQH\ExpertAliases.xml.mqh", "array_aliases");
+   CreatedResources.LoadResource(".\HedgeTerminal\ExpertAliases.xml");
+   CreatedResources.SaveResurce(".\HedgeTerminal\MQH\ExpertAliases.xml.mqh", "array_aliases");
    // Файл шрифта 
-   CreatedResources::LoadResource(".\HedgeTerminal\Arial Rounded MT Bold Bold.ttf");
-   CreatedResources::SaveResurce(".\HedgeTerminal\MQH\Font_MT_Bold.ttf.mqh", "array_font_bolt");
+   CreatedResources.LoadResource(".\HedgeTerminal\Arial Rounded MT Bold Bold.ttf");
+   CreatedResources.SaveResurce(".\HedgeTerminal\MQH\Font_MT_Bold.ttf.mqh", "array_font_bolt");
    // Файл прототипов.
-   CreatedResources::LoadResource(".\HedgeTerminal\Prototypes.mqh");
-   CreatedResources::SaveResurce(".\HedgeTerminal\MQH\Prototypes.mqh.mqh", "array_prototypes");
+   CreatedResources.LoadResource(".\HedgeTerminal\Prototypes.mqh");
+   CreatedResources.SaveResurce(".\HedgeTerminal\MQH\Prototypes.mqh.mqh", "array_prototypes");
+   //
+   CreatedResources.LoadResource(".\HedgeTerminal\ExcludeOrders.xml");
+   CreatedResources.SaveResurce(".\HedgeTerminal\MQH\ExcludeOrders.xml.mqh", "array_exclude_orders");
 }
 
 ///
 /// Создатель ресурсов.
 ///
-class CreatedResources
+class CCreatedResources
 {
    public:
       ///
       /// Загружает ресурс из файла.
       /// \return Истина, если загрузка прошла успешно и ложь в противном случае.
       ///
-      static bool LoadResource(string fileName)
+      bool LoadResource(string fileName)
       {
          int handle = FileOpen(fileName, FILE_READ|FILE_BIN, "");
          if(handle == -1)return false;
@@ -53,7 +56,7 @@ class CreatedResources
       ///
       /// Сохраняет ресурс в указанном файле.
       ///
-      static bool SaveResurce(string fileName, string nameArray)
+      bool SaveResurce(string fileName, string nameArray)
       {
          if(fileOut.IsExist(fileName))
          {
@@ -98,17 +101,17 @@ class CreatedResources
       ///
       /// Читатель бинарного файла.
       ///
-      static CFileBin fileIn;
+      CFileBin fileIn;
       ///
       /// Создатель файла ресурса.
       ///
-      static CFileTxt fileOut;
+      CFileTxt fileOut;
       ///
       /// Динамический массив, содержащий байтовое представление ресурса.
       ///
-      static ushort resource[];
+      ushort resource[];
       ///
       /// Экземпляр создать нельзя.
       ///
-      CreatedResources();
+      //CreatedResources();
 };

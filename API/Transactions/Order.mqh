@@ -1,0 +1,6 @@
+///
+///
+///
+class Order : public Transaction
+{
+};

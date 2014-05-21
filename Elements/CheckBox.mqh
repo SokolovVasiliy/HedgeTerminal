@@ -23,6 +23,7 @@ class CheckBox : public Button
          {
             checked = true;
             Text(CharToString(254));
+            //BackgroundColor(Settings.ColorTheme.GetSystemColor2());
          }
          if(ChildsTotal() > 0)
          {

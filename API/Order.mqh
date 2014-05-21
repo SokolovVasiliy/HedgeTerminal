@@ -1,6 +1,7 @@
 #include "Transaction.mqh"
 #include "..\Log.mqh"
-
+#include "..\Math.mqh"
+#include "H.mqh"
 ///
 /// Тип генерируемого маджика
 ///
@@ -74,6 +75,7 @@ class Order : public Transaction
       double EntryExecutedPrice(void);
       
       ulong GetMagic(ENUM_MAGIC_TYPE type);
+      ulong GetMagic1(ENUM_MAGIC_TYPE type);
       
       void Init(ulong orderId);
       bool IsPending(void);
@@ -103,13 +105,18 @@ class Order : public Transaction
       bool IsTakeProfit();
       bool IsExecuted();
       virtual double Commission(void);
+      double Slippage();
    private:
+      bool IsSelected(ulong id);
       ulong GetStopMask(void);
       ulong GetTakeMask(void);
       virtual bool IsHistory();
       ENUM_ORDER_STATUS RefreshStatus(void);
       void RecalcValues(void);
       void RecalcPosId(void);
+      ulong Hash(ulong value);
+      ulong UnHashMe(ulong value);
+      bool FirstBitTrue(ulong value);
       ///
       /// Если ордер принадлежит к позиции, содержит ссылку на нее.
       ///
@@ -181,12 +188,15 @@ class Order : public Transaction
       /// Истина, если ордер имел какой-либо исполненный объем.
       ///
       bool activated;
+      ///
+      /// Хеширующие функции.
+      ///
+      Hash hash;
 };
 
 /*PUBLIC MEMBERS*/
 Order::Order() : Transaction(TRANS_ORDER)
 {
-   
    status = ORDER_NULL;
 }
 ///
@@ -387,14 +397,22 @@ ENUM_ORDER_STATUS Order::RefreshStatus()
 ///
 void Order::Refresh(void)
 {
+   bool isSelected = true;
+   if(MQLInfoInteger(MQL_TESTER))
+   {
+      isSelected = IsSelected(GetId());
+      if(!isSelected)   
+         HistoryOrderSelect(GetId());
+   }
    RecalcValues();
    RefreshStatus();
+   if(!isSelected)
+      HistorySelect(0, TimeCurrent());
    if(status != ORDER_NULL && GetId() == 0 && deals.Total() > 0)
    {
       Deal* deal = deals.At(0);
       SetId(deal.OrderId());
    }
-   //TODO: RefreshPriceAndVol();
    if(position != NULL)
       position.OrderChanged(GetPointer(this));
 }
@@ -531,6 +549,27 @@ ulong Order::GetMagic(ENUM_MAGIC_TYPE magicType = MAGIC_TYPE_MARKET)
          return GetTakeMask() | GetId();
    }
    return GetId();
+}
+
+///
+/// Получает магик для закрытия данного ордера.
+///
+ulong Order::GetMagic1(ENUM_MAGIC_TYPE magicType = MAGIC_TYPE_MARKET)
+{
+   ulong value = 0;
+   switch(magicType)
+   {
+      case MAGIC_TYPE_MARKET:
+         value = GetId();
+         break;
+      case MAGIC_TYPE_SL:
+         value = GetStopMask() | GetId();
+         break;
+      case MAGIC_TYPE_TP:
+         value = GetTakeMask() | GetId();
+         break;
+   }
+   return hash.GetHash(GetPointer(this), value, HASH_FROM_VALUE);
 }
 
 ///
@@ -686,6 +725,8 @@ void Order::RecalcValues(void)
       symbol = HistoryOrderGetString(id, ORDER_SYMBOL);
       priceSetup = NormalizePrice(HistoryOrderGetDouble(id, ORDER_PRICE_OPEN));
       volumeSetup = HistoryOrderGetDouble(id, ORDER_VOLUME_INITIAL);
+      if(Math::DoubleEquals(priceSetup, 0.0))
+         priceSetup = priceExecuted;
       long tSetup = HistoryOrderGetInteger(id, ORDER_TIME_SETUP_MSC);
       if(tSetup != 0)
          timeSetup = tSetup;
@@ -707,11 +748,47 @@ void Order::RecalcValues(void)
 ///
 void Order::RecalcPosId()
 {
-   // 6 старших битов оставляем для служебной информации.
-   // остальное - для идентификатора номера.
-   ulong mask = 0x03FFFFFFFFFFFFFF;
-   positionId = magic & mask;
+   positionId = 0;
+   if(magic > 0 && hash.FirstBitIsHighest(magic))
+   {
+      ulong value = hash.GetHash(GetPointer(this), magic, VALUE_FROM_HASH);
+      // 6 старших битов оставляем для служебной информации.
+      // остальное - для идентификатора номера.
+      ulong mask = 0x03FFFFFFFFFFFFFF;
+      positionId = value & mask;
+   }
 }
+
+bool Order::FirstBitTrue(ulong value)
+{
+   ulong mask = 0x8000000000000000;
+   if((value & mask) == mask)
+      return true;
+   return false;
+}
+
+///
+/// хеширует идентификатор позиции
+///
+/*ulong Order::Hash(ulong value)
+{
+   rnd.Seed(value);
+   ulong r = rnd.Rand();
+   ulong hash = r ^ value;
+   return hash;
+}*/
+
+///
+/// Дехеширует идентификатор позиции
+///
+/*ulong Order::UnHashMe()
+{
+   ulong id = GetId();
+   rnd.Seed(id);
+   ulong r = rnd.Rand();
+   ulong unhash = r ^ magic;
+   return unhash;
+}*/
 
 ///
 /// Объеденяет сделки с одинаковыми id в одну сделку
@@ -798,4 +875,24 @@ double Order::Commission(void)
       commission += deal.Commission();
    }
    return commission;
+}
+
+///
+/// Возвращает проскальзывание ордера в пунктах.
+///
+double Order::Slippage(void)
+{
+   double slippage = priceSetup - priceExecuted;
+   if(Direction() == DIRECTION_SHORT)
+      slippage *= (-1);
+   return slippage;
+}
+
+bool Order::IsSelected(ulong id)
+{
+   if(OrderSelect(id))
+      return true;
+   ulong time = HistoryOrderGetInteger(id, ORDER_TIME_SETUP);
+   if(time > 0)return true;
+   return false;
 }

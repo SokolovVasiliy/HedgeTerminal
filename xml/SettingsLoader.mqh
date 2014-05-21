@@ -1,4 +1,5 @@
 #include <Arrays\ArrayObj.mqh>
+#include <Arrays\ArrayLong.mqh>
 #include "XmlBase.mqh"
 #include "XmlDocument.mqh"
 #include "XmlElement.mqh"
@@ -8,6 +9,7 @@
 #include "..\Log.mqh"
 #include "..\Settings.mqh"
 #include "XmlHistPos.mqh"
+#include "..\Globals.mqh"
 ///
 /// Загружает настройки из XML файла.
 ///
@@ -17,9 +19,11 @@ class XmlLoader
       XmlLoader();
       CArrayObj* GetActiveColumns(){return GetPointer(activeTab);}
       CArrayObj* GetHistoryColumns(){return GetPointer(historyTab);}
+      CArrayLong* GetExcludeOrders();
       string GetNameExpertByMagic(ulong magic);
       double GetLevelVirtualOrder(ulong id, ENUM_VIRTUAL_ORDER_TYPE type);
       void SaveXmlAttr(ulong id, ENUM_VIRTUAL_ORDER_TYPE type, string level);
+      
    private:
       ///
       /// Известные секции настроек.
@@ -65,6 +69,10 @@ class XmlLoader
       /// Содежрит строковые псевдонимы экспертов.
       ///
       CArrayObj Aliases;
+      ///
+      /// Содержит списко исключенных ордеров.
+      ///
+      CArrayLong excludeOrders;
       ///
       /// Исторические позиции.
       ///
@@ -123,7 +131,7 @@ class XmlLoader
       void LoadAliases(void);
       void LoadHistOrders(void);
       void TryParseAliase(CXmlElement* xmlItem);
-      
+      void TryParseExclude(CXmlElement* xmlItem);
 };
 
 ///
@@ -141,7 +149,7 @@ void XmlLoader::LoadSettings(void)
 {
    CXmlDocument doc;
    string err;
-   string path = ".\HedgeTerminal\HedgeTerminalSettings.xml";
+   string path = ".\HedgeTerminal\Settings.xml";
    if(!doc.CreateFromFile(path, err))
    {
       printf(err);
@@ -164,6 +172,8 @@ void XmlLoader::LoadSettings(void)
 
 void XmlLoader::LoadAliases(void)
 {
+   if(MQLInfoInteger(MQL_TESTER))
+      return;
    CXmlDocument doc;
    string err;
    string path = ".\HedgeTerminal\ExpertAliases.xml";
@@ -179,8 +189,38 @@ void XmlLoader::LoadAliases(void)
    }
 }
 
+///
+/// 
+///
+CArrayLong* XmlLoader::GetExcludeOrders()
+{
+   excludeOrders.Clear();
+   CArrayLong* ex = GetPointer(excludeOrders);
+   if(MQLInfoInteger(MQL_TESTER))
+      return ex;
+   CXmlDocument doc;
+   string err;
+   
+   string path = Resources.GetFileNameByType(RES_EXCLUDE_ORDERS);
+   if(!FileIsExist(path))
+      return ex;
+   if(!doc.CreateFromFile(path, err))
+   {
+      printf(err);
+      return ex;
+   }
+   for(int i = 0; i < doc.FDocumentElement.GetChildCount(); i++)
+   {
+      CXmlElement* xmlItem = doc.FDocumentElement.GetChild(i);
+      TryParseExclude(xmlItem);
+   }
+   return ex;
+}
+
 void XmlLoader::SaveXmlAttr(ulong id, ENUM_VIRTUAL_ORDER_TYPE type, string level)
 {
+   if(MQLInfoInteger(MQL_TESTER))
+      return;
    CXmlElement* xmlItem;
    XmlHistPos* hpos = new XmlHistPos(id);
    int index = HistPos.Search(hpos);
@@ -217,9 +257,10 @@ void XmlLoader::SaveXmlAttr(ulong id, ENUM_VIRTUAL_ORDER_TYPE type, string level
 
 void XmlLoader::LoadHistOrders(void)
 {
+   if(MQLInfoInteger(MQL_TESTER))
+      return;
    if(HistPos.SortMode() == -1)
-      HistPos.Sort();
-   
+      HistPos.Sort(); 
    string err;
    string path = Resources.GetFileNameByType(RES_HISTORY_POS_XML);
    if(!XmlHistFile.CreateFromFile(path, err))
@@ -237,8 +278,11 @@ void XmlLoader::LoadHistOrders(void)
    }
 }
 
+
 double XmlLoader::GetLevelVirtualOrder(ulong id, ENUM_VIRTUAL_ORDER_TYPE type)
 {
+   if(MQLInfoInteger(MQL_TESTER))
+      return 0.0;
    XmlHistPos* hpos = new XmlHistPos(id);
    int index = HistPos.Search(hpos);
    delete hpos;
@@ -273,6 +317,7 @@ string XmlLoader::GetNameExpertByMagic(ulong magic)
    }
 }
 
+
 void XmlLoader::TryParseAliase(CXmlElement* xmlItem)
 {
    if(xmlItem.GetName() != "Expert")return;
@@ -287,6 +332,25 @@ void XmlLoader::TryParseAliase(CXmlElement* xmlItem)
    if(Aliases.SortMode() == -1)
       Aliases.Sort();
    Aliases.InsertSort(new Aliase(ex_magic, ex_name));
+}
+
+void XmlLoader::TryParseExclude(CXmlElement *xmlItem)
+{
+   if(xmlItem.GetName() != "Order")return;
+   
+   CXmlAttribute* xmlAcc = xmlItem.GetAttribute("AccountID");
+   if(xmlAcc == NULL)return;
+   ulong accId = StringToInteger(xmlAcc.GetValue());
+   if(accId != AccountInfoInteger(ACCOUNT_LOGIN))return;
+   
+   CXmlAttribute* xmlName = xmlItem.GetAttribute("ID");
+   if(xmlName == NULL)return;
+   ulong id = StringToInteger(xmlName.GetValue());
+   if(id == 0 || id < 0)return;
+   if(excludeOrders.SortMode() == -1)
+      excludeOrders.Sort();
+   if(excludeOrders.Search(id) == -1)
+      excludeOrders.InsertSort(id);
 }
 
 ///

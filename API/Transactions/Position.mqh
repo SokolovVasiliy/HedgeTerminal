@@ -1,0 +1,6 @@
+///
+///
+///
+class Position : public Transaction
+{
+};

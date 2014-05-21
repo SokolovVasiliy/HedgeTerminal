@@ -43,6 +43,7 @@ enum ENUM_SORT_TRANSACTION
 ///
 enum ENUM_TRANSACTION_TYPE
 {
+   
    ///
    /// Транзакция является позицией.
    ///
@@ -134,9 +135,7 @@ class Transaction : public CObject
       ///
       virtual double ProfitInPips()
       {
-         int dbg = 5;
-         if(currId == 1009362300)
-            dbg = 5;
+         //double cp = 
          double delta = CurrentPrice() - EntryExecutedPrice();
          if(Direction() == DIRECTION_SHORT)
             delta *= -1.0;
@@ -243,6 +242,7 @@ class Transaction : public CObject
       {
          return "transaction";
       }
+      
    protected:
       ///
       /// Возвращает цену входа трназакции на рынок.
@@ -329,6 +329,7 @@ class Transaction : public CObject
       }
       //ENUM_DIRECTION_TYPE direction;
    private:
+      
       ///
       /// Тип транзакции.
       ///

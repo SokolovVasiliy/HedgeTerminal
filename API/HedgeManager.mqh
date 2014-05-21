@@ -5,6 +5,7 @@
 #include "..\Events.mqh"
 #include "..\XML\XmlGarbage.mqh"
 #include "..\Resources\Resources.mqh"
+#include "H.mqh"
 ///
 /// Класс позиции
 ///
@@ -16,13 +17,14 @@ class HedgeManager
       ///
       void Event(Event* event)
       {
-         SendTaskEvent(event);
+         
          switch(event.EventId())
          {
             case EVENT_REFRESH:
                OnRefresh();
                break;
             case EVENT_REQUEST_NOTICE:
+               SendTaskEvent(event);
                OnRequestNotice(event);
                break;
          }
@@ -33,10 +35,13 @@ class HedgeManager
       ///
       HedgeManager()
       {
-         //if(Settings == NULL)
-         //   Settings = new PanelSettings();
-         //if(Settings == NULL)
-         //   ExpertRemove();
+         bool isTester = MQLInfoInteger(MQL_TESTER);
+         if(!isTester && Resources.Failed())
+         {
+            LogWriter("Install files to continue.", MESSAGE_TYPE_ERROR);
+            ExpertRemove();
+            return;
+         }
          ActivePos = new CArrayObj();
          HistoryPos = new CArrayObj();
          ActivePos.Sort(SORT_ORDER_ID);
@@ -44,13 +49,33 @@ class HedgeManager
          ticketOrders.Sort();
          listPendingOrders.Sort();
          long tick = GetTickCount();
-         //printf(tick + " " + HistoryPos.Total());
          OnRefresh();
-         //printf(tick + " " + HistoryPos.Total());
-         xmlGarbage.ClearActivePos(Resources.GetFileNameByType(RES_ACTIVE_POS_XML), ActivePos);
+         if(!isTester)
+         {
+            XmlGarbage* xmlGarbage = new XmlGarbage();
+            xmlGarbage.ClearActivePos(Resources.GetFileNameByType(RES_ACTIVE_POS_XML), ActivePos);
+            delete xmlGarbage;
+            Resources.WizardInstallExclude(GetPointer(this));
+            RemoveExclude();
+            ShowPosition();
+         }
          isInit = true;
-         ShowPosition();
          PrintPerfomanceParsing(tick);
+         TestHashValues();
+      }
+      
+      void TestHashValues()
+      {
+         Hash hashing;
+         for(int i = 0; i < HistoryOrdersTotal(); i++)
+         {
+            ulong ticket = HistoryOrderGetTicket(i);
+            Order *order = new Order(ticket);
+            ulong hash = hashing.GetHash(order, ticket, HASH_FROM_VALUE);
+            ulong value = hashing.GetHash(order, hash, VALUE_FROM_HASH);
+            int dbg = 3;
+         }
+         
       }
       
       ~HedgeManager()
@@ -65,8 +90,7 @@ class HedgeManager
             HistoryPos.Clear();
             delete HistoryPos;
          }
-         //if(CheckPointer(Settings) != POINTER_INVALID)
-         //   delete Settings;
+         
          tasks.Shutdown();
       }
       
@@ -84,6 +108,12 @@ class HedgeManager
       void OnRefresh()
       {
          HistorySelect(timeBegin, TimeCurrent());
+         if(IsInit())
+         {
+            EventRefresh* refresh = new EventRefresh(EVENT_FROM_UP, "Hedge Terminal");
+            SendTaskEvent(refresh);
+            delete refresh;
+         }
          TrackingHistoryDeals();
          TrackingHistoryOrders();
          TrackingPendingOrders();
@@ -147,8 +177,9 @@ class HedgeManager
       /// Находит активную позицию в списке активных позиций, чей
       /// id равен posId.
       ///
-      Position* FindActivePosById(ulong posId)
+      Position* FindActivePosByOrder(Order* order)
       {
+         ulong posId = order.PositionId();
          if(posId != 0)
          {
             Order* inOrder = new Order(posId);
@@ -157,9 +188,17 @@ class HedgeManager
             if(iActive != -1)
                return ActivePos.At(iActive);
          }
+         //Возможно активная позиция существует с идентификатором данного ордера
+         else
+         {
+            int iActive = ActivePos.Search(order);
+            if(iActive != -1)
+               return ActivePos.At(iActive);
+         }
          return NULL;
       }
    private:
+      
       ///
       /// Посылает уведомление о изменении каждой активной позиции.
       ///
@@ -259,7 +298,7 @@ class HedgeManager
          int index = listPendingOrders.Search(ticket);
          if(index == -1)
             listPendingOrders.InsertSort(ticket);
-         return index != -1;
+         return index == -1;
       }
       ///
       /// Отправляет поступивший отложенный ордер активной позиции, которой он принадлежит.
@@ -268,7 +307,7 @@ class HedgeManager
       ///
       bool SendPendingOrder(Order* order)
       {
-         Position* ActPos = FindActivePosById(order.PositionId());
+         Position* ActPos = FindActivePosByOrder(order);
          if(ActPos == NULL)return false;
          if(order.IsStopLoss() || order.IsTakeProfit())
          {
@@ -312,7 +351,7 @@ class HedgeManager
          //Отмененый стоп у активных позиций не актуален.
          //Отмененный стоп у исторической позиции надо запомнить.
          Position* ActPos;
-         ActPos = FindActivePosById(order.PositionId());
+         ActPos = FindActivePosByOrder(order);
          if(ActPos != NULL)
          {
             InfoIntegration* info = ActPos.Integrate(order);
@@ -376,7 +415,7 @@ class HedgeManager
          {
             TradeRequest* request = event.GetRequest();
             Order* order = new Order(request);
-            Position* ActPos = FindActivePosById(order.PositionId());
+            Position* ActPos = FindActivePosByOrder(order);
             delete order;
             if(ActPos != NULL)
                ActPos.Event(event);
@@ -387,7 +426,7 @@ class HedgeManager
             /*if(!OrderSelect(trans.order))
                return;*/
             Order* order = new Order(trans.order);
-            Position* ActPos = FindActivePosById(order.PositionId());
+            Position* ActPos = FindActivePosByOrder(order);
             delete order;
             if(ActPos != NULL)
                ActPos.Event(event);
@@ -435,6 +474,7 @@ class HedgeManager
       ///
       void ShowPosition()
       {
+         #ifdef HEDGE_PANEL
          for(int i = 0; i < ActivePos.Total(); i++)
          {
             Position* pos = ActivePos.At(i);
@@ -448,6 +488,31 @@ class HedgeManager
             pos.SendEventChangedPos(POSITION_SHOW);
          }
          CreateSummary(TABLE_POSHISTORY);
+         #endif
+      }
+      ///
+      /// Удаляет из списка активных позиций скрытые позиции.
+      ///
+      void RemoveExclude()
+      {
+         CArrayLong* excludeOrders = Settings.GetExcludeOrders();
+         if(excludeOrders == NULL)return;
+         /*for(int i = 0; i < excludeOrders.Total(); i++)
+            printf((string)excludeOrders.At(i));
+         printf(">>>>>>>>>>>>");
+         for(int i = 0; i < ActivePos.Total(); i++)
+         {
+            Position* pos = ActivePos.At(i);
+            printf((string)pos.GetId());
+         }*/
+         for(int i = ActivePos.Total()-1; i >= 0; i--)
+         {
+            Position* pos = ActivePos.At(i);
+            ulong id = pos.GetId();
+            int index = excludeOrders.Search(pos.GetId());
+            if(index != -1)
+               ActivePos.Delete(index);
+         }
       }
       
       void CreateSummary(ENUM_TABLE_TYPE tType)
@@ -466,6 +531,7 @@ class HedgeManager
       ///
       void AddNewDeal(ulong ticket)
       {
+         //printf("Add new ticket: " + (string)ticket);
          Deal* deal = new Deal(ticket);
          if(deal.Status() == DEAL_BROKERAGE)
          {
@@ -473,8 +539,10 @@ class HedgeManager
             return;
          }
          Order* order = new Order(deal);
+         //printf("Order #" + (string)order.GetId() + " " + EnumToString(order.Status()) + " ; Time: " + TimeToString(order.TimeSetup()/1000, TIME_DATE|TIME_MINUTES|TIME_SECONDS));
          if(order.Status() == ORDER_NULL)
          {
+            printf("Order is null");
             delete order;
             return;
          }
@@ -483,9 +551,14 @@ class HedgeManager
          delete event;
          ulong magic = order.Magic();
          ulong oid = order.GetId();
-         Position* actPos = FindActivePosById(order.PositionId());
+         int dbg = 3;
+         if(ticket == 1117343)
+            dbg = 2;
+         Position* actPos = FindActivePosByOrder(order);
          if(actPos == NULL)
             actPos = new Position();
+         if(ticket == 1117343)
+            TestPos(actPos);
          InfoIntegration* result = actPos.Integrate(order);
          int iActive = ActivePos.Search(actPos);
          if(actPos.Status() == POSITION_NULL)
@@ -505,8 +578,19 @@ class HedgeManager
                   actPos.SendEventChangedPos(POSITION_SHOW);
                ActivePos.InsertSort(actPos);
             }
-            else if(isInit)
-               actPos.SendEventChangedPos(POSITION_REFRESH);
+            else
+            { 
+               Position* oldPos = ActivePos.At(iActive);
+               if(CheckPointer(oldPos) != CheckPointer(actPos))
+               {
+                  InfoIntegration* nres = oldPos.Integrate(actPos.EntryOrder());
+                  delete actPos;
+                  delete nres;
+               }
+               if(isInit)
+                  oldPos.SendEventChangedPos(POSITION_REFRESH);
+               //return;
+            }
          }
          //Можно закрыть больше чем имеется, тогда остаток - активная позиция.
          if(result.ActivePosition != NULL &&
@@ -522,7 +606,14 @@ class HedgeManager
          delete result;
       }
       
-      
+      void TestPos(Position* pos)
+      {
+         Order* order = pos.EntryOrder();
+         int dtotal = order.DealsTotal();
+         double vol_exe = pos.VolumeExecuted();
+         printf("Pos #" + (string)pos.GetId() + "; Deals: " +
+         (string)dtotal + "; Vol total: " + DoubleToString(vol_exe, 0));
+      }
       
       ///
       /// Находит историческую позицию в списке активных позиций, чей
@@ -688,10 +779,6 @@ class HedgeManager
       /// Список заданий.
       ///
       CArrayObj tasks;
-      ///
-      /// Сборщик неиспользованных узлов.
-      ///
-      XmlGarbage xmlGarbage;
       ///
       /// Истина, если требуется послать уведомление о перестройки графики в HedgePanel.
       ///

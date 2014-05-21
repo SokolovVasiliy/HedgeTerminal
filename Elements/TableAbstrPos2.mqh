@@ -34,6 +34,8 @@ class AbstractLine : public Line
             CheckPointer(textNodes[cType]) != POINTER_INVALID)
          {
             textNodes[cType].Text(GetStringValue(cType));
+            if(cType == COLUMN_ENTRY_COMMENT || cType == COLUMN_EXIT_COMMENT)
+               textNodes[cType].Tooltip(GetStringValue(cType));
             OnRefreshValue(cType);
          }
       }
@@ -148,12 +150,16 @@ class AbstractLine : public Line
             TextNode* value = NULL;
             DefColumn* el = scolumns.At(i);
             ENUM_COLUMN_TYPE cType = el.ColumnType();
+            int dbg = -1;
+            if(cType == COLUMN_PROFIT && TypeElement() == ELEMENT_TYPE_POSITION)
+               dbg = COLUMN_PROFIT;
             tnode* node = GetColumn(el);
             
             SetSkinMode(node.element);
             
             if(CheckPointer(node.element) != POINTER_INVALID)
             {
+               int s = ArraySize(protoNodes);
                Add(node.element);
                if(ArraySize(protoNodes) <= cType)
                   ArrayResize(protoNodes, cType+1);
@@ -161,6 +167,7 @@ class AbstractLine : public Line
             }
             if(CheckPointer(node.value) != POINTER_INVALID)
             {
+               int s = ArraySize(textNodes);
                if(ArraySize(textNodes) <= cType)
                   ArrayResize(textNodes, cType+1);
                textNodes[cType] = node.value;
@@ -283,6 +290,7 @@ class HeaderPos : public AbstractLine
          build = GetDefaultEl(el);
          build.Text(CharToString(79));
          build.Font("Wingdings");
+         build.Tooltip("Move the stop order after the price.");
          return build;
       }
 };
@@ -315,6 +323,38 @@ class PosLine : public AbstractLine
          //return pos.Compare(fpos, mode);
          return 0;
       }
+      ///
+      /// Обновляет потоковые цены и цвета у стоп/тейк ордеров.
+      ///
+      void RefreshPrices()
+      {
+         HighlightingSL();
+         HighlightingTP();
+         TextNode* node = GetCellText(COLUMN_PROFIT);
+         if(node != NULL)
+            node.Text(GetStringValue(COLUMN_PROFIT));
+         node = GetCellText(COLUMN_CURRENT_PRICE);
+         if(node != NULL)
+            node.Text(GetStringValue(COLUMN_CURRENT_PRICE));
+         //Обновляем сделки если они открыты
+         RefreshPricesDeals();
+      }
+      ///
+      /// Обновляет значения у сделок.
+      ///
+      void RefreshPricesDeals()
+      {
+         int i = 1;
+         while(NLine()+i < parentNode.ChildsTotal())
+         {
+            ProtoNode* node = parentNode.ChildElementAt(NLine()+i);
+            if(node.TypeElement() != ELEMENT_TYPE_DEAL)
+               break;
+            DealLine* deal = node;
+            deal.RefreshPrice();
+            i++;
+         }
+      }
    private:
       virtual void OnEvent(Event* event)
       {
@@ -330,9 +370,25 @@ class PosLine : public AbstractLine
             case EVENT_BLOCK_POS:
                OnBlockPos(event);
                break;
+            case EVENT_CHECK_BOX_CHANGED:
+               OnChangeTral(event);
+               break;
             default:
                EventSend(event);
          }
+      }
+      ///
+      /// 
+      ///
+      void OnChangeTral(EventCheckBoxChanged* event)
+      {
+         pos.TralStopOrder.TralEnable(event.Checked());
+         CheckBox* check = event.Node();
+         check.Tooltip("Tral delta: " +  DoubleToString(pos.TralStopOrder.TralDelta(), pos.InstrumentDigits()));
+         if(pos.TralStopOrder.TralEnable())   
+            check.State(BUTTON_STATE_ON);
+         else
+            check.State(BUTTON_STATE_OFF);
       }
       ///
       /// Идентифицирует в каком именно узле произошло изменение,
@@ -399,7 +455,7 @@ class PosLine : public AbstractLine
          //pos.AsynchClose(pos.VolumeExecuted(), value);
          //Проверяем, можем ли мы закрыть позицию.
          //...
-         TaskClosePosition* cPos = new TaskClosePosition(pos, MAGIC_TYPE_MARKET);
+         TaskClosePosition* cPos = new TaskClosePosition(pos, MAGIC_TYPE_MARKET, true);
          pos.AddTask(cPos);
          //TaskClosePos* closePos = new TaskClosePos(pos, value);
          //pos.AddTask(closePos);
@@ -568,6 +624,8 @@ class PosLine : public AbstractLine
          }
          if(CheckPointer(comby.value) != POINTER_INVALID)   
             comby.value.Text(GetStringValue(cType));
+         if(cType == COLUMN_ENTRY_COMMENT || cType == COLUMN_EXIT_COMMENT)
+            comby.element.Tooltip(GetStringValue(cType));
          return comby;
       }
       
@@ -595,7 +653,7 @@ class PosLine : public AbstractLine
          if(pos.UsingStopLoss())
          {
             Order* order = pos.StopOrder();
-            enode.Tooltip("#" + (string)order.GetId());
+            enode.Tooltip("Based on order #" + (string)order.GetId());
          }
          if(pos.Status() != POSITION_HISTORY)
             return enode;
@@ -604,8 +662,8 @@ class PosLine : public AbstractLine
          {
             enode.SetBlockBgColor(clrPink);         
             int dir = pos.Direction() == DIRECTION_LONG ? 1 : -1;
-            double slipage = (exitOrder.EntryExecutedPrice() - exitOrder.PriceSetup() * dir);
-            enode.Tooltip("slipage: " + pos.PriceToString(slipage));
+            string tt = "Based on order #" + (string)exitOrder.GetId() + "; Slipage: " + pos.PriceToString(exitOrder.Slippage());
+            enode.Tooltip(tt);
          }
          return enode;
       }
@@ -641,7 +699,7 @@ class PosLine : public AbstractLine
          tnode* comby = new tnode();
          Line* element = NULL;
          //В зависимости от того, является ли позиция исторической или активной,
-         //ячейка позкаывающая профит состоит из разны частей. 
+         //ячейка показывающая профит состоит из разны частей. 
          if(TableType() == TABLE_POSACTIVE)
          {
             element = new Line(el.Name(), GetPointer(this));
@@ -769,12 +827,13 @@ class PosLine : public AbstractLine
       ///
       /// Определяем дополнительные действия при обновлении цен
       ///
-      virtual void OnRefreshValue(ENUM_COLUMN_TYPE cType)
+      /*virtual void OnRefreshValue(ENUM_COLUMN_TYPE cType)
       {
          if(cType != COLUMN_PROFIT)return;
          HighlightingSL();
          HighlightingTP();
-      }
+      }*/
+      
       ///
       /// Подсвечивание ячейки стоп-лосса.
       ///
@@ -869,6 +928,18 @@ class DealLine : public AbstractLine
          BuilderLine();
          
       }
+      ///
+      /// Обновляет цены
+      ///
+      void RefreshPrice()
+      {
+         TextNode* mnode = GetCellText(COLUMN_CURRENT_PRICE);
+         if(mnode != NULL)
+            mnode.Text(GetStringValue(COLUMN_CURRENT_PRICE));
+         mnode = GetCellText(COLUMN_PROFIT);
+         if(mnode != NULL)
+            mnode.Text(GetStringValue(COLUMN_PROFIT));
+      }
    private:
       virtual TextNode* GetDefaultEl(DefColumn* el)
       {
@@ -885,10 +956,10 @@ class DealLine : public AbstractLine
             case COLUMN_COLLAPSE:
                comby.element = GetCollapseEl(el);
                break;
-            case COLUMN_TRAL:
+            /*case COLUMN_TRAL:
                comby.element = GetTralEl(el);
                comby.value = comby.element;
-               break;
+               break;*/
             default:
                comby.element = GetDefaultEl(el);
                comby.value = comby.element;
@@ -896,6 +967,8 @@ class DealLine : public AbstractLine
          }
          if(CheckPointer(comby.value) != POINTER_INVALID)
             comby.value.Text(GetStringValue(cType));
+         if(cType == COLUMN_VOLUME)
+            comby.value.Tooltip(GetStringValue(cType));
          return comby;
       }
       
@@ -962,25 +1035,30 @@ class DealLine : public AbstractLine
             case COLUMN_VOLUME:
                if(entryDeal != NULL)
                   value = entryDeal.VolumeToString(entryDeal.VolumeExecuted());
+               if(exitDeal != NULL)
+                  value += "/" + exitDeal.VolumeToString(exitDeal.VolumeExecuted());
                break;
             case COLUMN_ENTRY_PRICE:
                if(entryDeal != NULL)
                   value = entryDeal.PriceToString(entryDeal.EntryExecutedPrice());
                break;
             case COLUMN_SL:
-               if(!Math::DoubleEquals(pos.StopLossLevel(), 0.0))
+               /*if(!Math::DoubleEquals(pos.StopLossLevel(), 0.0))
                   value = pos.PriceToString(pos.StopLossLevel());
                else
-                  value = "-";   
+                  value = "-";*/
+               value = "";   
                break;
             case COLUMN_TP:
-               value = "-";
+               value = "";
                break;
             case COLUMN_TRAL:
-               if(pos != NULL && pos.UsingStopLoss())
+               
+               /*if(pos != NULL && pos.TralStopOrder.TralEnable())
                   value = CharToString(254);
                else
-                  value = CharToString(168);
+                  value = CharToString(168);*/
+               value = "";
                break;
             case COLUMN_EXIT_PRICE:
                if(exitDeal != NULL)
@@ -1001,7 +1079,8 @@ class DealLine : public AbstractLine
                break;
             }
             case COLUMN_PROFIT:
-               value = "-";
+               value = "";
+               //value = DoubleToString(defDeal.ProfitInCurrency(), 2);
                break;
             case COLUMN_ENTRY_COMMENT:
                if(entryDeal != NULL)
