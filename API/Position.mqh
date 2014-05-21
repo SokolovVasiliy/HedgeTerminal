@@ -1124,8 +1124,8 @@ void Position::ResetBlocked(bool saveState)
 {
    if(IsBlocked())
    {
-      printf("Sleep at 20 sec and ResetBlock #" + (string)GetId());
-      Sleep(20000);
+      //printf("Sleep at 20 sec and ResetBlock #" + (string)GetId());
+      //Sleep(20000);
       blockedTime.Tiks(0);
       SendEventBlockStatus(false);
       if(activeXmlPos != NULL && saveState)
