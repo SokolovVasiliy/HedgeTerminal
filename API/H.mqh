@@ -41,20 +41,13 @@ class Hash
          }
          else
          {
-            ResetHighestBit(value);
+            if(!FirstBitIsHighest(key))
+               ResetHighestBit(value);
             hash = Hashing(value, key);
             if(usingTimeHash)
-               value = Hashing(value, order.TimeSetup());
+               return Hashing(hash, order.TimeSetup());
          }
          return hash;
-      }
-      ///
-      /// Возвращает ключ, рассчитанный на основе значения переданного идентификатора.
-      ///
-      ulong GetKeyFromId(ulong id)
-      {
-         rnd.Seed(id);
-         return rnd.Rand();
       }
       ///
       /// Возвращает истину, если самый старший бит переданного значения value
@@ -66,9 +59,34 @@ class Hash
          if(v < 0)return true;
          return false;
       }
-   private:
       ///
-      /// Устанавливает старший бит в значение 1.
+      /// Устанавливает флаг дополнительного хеширования по времени.
+      ///
+      void TimeHashing(bool flag){usingTimeHash = flag;}
+      ///
+      /// Возвращает флаг дополнительного хеширования по времени.
+      ///
+      bool TimeHashing(){return usingTimeHash;}
+   private:
+      
+      ///
+      /// Устанавливает старший бит числа uchar в еденицу.
+      ///
+      void SetHighestBit(uchar& ch)
+      {
+         uchar mask = 0x80;
+         ch = (ch | mask);
+      }
+      ///
+      /// Сбрасывает старший бит числа uchar в ноль.
+      ///
+      void ResetHighestBit(uchar& ch)
+      {
+         uchar mask = 0x7f;
+         ch = (ch & mask);
+      }
+      ///
+      /// Устанавливает старший бит числа ulong в значение 1.
       ///
       void SetHighestBit(ulong& value)
       {
@@ -76,7 +94,7 @@ class Hash
          value = (value | mask);
       }
       ///
-      /// Сбрасывает значение старшего бита в 0.
+      /// Сбрасывает значение старшего бита числа ulong в 0.
       ///
       void ResetHighestBit(ulong& value)
       {

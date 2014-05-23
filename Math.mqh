@@ -12,7 +12,22 @@ class Math
       {
          return(fabs(a-b)<=16*DBL_EPSILON*fmax(fabs(a),fabs(b)));
       }
-      
+      ///
+      /// Возвращает истину, если переданное число 'n' простое,
+      /// Возвращает ложь в противном случае. Сложность расчета
+      /// O(sqrt(N)).
+      ///
+      static bool PrimeTest(ulong n)
+      {
+         uint total = (uint)(MathFloor(sqrt(n))+1);
+         if(total <= 1)total = ULONG_MAX;
+         for(uint i = 2; i < total; i++)
+         {
+            if((n%i)==0)
+               return false;
+         }
+         return true;
+      }
 };
 
 class Random

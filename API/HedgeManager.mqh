@@ -5,7 +5,9 @@
 #include "..\Events.mqh"
 #include "..\XML\XmlGarbage.mqh"
 #include "..\Resources\Resources.mqh"
+#include "..\Math.mqh"
 #include "H.mqh"
+
 ///
 /// Класс позиции
 ///
@@ -35,6 +37,7 @@ class HedgeManager
       ///
       HedgeManager()
       {
+         callBack = GetPointer(this);
          bool isTester = MQLInfoInteger(MQL_TESTER);
          if(!isTester && Resources.Failed())
          {
@@ -61,21 +64,72 @@ class HedgeManager
          }
          isInit = true;
          PrintPerfomanceParsing(tick);
-         TestHashValues();
+         //TestHashValues();
       }
       
       void TestHashValues()
       {
          Hash hashing;
-         for(int i = 0; i < HistoryOrdersTotal(); i++)
+         hashing.TimeHashing(true);
+         Random rnd;
+         /*for(int i = 0; i < 10; i++)
+         {
+            ulong value = rnd.Rand(0, 127);
+            string str = (string)(value);
+            hashing.SetHighestBit(value);
+            str += " - " + (string)(value);
+            hashing.ResetHighestBit(value);
+            str += " - " + (string)(value);
+            printf(str);
+         }
+         ulong key = rnd.Rand();
+         for(int i = 0; i < 10; i++)
+         {
+            rnd.Seed(key);
+            ulong value = rnd.Rand();
+            printf((string)value);
+         }*/
+         /*int i = HistoryOrdersTotal()-20;
+         if(i < 0)i=0;
+         for(i = 0; i < HistoryOrdersTotal(); i++)
          {
             ulong ticket = HistoryOrderGetTicket(i);
             Order *order = new Order(ticket);
             ulong hash = hashing.GetHash(order, ticket, HASH_FROM_VALUE);
             ulong value = hashing.GetHash(order, hash, VALUE_FROM_HASH);
+            printf((string)ticket + " - " +(string)hash + " - " + (string)value);
             int dbg = 3;
+            delete order;
+         }*/
+         uint total = UINT_MAX; 
+         //total = 1000000;
+         int m = 42949673;
+         Order* order = new Order();
+         //printf("test");
+         //printf("Complete " + (string)(1) + " per");
+         //printf("Complete " + (string)(1) + "per");
+         //printf("Complete " + (string)(1) + "%");
+         //printf("Warning! Value " + (string)value + " != " + (string)ticket);
+         int bad = 0;
+         for(uint i = 0; i < total; i++)
+         {
+            ulong ticket = 1009045932 + i;
+            ulong tiks = (TimeCurrent()*1000) + rnd.Rand(0, 1000);
+            order.TimeSetupTemp(tiks);
+            order.SetIdTemp(ticket);
+            ulong hash = hashing.GetHash(order, ticket, HASH_FROM_VALUE);
+            ulong value = hashing.GetHash(order, hash, VALUE_FROM_HASH);
+            if(value != ticket)
+            {
+               printf("Warning! Value " + (string)value + " != " + (string)ticket);
+               bad++;
+            }
+            if(i%m == 0 && i > 0)
+               printf("Complete " + (string)(i/m) + " percent.");
          }
-         
+         printf("Complete. Bad converters " + (string)bad);
+         delete order;
+         ExpertRemove();
       }
       
       ~HedgeManager()
@@ -788,3 +842,7 @@ class HedgeManager
       ///
       CArrayLong listPendingOrders;
 };
+///
+/// Интерфейс обратного вызова.
+///
+HedgeManager* callBack;

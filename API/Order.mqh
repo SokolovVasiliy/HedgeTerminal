@@ -60,6 +60,12 @@ class Order : public Transaction
       
       string Comment();
       long TimeSetup();
+      
+      ///   Временные функции
+      void TimeSetupTemp(long tiks){timeSetup.Tiks(tiks);}
+      void SetIdTemp(ulong id){SetId(id);}
+      ///------------------
+      
       long TimeExecuted();
       long TimeCanceled();
       
@@ -72,6 +78,7 @@ class Order : public Transaction
       void DealChanged(Deal* deal);
       
       double PriceSetup();
+      
       double EntryExecutedPrice(void);
       
       ulong GetMagic(ENUM_MAGIC_TYPE type);
@@ -106,6 +113,7 @@ class Order : public Transaction
       bool IsExecuted();
       virtual double Commission(void);
       double Slippage();
+      
    private:
       bool IsSelected(ulong id);
       ulong GetStopMask(void);
@@ -537,7 +545,7 @@ bool Order::InProcessing()
 ///
 /// Получает магик для закрытия данного ордера.
 ///
-ulong Order::GetMagic(ENUM_MAGIC_TYPE magicType = MAGIC_TYPE_MARKET)
+ulong Order::GetMagic1(ENUM_MAGIC_TYPE magicType = MAGIC_TYPE_MARKET)
 {
    switch(magicType)
    {
@@ -554,7 +562,7 @@ ulong Order::GetMagic(ENUM_MAGIC_TYPE magicType = MAGIC_TYPE_MARKET)
 ///
 /// Получает магик для закрытия данного ордера.
 ///
-ulong Order::GetMagic1(ENUM_MAGIC_TYPE magicType = MAGIC_TYPE_MARKET)
+ulong Order::GetMagic(ENUM_MAGIC_TYPE magicType = MAGIC_TYPE_MARKET)
 {
    ulong value = 0;
    switch(magicType)
@@ -620,6 +628,7 @@ double Order::PriceSetup(void)
    }
    return priceSetup;
 }
+
 
 ///
 /// Возвращает средневзвешенную цену исполнения ордера.
@@ -751,11 +760,26 @@ void Order::RecalcPosId()
    positionId = 0;
    if(magic > 0 && hash.FirstBitIsHighest(magic))
    {
-      ulong value = hash.GetHash(GetPointer(this), magic, VALUE_FROM_HASH);
       // 6 старших битов оставляем для служебной информации.
       // остальное - для идентификатора номера.
       ulong mask = 0x03FFFFFFFFFFFFFF;
-      positionId = value & mask;
+      int t = callBack.ActivePosTotal();
+      for(int i = 0; i < t; i++)
+      {
+         Position* pos = callBack.ActivePosAt(i);
+         ulong id = pos.GetId();
+         Order* order = pos.EntryOrder();
+         ulong value = hash.GetHash(order, magic, VALUE_FROM_HASH);
+         value = value & mask;
+         if(value == pos.GetId())
+         {
+            positionId = value;
+            break;
+         }
+      }
+      /*ulong value = hash.GetHash(GetPointer(this), magic, VALUE_FROM_HASH);
+      
+      positionId = value & mask;*/
    }
 }
 
