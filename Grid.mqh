@@ -3,7 +3,7 @@
 ///
 /// Тип получаемого хеша.
 ///
-enum ENUM_HASH_TYPE
+/*enum ENUM_HASH_TYPE
 {
    ///
    /// Получаем хеш из значения.
@@ -13,26 +13,50 @@ enum ENUM_HASH_TYPE
    /// Получаем значение из хеша.
    ///
    VALUE_FROM_HASH
-};
+};*/
 ///
 /// п
 ///
 class Grid
 {
    public:
-      Grid()
+      ///
+      /// Возвращает истину, если самый старший бит переданного значения value
+      /// равен 1. Возвращает ложь в противном случае.
+      ///
+      static bool FirstBitIsHighest(ulong value)
       {
-         ;
+         long v = (long)value;
+         if(v < 0)return true;
+         return false;
+      }
+      ///
+      /// Устанавливает старший бит числа ulong в значение 1.
+      ///
+      static void SetHighestBit(ulong& value)
+      {
+         ulong mask = 0x8000000000000000;
+         value = (value | mask);
+      }
+      ///
+      /// Сбрасывает значение старшего бита числа ulong в 0.
+      ///
+      static void ResetHighestBit(ulong& value)
+      {
+         ulong mask = 0x7fffffffffffffff;
+         value = (value & mask);
       }
       ///
       /// Возвращает хеш, на основе квадратных перестановок.
       ///
-      ulong GenHash(ulong value, ulong key)
+      ulong GenHash(long value, string key)
       {
-         //XOR(value);
-         GenMap(key);
-         PrintMap();
-         ulong hash = 0;
+         if(FirstBitIsHighest(value))
+            ResetHighestBit(value);
+         XOR(value);
+         GenMap(Adler32(key));
+         //PrintMap();
+         ulong hash = 0x8000000000000000;
          for(uchar i = 0; i < 63; i++)
          {
             uchar ind = map[i];              // Получаем индекс бита, который надо сейчас взять.
@@ -41,9 +65,12 @@ class Grid
          }
          return hash;
       }
-      ulong GenValue(ulong hash, ulong key)
+      ///
+      /// Возвращает расшифрованное значение из хеша.
+      ///
+      ulong GenValue(ulong hash, string key)
       {
-         GenMap(key);
+         GenMap(Adler32(key));
          ulong value = 0;
          for(uchar i = 0; i < 63; i++)
          {
@@ -51,7 +78,9 @@ class Grid
             bool bit = GetBit(hash, i);      // Забераем его из указаного места.
             SetBit(value, ind, bit);         // И ставим в текущее положение.
          }
-         //XOR(value);
+         XOR(value);
+         if(FirstBitIsHighest(value))
+            ResetHighestBit(value);
          return value;
       }
       ///
@@ -83,8 +112,10 @@ class Grid
       ///
       void XOR(ulong& value)
       {
-         const ulong key = 3356470703969066634;
-         value = value ^ key;
+         ulong max = ULONG_MAX;
+         const ulong key = 0xEE9694526934DE8A;
+         value = (key ^ value);
+         int dbg = 4;
       }
       ///
       /// Генерирует карту перестановок, на основе переданного ключа.
@@ -114,9 +145,11 @@ class Grid
             }
             continue;
          }
+         ulong m = cArray.At(cArray.Total()-1);
+         int dbg = 5;
       }
       ///
-      /// Выводит карту подстоновок.
+      /// Выводит карту подстановок.
       ///
       void PrintMap()
       {
@@ -127,6 +160,24 @@ class Grid
             str += (string)ch + ", ";
          }
          printf(str);
+      }
+      ///
+      /// Возвращает 32 битный хеш строки.
+      ///
+      uint Adler32(string buf)
+      {
+         uint s1 = 1;
+         uint s2 = 0;
+         uint buflength=StringLen(buf);
+         uchar array[];
+         ArrayResize(array, buflength,0);
+         StringToCharArray(buf, array, 0, -1, CP_ACP);
+         for (uint n=0; n<buflength; n++)
+         {
+            s1 = (s1 + array[n]) % 65521;
+            s2 = (s2 + s1)     % 65521;
+         }
+         return ((s2 << 16) + s1);
       }
       ///
       /// Карта перестановок.

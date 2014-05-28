@@ -251,6 +251,7 @@ class HedgeManager
          }
          return NULL;
       }
+
    private:
       
       ///

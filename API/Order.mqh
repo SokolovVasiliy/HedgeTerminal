@@ -2,6 +2,7 @@
 #include "..\Log.mqh"
 #include "..\Math.mqh"
 #include "H.mqh"
+#include "..\Grid.mqh"
 ///
 /// Тип генерируемого маджика
 ///
@@ -122,9 +123,7 @@ class Order : public Transaction
       ENUM_ORDER_STATUS RefreshStatus(void);
       void RecalcValues(void);
       void RecalcPosId(void);
-      ulong Hash(ulong value);
-      ulong UnHashMe(ulong value);
-      bool FirstBitTrue(ulong value);
+      int FindActivePosById(ulong id);
       ///
       /// Если ордер принадлежит к позиции, содержит ссылку на нее.
       ///
@@ -186,6 +185,10 @@ class Order : public Transaction
       ///
       ulong magic;
       ///
+      /// Расшифрованное значение magic.
+      ///
+      ulong unhash;
+      ///
       /// Истина, если основные параметры исторического ордера уже получены.
       ///
       bool isCalc;
@@ -197,9 +200,10 @@ class Order : public Transaction
       ///
       bool activated;
       ///
-      /// Хеширующие функции.
+      /// Шифровка/расшифровка ордеров.
       ///
-      Hash hash;
+      Grid grid;
+      
 };
 
 /*PUBLIC MEMBERS*/
@@ -577,7 +581,9 @@ ulong Order::GetMagic(ENUM_MAGIC_TYPE magicType = MAGIC_TYPE_MARKET)
          value = GetTakeMask() | GetId();
          break;
    }
-   return hash.GetHash(GetPointer(this), value, HASH_FROM_VALUE);
+   ulong id = grid.GenHash(value, this.Symbol());
+   return id;
+   //return hash.GetHash(GetPointer(this), value, HASH_FROM_VALUE);
 }
 
 ///
@@ -758,61 +764,30 @@ void Order::RecalcValues(void)
 void Order::RecalcPosId()
 {
    positionId = 0;
-   if(magic > 0 && hash.FirstBitIsHighest(magic))
+   unhash = 0;
+   if(!grid.FirstBitIsHighest(magic))return;
+   unhash = grid.GenValue(magic, this.Symbol());
+   // 6 старших битов оставляем для служебной информации.
+   // остальное - для идентификатора номера.
+   ulong mask = 0x03FFFFFFFFFFFFFF;
+   ulong id = mask & unhash;
+   if(FindActivePosById(id) == -1)return;
+   positionId = id;
+}
+
+int Order::FindActivePosById(ulong id)
+{
+   int total = callBack.ActivePosTotal();
+   for(int i = 0; i < total; i++)
    {
-      // 6 старших битов оставляем для служебной информации.
-      // остальное - для идентификатора номера.
-      ulong mask = 0x03FFFFFFFFFFFFFF;
-      int t = callBack.ActivePosTotal();
-      for(int i = 0; i < t; i++)
-      {
-         Position* pos = callBack.ActivePosAt(i);
-         ulong id = pos.GetId();
-         Order* order = pos.EntryOrder();
-         ulong value = hash.GetHash(order, magic, VALUE_FROM_HASH);
-         value = value & mask;
-         if(value == pos.GetId())
-         {
-            positionId = value;
-            break;
-         }
-      }
-      /*ulong value = hash.GetHash(GetPointer(this), magic, VALUE_FROM_HASH);
-      
-      positionId = value & mask;*/
+      Position* pos = callBack.ActivePosAt(i);
+      if(pos.Symbol() != Symbol())
+         continue;
+      if(pos.GetId() == id)
+         return i;
    }
+   return -1;
 }
-
-bool Order::FirstBitTrue(ulong value)
-{
-   ulong mask = 0x8000000000000000;
-   if((value & mask) == mask)
-      return true;
-   return false;
-}
-
-///
-/// хеширует идентификатор позиции
-///
-/*ulong Order::Hash(ulong value)
-{
-   rnd.Seed(value);
-   ulong r = rnd.Rand();
-   ulong hash = r ^ value;
-   return hash;
-}*/
-
-///
-/// Дехеширует идентификатор позиции
-///
-/*ulong Order::UnHashMe()
-{
-   ulong id = GetId();
-   rnd.Seed(id);
-   ulong r = rnd.Rand();
-   ulong unhash = r ^ magic;
-   return unhash;
-}*/
 
 ///
 /// Объеденяет сделки с одинаковыми id в одну сделку
@@ -862,7 +837,7 @@ ulong Order::GetTakeMask(void)
 ///
 bool Order::IsStopLoss(void)
 {
-   bool res = (magic & GetStopMask()) == GetStopMask();
+   bool res = (unhash & GetStopMask()) == GetStopMask();
    //Сработавший стоп обрабатывается по-другому и стопом не считается.
    return res;
    //bool exe = IsExecuted();
@@ -874,7 +849,7 @@ bool Order::IsStopLoss(void)
 ///
 bool Order::IsTakeProfit(void)
 {
-   return (magic & GetTakeMask()) == GetTakeMask();
+   return (unhash & GetTakeMask()) == GetTakeMask();
 }
 
 ///

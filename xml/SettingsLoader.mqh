@@ -531,6 +531,8 @@ ENUM_COLUMN_TYPE XmlLoader::GetColumnType(string columnId)
       return COLUMN_COLLAPSE;
    if(columnId == "Magic")
       return COLUMN_MAGIC;
+   if(columnId == "ExitMagic")
+      return COLUMN_EXIT_MAGIC;
    if(columnId == "Symbol")
       return COLUMN_SYMBOL;
    if(columnId == "EntryID")

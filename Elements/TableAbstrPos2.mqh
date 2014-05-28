@@ -1188,10 +1188,11 @@ class Summary : public AbstractLine
       {
          if(api == NULL)
             return;
-         int total = api.HistoryPosTotal();
+            
+         int total = callBack.HistoryPosTotal();
          for(; histTrans < total; histTrans++)
          {
-            Transaction* trans = api.HistoryPosAt(histTrans);
+            Transaction* trans = callBack.HistoryPosAt(histTrans);
             balance += trans.ProfitInCurrency();
             commission += trans.Commission();
             if(trans.TransactionType() == TRANS_POSITION)

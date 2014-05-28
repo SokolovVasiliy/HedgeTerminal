@@ -13,7 +13,10 @@
 //#define DEBUG
 //#define RELEASE
 #include  "Globals.mqh"
-
+///
+/// Флаг деинициализации.
+///
+bool _deinit;
 ///
 /// Скорость обновления панели
 ///

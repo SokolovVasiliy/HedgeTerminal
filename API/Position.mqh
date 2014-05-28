@@ -190,6 +190,7 @@ class Position : public Transaction
       /// Возвращает величину общего проскальзывания позиции в пунктах.
       ///
       double Slippage();
+      
    private:
       ///
       /// Сохраняет информацию о позиции в XML-узле файла активных позиций.
@@ -203,6 +204,9 @@ class Position : public Transaction
       /// Посылает событие обновления состояния в визуальную форму.
       ///
       void RefreshVisualForm(ENUM_POSITION_CHANGED_TYPE type);
+      ///
+      /// Обновляет состояние позиции.
+      ///
       void OnRefresh(void);
       ///
       /// Класс, для совершения торговых операций.
@@ -1380,6 +1384,13 @@ ENUM_HEDGE_ERR Position::AddTask(Task2 *ctask)
 {
    if(CheckPointer(ctask) == POINTER_INVALID)
       return HEDGE_ERR_TASK_FAILED;
+   if(CheckPointer(task2) != POINTER_INVALID && (task2.Status() == TASK_STATUS_EXECUTING ||
+    task2.Status() == TASK_STATUS_WAITING))
+   {
+      LogWriter("Current position is frozen and not be changed. Try later.", MESSAGE_TYPE_WARNING);
+      delete ctask;
+      return HEDGE_ERR_POS_FROZEN;
+   }
    // Обновляем терминал.
    api.OnRefresh();
    if(IsBlocked())
