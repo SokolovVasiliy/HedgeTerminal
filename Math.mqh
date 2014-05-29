@@ -51,7 +51,9 @@ class Random
          prevValue = value;
          return value;
       }
-      
+      ///
+      /// Генерирует случайное число от min до max-1 включительно.
+      ///
       ulong Rand(ulong min, ulong max)
       {
          ulong delta = max - min;

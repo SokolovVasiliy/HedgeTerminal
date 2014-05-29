@@ -1,42 +1,50 @@
 #include "Math.mqh"
 #include "Grid.mqh"
+#include "Cripto.mqh"
+#include "HashArray.mqh"
+#include <Arrays\ArrayLong.mqh>
 
 Grid grid;
 void OnStart()
 {
-   /*ulong value = 0x80FFFFFFFFFFFFFF;
-   ulong cvalue = 0;
-   ulong hash = grid.GenHash(value, 0);
-   ulong chash = grid.GenValue(hash, 0);
-   PrintBit(value);
-   PrintBit(hash);
-   PrintBit(chash);*/
-   //printf((string)value);
-   //printf((string)cvalue);
-   /*Random rnd;
-   ulong max = 0;
-   ulong min = ULONG_MAX;
-   for(int i = 0; i < 1000; i++)
+   uchar map[];
+   uint tiks = GetTickCount();
+   Cripto cripto(32);
+   ulong v = 19;
+   CArrayLong hashes;
+   hashes.Resize(10000);
+   hashes.Sort();
+   //for(int i = 0; i < 10000; i++)
+   //{
+      ulong hash = cripto.Crypt(v);
+      ulong value = cripto.Decrypt(hash);
+      int index = hashes.Search(hash);
+      //if(index != -1)
+      //   printf("Найдено совпадение на i=" + i);
+      //else
+      //hashes.InsertSort(hash);
+   //}
+   /*int total = hashes.Total();
+   for(int i = 1; i < hashes.Total(); i++)
    {
-      ulong value = rnd.Rand(5, 64);
-      if(value > max)max = value;
-      if(value < min)min = value;
-   }
-   printf(max + " - " + min);*/
-   Grid grid;
-   //ulong hash = grid.GenHash(1010152769, "AUDCHF");
-   HistorySelect(0, TimeCurrent());
-   int total = HistoryOrdersTotal();
-   for(int i = 0; i < total; i++)
+      if(hashes.At(i-1) == hashes.At(i))
+         printf("Найдено совпадение" + (string)i);
+   }*/
+   //printf("Tiks: " + (string)(GetTickCount()-tiks));
+   printf("Value: " + (string)v + "; Hash: " + (string)hash + "; Value: " + (string)value);
+   /*for(int i = 0; i < 10000; i++)
    {
-      ulong ticket = HistoryOrderGetTicket(i);
-      ulong magic = HistoryOrderGetInteger(ticket, ORDER_MAGIC);
-      string symbol = HistoryOrderGetString(ticket, ORDER_SYMBOL);
-      //ulong hash = grid.GenHash(ticket, symbol);
-      if(magic < LONG_MAX)continue;
-      
-      printf((string)magic + " - " + symbol + " (" + (string)ticket + ")   " + (string)hash);
-   }
+      //GenMap(1, map);
+      cripto.f(1, 1);
+   }*/
+   
+   //ulong hash = cripto.f(3, 1);
+   //printf("Number: " + (string)hash);
+   //string str = "";
+   //for(int i = 0; i < ArraySize(map); i++)
+   //   str += (string)map[i] + ",";
+   //printf("Tiks: " + (string)(GetTickCount()-tiks) + "; countings: " + DoubleToString(CountWhile/10000.0, 2));
+   //printf(str);
 }
 ///
 /// Печатает битовое представление числа.
