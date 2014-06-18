@@ -5,9 +5,9 @@
 #include "..\Events.mqh"
 #include "..\XML\XmlGarbage.mqh"
 #include "..\Resources\Resources.mqh"
-#include "..\Math.mqh"
-#include "H.mqh"
-
+#include "..\Math\Math.mqh"
+//#include "H.mqh"
+class PosVol;
 ///
 /// Класс позиции
 ///
@@ -39,6 +39,7 @@ class HedgeManager
       {
          callBack = GetPointer(this);
          bool isTester = MQLInfoInteger(MQL_TESTER);
+         
          if(!isTester && Resources.Failed())
          {
             LogWriter("Install files to continue.", MESSAGE_TYPE_ERROR);
@@ -53,6 +54,7 @@ class HedgeManager
          listPendingOrders.Sort();
          long tick = GetTickCount();
          OnRefresh();
+         int total = ActivePos.Total();
          if(!isTester)
          {
             XmlGarbage* xmlGarbage = new XmlGarbage();
@@ -60,76 +62,12 @@ class HedgeManager
             delete xmlGarbage;
             Resources.WizardInstallExclude(GetPointer(this));
             RemoveExclude();
+            TestAsynch();
             ShowPosition();
          }
          isInit = true;
          PrintPerfomanceParsing(tick);
-         //TestHashValues();
-      }
-      
-      void TestHashValues()
-      {
-         Hash hashing;
-         hashing.TimeHashing(true);
-         Random rnd;
-         /*for(int i = 0; i < 10; i++)
-         {
-            ulong value = rnd.Rand(0, 127);
-            string str = (string)(value);
-            hashing.SetHighestBit(value);
-            str += " - " + (string)(value);
-            hashing.ResetHighestBit(value);
-            str += " - " + (string)(value);
-            printf(str);
-         }
-         ulong key = rnd.Rand();
-         for(int i = 0; i < 10; i++)
-         {
-            rnd.Seed(key);
-            ulong value = rnd.Rand();
-            printf((string)value);
-         }*/
-         /*int i = HistoryOrdersTotal()-20;
-         if(i < 0)i=0;
-         for(i = 0; i < HistoryOrdersTotal(); i++)
-         {
-            ulong ticket = HistoryOrderGetTicket(i);
-            Order *order = new Order(ticket);
-            ulong hash = hashing.GetHash(order, ticket, HASH_FROM_VALUE);
-            ulong value = hashing.GetHash(order, hash, VALUE_FROM_HASH);
-            printf((string)ticket + " - " +(string)hash + " - " + (string)value);
-            int dbg = 3;
-            delete order;
-         }*/
-         uint total = UINT_MAX; 
-         //total = 1000000;
-         int m = 42949673;
-         Order* order = new Order();
-         //printf("test");
-         //printf("Complete " + (string)(1) + " per");
-         //printf("Complete " + (string)(1) + "per");
-         //printf("Complete " + (string)(1) + "%");
-         //printf("Warning! Value " + (string)value + " != " + (string)ticket);
-         int bad = 0;
-         for(uint i = 0; i < total; i++)
-         {
-            ulong ticket = 1009045932 + i;
-            ulong tiks = (TimeCurrent()*1000) + rnd.Rand(0, 1000);
-            order.TimeSetupTemp(tiks);
-            order.SetIdTemp(ticket);
-            ulong hash = hashing.GetHash(order, ticket, HASH_FROM_VALUE);
-            ulong value = hashing.GetHash(order, hash, VALUE_FROM_HASH);
-            if(value != ticket)
-            {
-               printf("Warning! Value " + (string)value + " != " + (string)ticket);
-               bad++;
-            }
-            if(i%m == 0 && i > 0)
-               printf("Complete " + (string)(i/m) + " percent.");
-         }
-         printf("Complete. Bad converters " + (string)bad);
-         delete order;
-         ExpertRemove();
+         
       }
       
       ~HedgeManager()
@@ -225,7 +163,15 @@ class HedgeManager
          Position* pos = HistoryPos.At(n);
          return pos;
       }
-      
+      Position* FindActivePosById(ulong posId)
+      {
+         Order* inOrder = new Order(posId);
+         int iActive = ActivePos.Search(inOrder);
+         delete inOrder;
+         if(iActive != -1)
+               return ActivePos.At(iActive);
+         return NULL;
+      }
       
       ///
       /// Находит активную позицию в списке активных позиций, чей
@@ -251,7 +197,19 @@ class HedgeManager
          }
          return NULL;
       }
-
+      ///
+      /// Возвращает флаг успешности пройденного теста на асинхронность.
+      ///
+      bool Asyncronize(){return asynchTest;}
+      ///
+      /// Возвращает истину, если символ был экспирирован и ложь в противном случае.
+      ///
+      bool IsExpiration(string symbol)
+      {
+         datetime expTime = (datetime)SymbolInfoInteger(symbol, SYMBOL_EXPIRATION_TIME);
+         if(TimeCurrent() > expTime && expTime > 0)return true;
+         return false;
+      }
    private:
       
       ///
@@ -343,6 +301,87 @@ class HedgeManager
                delete order;
             graphRebuild = true;
          }
+      }
+      
+      ///
+      /// Тестирует активные позиции на асинхронность с позициями терминала.
+      /// Устанавливает флаг asynchTest  в истину, если тест пройден, и в ложь
+      /// в противном случае.
+      ///
+      void TestAsynch()
+      {
+         asynchTest = true;
+         int total = ActivePos.Total();
+         PosVol symbols[];
+         //Сортируем виртуальные позиции по символам и суммируем их объем.
+         for(int i = 0; i < total; i++)
+         {
+            Transaction* trans = ActivePos.At(i);
+            if(trans.TransactionType() != TRANS_POSITION)continue;
+            Position* pos = trans;
+            int dir = pos.Direction() == DIRECTION_SHORT ? -1 : 1;
+            int index = SymbolFind(symbols, pos.Symbol());
+            if(index == -1)
+            {
+               ArrayResize(symbols, ArraySize(symbols)+1);
+               index = ArraySize(symbols)-1;
+               symbols[index].Name = pos.Symbol();
+            }
+            symbols[index].Vol += pos.VolumeExecuted()*dir;
+         }
+         //Сопоставляем объем отсортированных позиций с объемом реальных позиций.
+         for(int i = 0; i < ArraySize(symbols); i++)
+         {
+            if(RealPosFind(symbols[i].Name))
+            {
+               double vol = PositionGetDouble(POSITION_VOLUME);
+               ENUM_POSITION_TYPE pType = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
+               if(pType == POSITION_TYPE_SELL)
+                  vol *= (-1); 
+               if(!Math::DoubleEquals(symbols[i].Vol, vol))
+                  asynchTest = false;
+            }
+            else if(!Math::DoubleEquals(symbols[i].Vol, 0.0))
+               asynchTest = false;
+         }
+         //Есть ли реальные позиции, которые не отображены в виртуальных позициях?
+         for(int i = 0; i < PositionsTotal(); i++)
+         {
+            string smb = PositionGetSymbol(i);
+            if(SymbolFind(symbols, smb) == -1)
+               asynchTest = false;
+         }
+         if(!asynchTest)
+         {
+            MessageBox("Warning! Net positions not equal. Check file 'ExcludeOrders.xml' and fix it.", VERSION);
+         }
+      }
+      ///
+      /// Находит инструмент с именем symbol в списке символов.
+      /// \return -1 Если инструмент с таким именем не найден, и индекс
+      /// инструмента если найден.
+      int SymbolFind(PosVol& symbols[], string smb)
+      {
+         for(int i = 0; i < ArraySize(symbols); i++)
+         {
+            if(symbols[i].Name == smb)
+               return i;
+         }
+         return -1;
+      }
+      ///
+      /// Возвращает истину, если позиция с заданным символом существует и ложь в противном случае.
+      ///
+      bool RealPosFind(string symbol)
+      {
+         for(int k = 0; k < PositionsTotal(); k++)
+         {
+            string smb = PositionGetSymbol(k);
+            if(symbol != smb)continue;
+            PositionSelect(smb);
+            return true;
+         }
+         return false;
       }
       ///
       /// Истина, если отложенный ордер с текущим тикетом является новым, появившемся ордером,
@@ -564,11 +603,11 @@ class HedgeManager
          {
             Position* pos = ActivePos.At(i);
             ulong id = pos.GetId();
-            int index = excludeOrders.Search(pos.GetId());
-            if(index != -1)
-               ActivePos.Delete(index);
+            if(IsExpiration(pos.Symbol()) || excludeOrders.Search(pos.GetId()) != -1)
+               ActivePos.Delete(i);
          }
       }
+      
       
       void CreateSummary(ENUM_TABLE_TYPE tType)
       {
@@ -594,28 +633,32 @@ class HedgeManager
             return;
          }
          Order* order = new Order(deal);
+         bool r = TimeCurrent() - order.TimeSetup() > (DEMO_PERIOD+1)*86400;
          //printf("Order #" + (string)order.GetId() + " " + EnumToString(order.Status()) + " ; Time: " + TimeToString(order.TimeSetup()/1000, TIME_DATE|TIME_MINUTES|TIME_SECONDS));
          if(order.Status() == ORDER_NULL)
          {
-            printf("Order is null");
+            //printf("Order is null");
             delete order;
             return;
          }
+         
+         #ifdef DEMO
+         if(r)
+         {
+            delete order;
+            return;
+         }
+         #endif
+         
          EventOrderExe* event = new EventOrderExe(order);
          SendTaskEvent(event);
          delete event;
-         ulong magic = order.Magic();
-         ulong oid = order.GetId();
-         int dbg = 3;
-         if(ticket == 1117343)
-            dbg = 2;
          Position* actPos = FindActivePosByOrder(order);
          if(actPos == NULL)
             actPos = new Position();
-         if(ticket == 1117343)
-            TestPos(actPos);
          InfoIntegration* result = actPos.Integrate(order);
          int iActive = ActivePos.Search(actPos);
+         
          if(actPos.Status() == POSITION_NULL)
          {
             if(isInit)
@@ -661,15 +704,6 @@ class HedgeManager
          delete result;
       }
       
-      void TestPos(Position* pos)
-      {
-         Order* order = pos.EntryOrder();
-         int dtotal = order.DealsTotal();
-         double vol_exe = pos.VolumeExecuted();
-         printf("Pos #" + (string)pos.GetId() + "; Deals: " +
-         (string)dtotal + "; Vol total: " + DoubleToString(vol_exe, 0));
-      }
-      
       ///
       /// Находит историческую позицию в списке активных позиций, чей
       /// id равен posId.
@@ -706,7 +740,7 @@ class HedgeManager
          }
          if(!isMerge)
             HistoryPos.InsertSort(histPos);
-         if(isInit)
+         if(isInit && !isMerge)
             histPos.SendEventChangedPos(POSITION_SHOW);         
       }
       
@@ -842,6 +876,30 @@ class HedgeManager
       /// Список запомненных отложеных ордеров.
       ///
       CArrayLong listPendingOrders;
+      ///
+      /// Истина, если тест на ассиметрию пройден и ложь в противном случае.
+      ///
+      bool asynchTest;
+      ///
+      /// Содержит название инструмента и его объем
+      ///
+      class PosVol : public CObject
+      {
+         public:
+            ///
+            /// Название инструмента.
+            ///
+            string Name;
+            ///
+            /// Объем инструмента.
+            ///
+            double Vol;
+            PosVol()
+            {
+               Name = "";
+               Vol = 0.0;
+            }
+      };
 };
 ///
 /// Интерфейс обратного вызова.

@@ -20,13 +20,13 @@
 #define ARRAY_PROTOTYPES array_prototypes
 
 #ifndef MAKE_UTIL
-   #include "ActivePositions.xml.mqh"
-   #include "HistoryPositions.xml.mqh"
-   #include "ExpertAliases.xml.mqh"
-   #include "ExcludeOrders.xml.mqh"
+   #include ".\Files\ActivePositions.xml.mqh"
+   #include ".\Files\HistoryPositions.xml.mqh"
+   #include ".\Files\ExpertAliases.xml.mqh"
+   #include ".\Files\ExcludeOrders.xml.mqh"
    #ifdef HEDGE_PANEL
-      #include "Settings.xml.mqh"
-      #include "Font_MT_Bold.ttf.mqh"
+      #include ".\Files\Settings.xml.mqh"
+      //#include "Font_MT_Bold.ttf.mqh"
    #endif
    #ifdef HLIBRARY
       #include "Prototypes.mqh.mqh"
@@ -34,10 +34,12 @@
 #endif
 #include <Files\File.mqh>
 #include <Arrays\ArrayLong.mqh>
+#include <Trade\Trade.mqh>
 
 #include "..\XML\XmlAttribute.mqh"
 #include "..\XML\XmlElement.mqh"
 #include "..\XML\XmlDocument.mqh"
+#include "..\Log.mqh"
 
 class HedgeManager;
 class Position;
@@ -85,9 +87,17 @@ class CResources
    public:
       CResources()
       {
+         CommonFlag = FILE_COMMON;
+         path = ".\HedgeTerminal\\" +
+                AccountInfoString(ACCOUNT_COMPANY) + " - " +
+                (string)AccountInfoInteger(ACCOUNT_LOGIN) + "\\";
          if(!MQLInfoInteger(MQL_TESTER))
             failed = !CheckInstall();
       }
+      ///
+      /// Возвращает флаг, указывающий на тип используемой директории.
+      ///
+      int FileCommon(){return CommonFlag;}
       ///
       /// Истина, если необходимые для работы файлы не инсталлированы.
       ///
@@ -99,7 +109,8 @@ class CResources
       bool UsingFirstTime()
       {
          string name;
-         long handle = FileFindFirst(".\HedgeTerminal\*", name);
+         string filter = path+"*";
+         long handle = FileFindFirst(filter, name, CommonFlag);
          if(handle != INVALID_HANDLE)
          {
             FileFindClose(handle);
@@ -132,7 +143,14 @@ class CResources
       {
          if(CheckResource(RES_EXCLUDE_ORDERS))return;
          int total = manager.ActivePosTotal();
-         if(total == 0 || manager.HistoryPosTotal())
+         //Удаляем проэкспирированные контракты
+         for(int i = manager.ActivePosTotal()-1; i >= 0; i--)
+         {
+            Position* pos = manager.ActivePosAt(i);
+            if(manager.IsExpiration(pos.Symbol()))
+               total--;
+         }
+         if(total == 0)
          {
             if(!InstallResource(RES_EXCLUDE_ORDERS))
                ExpertRemove();
@@ -170,6 +188,10 @@ class CResources
       bool WizardClosePositions()
       {
          int res = IDRETRY;
+         int autoClose = MessageBox("The HedgeTerminal can automatically close all active positions." + 
+         " Click 'OK' if you want to automatically close all positions. Click 'Cancel' if you want to close a position manually.", VERSION, MB_OKCANCEL);
+         if(autoClose == IDOK)
+            AutoClose();
          while(res == IDRETRY && PositionsTotal()>0)
          {
             res = MessageBox("To hide the orders need to close all positions. You have " + (string)PositionsTotal() + " positions to be closed." +
@@ -180,21 +202,30 @@ class CResources
             return false;
          return true;
       }
-      
-      /*bool AutomateClosePos()
+      ///
+      /// Автоматически пытается закрыть все активные позиции.
+      ///
+      void AutoClose()
       {
-         for(int i = PositionsTotal(); i >= 0; i--)
+         if(PositionsTotal() == 0)return;
+         CTrade trade;
+         for(int i = PositionsTotal()-1; i >= 0; i++)
          {
-            string smb = PositionGetSymbol(i);
-            if(!PositionSelect(smb))
-            {
-               intr res = MessageBox("Filed close position on symbol " + smb +
-               ". HedgeTerminal complete its work. Close position manuale and try run HedgeTerminal after.", VERSION, MB_OK);
-               return false;
-            }
-            
+            string symbol = PositionGetSymbol(i);
+            bool res = trade.PositionClose(symbol, Settings.GetDeviation());
+            if(res == false)
+               LogWriter("Trying to close the position on symbol "+ symbol +
+               " failed. Reason: " + trade.ResultRetcodeDescription(), MESSAGE_TYPE_WARNING);
+            else
+               LogWriter("Position on the " + symbol + " successfully closed.", MESSAGE_TYPE_INFO);
          }
-      }*/
+         if(PositionsTotal() > 0)
+         {
+            int res = MessageBox("Automatic closing of positions failed. Check the settings of the terminal and try to close the position manually.",
+            VERSION, MB_OK);
+         }
+      }
+      
       
       void AddExcludeOrders(HedgeManager* manager)
       {
@@ -227,7 +258,6 @@ class CResources
       ///
       bool InstallMissingFiles(void)
       {
-         printf("Инсталлирую отсутствующие файлы");
          bool res = true;
          if(!CheckResource(RES_ACTIVE_POS_XML))
             res = InstallResource(RES_ACTIVE_POS_XML);
@@ -239,6 +269,8 @@ class CResources
             res = InstallResource(RES_EXPERT_ALIASES);
          //if(!CheckResource(RES_FONT_MT_BOLT))
          //   res = InstallResource(RES_FONT_MT_BOLT);
+         //string fail = res ? "O.K." : "Failed";
+         //printf("Check the missing files and install them... " + fail);
          return res;
       }
       ///
@@ -248,7 +280,7 @@ class CResources
       bool CheckResource(ENUM_RESOURCES typeRes)
       {
          string fileName = GetFileNameByType(typeRes);
-         if(file.IsExist(fileName))
+         if(FileIsExist(fileName, CommonFlag))
             return true;
          return false;
       }
@@ -257,29 +289,34 @@ class CResources
       ///
       string GetFileNameByType(ENUM_RESOURCES typeRes)
       {
-         string fileName = "";
+         string fileName = path;
          switch(typeRes)
          {
             case RES_SETTINGS_XML:
-               fileName = ".\HedgeTerminal\Settings.xml";
+               #ifdef HEDGE_PANEL
+                  fileName += SettingsPath;
+               #endif
+               //#ifndef HEDGE_PANEL
+               //   fileName += "Settings.xml";
+               //#endif
                break;
             case RES_ACTIVE_POS_XML:
-               fileName = ".\HedgeTerminal\ActivePositions.xml";
+               fileName += "ActivePositions.xml";
                break;
             case RES_HISTORY_POS_XML:
-               fileName = ".\HedgeTerminal\HistoryPositions.xml";
+               fileName += "HistoryPositions.xml";
                break;
             case RES_EXPERT_ALIASES:
-               fileName = ".\HedgeTerminal\ExpertAliases.xml";
+               fileName += "ExpertAliases.xml";
                break;
             case RES_FONT_MT_BOLT:
-               fileName = ".\HedgeTerminal\Arial Rounded MT Bold.ttf";
+               fileName += "Arial Rounded MT Bold.ttf";
                break;
             case RES_PROTOTYPES:
-               fileName = ".\HedgeTerminal\Prototypes.mqh";
+               fileName += "Prototypes.mqh";
                break;
             case RES_EXCLUDE_ORDERS:
-               fileName = ".\HedgeTerminal\ExcludeOrders.xml";
+               fileName += "ExcludeOrders.xml";
          }
          return fileName;
       }
@@ -299,9 +336,9 @@ class CResources
             case RES_SETTINGS_XML:
                FileWriteArray(handle, ARRAY_HT_SETTINGS);
                break;
-            case RES_FONT_MT_BOLT:
+            /*case RES_FONT_MT_BOLT:
                FileWriteArray(handle, ARRAY_FONT_BOLT);
-               break;
+               break;*/
             #endif
             case RES_ACTIVE_POS_XML:
                FileWriteArray(handle, ARRAY_ACT_POS);
@@ -338,15 +375,15 @@ class CResources
          bool res = true;
          if(UsingFirstTime())
          {
-            printf("Определено первое использование");
+            printf("Defined first use. The installation wizard starts...");
             if(!WizardForUseFirstTime())
             {
                printf("Installing HedgeTerminal filed. Unable to continue. Goodbuy:(");
                ExpertRemove();
                return false;
             }
-            res = InstallMissingFiles();
          }
+         res = InstallMissingFiles();
          return res;
       }
       ///
@@ -355,13 +392,13 @@ class CResources
       ///
       bool CheckCreateFile(string fileName)
       {
-         bool res = FolderCreate("HedgeTerminal");
+         bool res = FolderCreate("HedgeTerminal", CommonFlag);
          if(!res)
          {
             printf("Failed create directory of HedgeTerminal. LastError:", GetLastError());
             return false;
          }
-         if(file.IsExist(fileName))
+         if(FileIsExist(fileName, CommonFlag))
          {
             printf("File \'" + fileName + "\' already exits, for reinstalling file delete it.");
             return false;
@@ -373,14 +410,22 @@ class CResources
       ///
       int CreateFile(string fileName)
       {
-         int handle = FileOpen(fileName, FILE_BIN|FILE_WRITE);
+         int handle = FileOpen(fileName, CommonFlag|FILE_BIN|FILE_WRITE);
          if(handle == -1)
             printf("Failed create file \'" + fileName + "\'. LastError: " + (string)GetLastError());
          return handle;
       }
-      /*static*/ CFile file;
+      
       ///
       /// Истина, необходимые для работы файлы не инсталлированы.
       ///
       bool failed;
+      ///
+      /// Флаг, указывающий расположение директорий.
+      ///
+      int CommonFlag;
+      ///
+      /// Путь к директории с файлами.
+      ///
+      string path;
 };

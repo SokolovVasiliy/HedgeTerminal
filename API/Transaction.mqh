@@ -135,7 +135,7 @@ class Transaction : public CObject
       ///
       virtual double ProfitInPips()
       {
-         //double cp = 
+         double cp = EntryExecutedPrice();
          double delta = CurrentPrice() - EntryExecutedPrice();
          if(Direction() == DIRECTION_SHORT)
             delta *= -1.0;
@@ -146,6 +146,9 @@ class Transaction : public CObject
       ///
       virtual double ProfitInCurrency()
       {
+         int dbg = 5;
+         if(GetId() == 6389544)
+            dbg = 6;
          double pips = ProfitInPips();
          //—тоимость одного тика в валюте депозита.
          double tickValueCurrency = 0.0;
@@ -157,7 +160,7 @@ class Transaction : public CObject
             tickValueCurrency = symbolInfo.TickValueLoss();
          else
             tickValueCurrency = symbolInfo.TickValueProfit();
-         double currency = tickValueCurrency * pips * VolumeExecuted();
+         double currency = tickValueCurrency * pips * VolumeExecuted() + Commission();
          return currency;
       }
       virtual ENUM_DIRECTION_TYPE Direction()

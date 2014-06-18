@@ -48,7 +48,7 @@ public:
 //+------------------------------------------------------------------+
 void CXmlDocument::CXmlDocument()
   {
-   common = 0;
+   common = FILE_COMMON;
   };
 //+------------------------------------------------------------------+
 //| Destructor                                                       |
@@ -104,7 +104,8 @@ bool CXmlDocument::CreateFromText(  string &text,string &err)
      {
       if(p>=StringLen(text)) 
         {
-         err="Неожиданный конец документа позиция"+IntegerToString(p);
+         err="Unexpected end of document by position " + IntegerToString(p) +
+         ". Check valid text or exits file.";
          return(false);
         }
       bool res = StringSubstr(text,p,5)=="<?xml";
@@ -113,7 +114,7 @@ bool CXmlDocument::CreateFromText(  string &text,string &err)
          p=StringFind(text,"?>",p+StringLen("<?xml"));
          if(p<0) 
            {
-            err="Не найден ?> начиная с позиции "+IntegerToString(p);
+            err="Not find '?>' from position "+IntegerToString(p) + ".";
             return(false);
            }
          p+=StringLen("?>");
@@ -130,7 +131,7 @@ bool CXmlDocument::CreateFromText(  string &text,string &err)
          p=StringFind(text,"-->",p+StringLen("<!--"));
          if(p<0) 
            {
-            err="Не найден --> начиная с позиции "+IntegerToString(p);
+            err="Not find '-->' from position " + IntegerToString(p) + ".";
             return(false);
            }
          p+=3;
@@ -147,7 +148,7 @@ bool CXmlDocument::CreateFromText(  string &text,string &err)
          p=StringFind(text,"]]>",p+StringLen("<![CDATA["));
          if(p<0) 
            {
-            err="Не найден ]]> начиная с позиции "+IntegerToString(p);
+            err="Not find ']]>' from position "+IntegerToString(p) + ".";
             return(false);
            }
          p+=StringLen("]]>");
@@ -160,7 +161,7 @@ bool CXmlDocument::CreateFromText(  string &text,string &err)
          string name="";
          if(StringFind(NameStart,StringSubstr(text,p,1))<0) 
            {
-            err="Недопустимый символ в позиции"+IntegerToString(p);
+            err="Invalid character in position "+IntegerToString(p) + ".";
             return(false);
            }
          StringAdd(name,StringSubstr(text,p++,1));
@@ -170,7 +171,7 @@ bool CXmlDocument::CreateFromText(  string &text,string &err)
             p++;
          if(CurElement==NULL || CurElement.GetName()!=name || StringSubstr(text,p,1)!=">") 
            {
-            err="Недопустимый закрывающий тег в позиции"+IntegerToString(p);
+            err="Invalid closing tag in position "+IntegerToString(p) + ".";
             return(false);
            }
          p++;
@@ -183,7 +184,7 @@ bool CXmlDocument::CreateFromText(  string &text,string &err)
                parent=parent.GetChild(parent.GetChildCount()-1);
             if(parent.GetChild(parent.GetChildCount()-1)!=CurElement) 
               {
-               err="Ошибка вложенных элементов в позиции"+IntegerToString(p);
+               err="Error in nested position "+IntegerToString(p) + ".";
                return(false);
               }
             CurElement=parent;
@@ -206,7 +207,7 @@ bool CXmlDocument::CreateFromText(  string &text,string &err)
          // Tag name
          if(StringFind(NameStart,StringSubstr(text,p,1))<0) 
            {
-            err="ddd";
+            err="Substring " + (string)p + " not find";
             return(false);
            }
          element.SetName(element.GetName()+StringSubstr(text,p++,1));
@@ -224,7 +225,7 @@ bool CXmlDocument::CreateFromText(  string &text,string &err)
                p++;
             if(StringFind(NameStart,StringSubstr(text,p,1))<0) 
               {
-               err="dfg";
+               err="Substring " + (string)p + " not find";
                return(false);
               }
             CXmlAttribute *attribute=new CXmlAttribute;
@@ -238,7 +239,7 @@ bool CXmlDocument::CreateFromText(  string &text,string &err)
                p++;
             if(StringSubstr(text,p,1)!="=") 
               {
-               err="dlk;lk";
+               err="Substring " + (string)p + " not find";
                return(false);
               }
             p++;
@@ -248,7 +249,7 @@ bool CXmlDocument::CreateFromText(  string &text,string &err)
                p++;
             if(StringFind(QuoteChar,StringSubstr(text,p,1))<0) 
               {
-               err="ddd";
+               err="Substring " + (string)p + " not find";
                return(false);
               }
             string quote=StringSubstr(text,p++,1);
@@ -266,7 +267,7 @@ bool CXmlDocument::CreateFromText(  string &text,string &err)
             p++;
             CurElement=element;
               } else {
-            err="[pot";
+            err="Substring " + (string)p + " not find";
             return(false);
            }
            } else {
@@ -306,7 +307,7 @@ string CXmlDocument::GetXml()
 //+------------------------------------------------------------------+
 //| CreateFromFile                                                   |
 //+------------------------------------------------------------------+
-bool CXmlDocument::CreateFromFile(  string filename,string &err) 
+bool CXmlDocument::CreateFromFile( string filename,string &err) 
   {
    ResetLastError();
    int h=FileOpen(filename,FILE_BIN|FILE_READ|FILE_WRITE| common);

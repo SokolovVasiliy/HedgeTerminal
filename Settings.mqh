@@ -229,7 +229,7 @@ class PanelSettings
       ///
       PanelSettings()
       {
-         if(!MQLInfoInteger(MQL_TESTER))
+         if(!MQLInfoInteger(MQL_TESTER) && !Resources.Failed())
          {
             loader = new XmlLoader();
             setForActivePos.AssignArray(loader.GetActiveColumns());
@@ -241,6 +241,11 @@ class PanelSettings
          if(CheckPointer(loader) != POINTER_INVALID)
             delete loader;
       }
+      ///
+      /// ¬озвращает предельное отклонение цены в прайсстепах.
+      ///
+      ulong GetDeviation(){return loader.GetDeviation();}
+      uint GetRefreshRates(){return loader.GetRefreshRates();}
    private:        
       /*static*/ PanelSettings* set;
       ///
@@ -277,4 +282,8 @@ class PanelSettings
       }
       
       PanelSettings* operator=(  PanelSettings*);
+      ///
+      /// —одержит отклонение в пунктах.
+      ///
+      ulong deviation;
 };

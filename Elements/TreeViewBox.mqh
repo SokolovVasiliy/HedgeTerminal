@@ -55,12 +55,18 @@ class TreeViewBox : public Label
             Text("+");
          else if(/*isGrafh && */boxTreeType == BOX_TREE_GENERAL && state == BOX_TREE_RESTORE)
             Text("-");
-         else if(boxTreeType == BOX_TREE_SLAVE)
+         else
+         {
+            Font("Wingdings 3");
+            FontColor(C'70,70,70');
+            Text("9");
+         }
+         /*else if(boxTreeType == BOX_TREE_SLAVE)
             Text(CharToString(3));
          else if(boxTreeType == BOX_TREE_ENDSLAVE)
             Text(CharToString(5));
          else
-            Text("");
+            Text("");*/
       }
       ENUM_BOX_TREE_STATE State(){return state;}
       ///

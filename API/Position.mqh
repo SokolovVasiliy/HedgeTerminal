@@ -1,4 +1,4 @@
-#include "..\Math.mqh"
+#include "..\Math\Math.mqh"
 #include "Transaction.mqh"
 #include "Order.mqh"
 #include "..\Log.mqh"
@@ -1614,14 +1614,14 @@ void Position::CloseByVirtualOrder(void)
       double cur_price = CurrentPrice();
       bool res = Math::DoubleEquals(takeProfit, cur_price) || takeProfit < cur_price;
       if(res)
-         AddTask(new TaskClosePosition(GetPointer(this), MAGIC_TYPE_TP, true));
+         AddTask(new TaskClosePosition(GetPointer(this), MAGIC_TYPE_TP, Settings.GetDeviation(), true));
    }
    if(Direction() == DIRECTION_SHORT)
    {
       double cur_price = CurrentPrice();
       bool res = Math::DoubleEquals(takeProfit, cur_price) || takeProfit > cur_price;
       if(res)
-         AddTask(new TaskClosePosition(GetPointer(this), MAGIC_TYPE_TP, true));
+         AddTask(new TaskClosePosition(GetPointer(this), MAGIC_TYPE_TP, Settings.GetDeviation(), true));
    }
 }
 

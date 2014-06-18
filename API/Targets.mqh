@@ -484,10 +484,10 @@ class TargetModifyPendingOrder : Target
 class TargetTradeByMarket : Target
 {
    public:
-      TargetTradeByMarket(string symbol, ENUM_DIRECTION_TYPE dir, double vol, string comment, ulong magic, bool asynchMode) :
+      TargetTradeByMarket(string symbol, ENUM_DIRECTION_TYPE dir, double vol, ulong deviation, string comment, ulong magic, bool asynchMode) :
       Target(TARGET_TRADE_BY_MARKET)
       {
-         tradeMarket = new MethodTradeByMarket(symbol, dir, vol, comment, magic, asynchMode);
+         tradeMarket = new MethodTradeByMarket(symbol, dir, vol, deviation, comment, magic, asynchMode);
       }
       ~TargetTradeByMarket()
       {

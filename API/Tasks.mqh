@@ -104,6 +104,7 @@ class Task2 : public CObject
                //Сценарий восстановления задается потомком.
                OnCrashed();
                TaskChanged();
+               return;
             }
          }
       }
@@ -402,7 +403,7 @@ class TaskModifyStop : public Task2
 class TaskClosePosition : public Task2
 {
    public:
-      TaskClosePosition(Position* pos, ENUM_MAGIC_TYPE type, bool asynchMode) : Task2(pos, asynchMode)
+      TaskClosePosition(Position* pos, ENUM_MAGIC_TYPE type, ulong deviation, bool asynchMode) : Task2(pos, asynchMode)
       {
          ENUM_DIRECTION_TYPE dir = pos.Direction() == DIRECTION_LONG ? DIRECTION_SHORT: DIRECTION_LONG;
          Order* initOrder = pos.EntryOrder();
@@ -414,7 +415,7 @@ class TaskClosePosition : public Task2
             Order* slOrder = pos.StopOrder();
             AddTarget(new TargetDeletePendingOrder(slOrder.GetId(), asynchMode));
          }
-         AddTarget(new TargetTradeByMarket(pos.Symbol(), dir, pos.VolumeExecuted(), pos.ExitComment(), magic, true));
+         AddTarget(new TargetTradeByMarket(pos.Symbol(), dir, pos.VolumeExecuted(), deviation, pos.ExitComment(), magic, true));
       }
 };
 
@@ -429,7 +430,7 @@ class TaskClosePartPosition : public Task2
       /// \param pos - Позиция, часть объема которой требуется закрыть.
       /// \param volume - объем, который требуется закрыть.
       ///
-      TaskClosePartPosition(Position* pos, double volume, bool asynchMode) : Task2(pos, asynchMode)
+      TaskClosePartPosition(Position* pos, double volume, ulong deviation, bool asynchMode) : Task2(pos, asynchMode)
       {
          if(FailedIfNotActivePos())
             return;
@@ -450,7 +451,7 @@ class TaskClosePartPosition : public Task2
          ENUM_DIRECTION_TYPE dir = pos.Direction() == DIRECTION_LONG ? DIRECTION_SHORT: DIRECTION_LONG;
          Order* initOrder = pos.EntryOrder();
          ulong magic = initOrder.GetMagic(MAGIC_TYPE_MARKET);
-         AddTarget(new TargetTradeByMarket(pos.Symbol(), dir, volume, pos.ExitComment(), magic, asynchMode));
+         AddTarget(new TargetTradeByMarket(pos.Symbol(), dir, volume, deviation, pos.ExitComment(), magic, asynchMode));
          //Восстанавливаем стоп ордер если необходимо.
          if(pos.UsingStopLoss() && volume < pos.VolumeExecuted())
          {

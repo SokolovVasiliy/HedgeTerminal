@@ -121,12 +121,16 @@ class TablePositions : public Table
          //Требуется развернуть/свернуть все позиции?
          if(type == ELEMENT_TYPE_TABLE_HEADER_POS)
          {
+            int step = workArea.StepCurrent();
+            workArea.StepCurrent(0);
             uint tbegin = GetTickCount();
             // Сворачиваем весь список.
             if(event.IsCollapse())
                CollapseAll();
             // Разворачиваем весь список.
             else RestoreAll();
+            workArea.StepCurrent(step);
+            //workArea.RefreshVisible();
             //AllocationShow();
             uint tend = GetTickCount();
             uint delta = tend - tbegin;
@@ -275,7 +279,7 @@ class TablePositions : public Table
          //Функция умеет развертывать только позиции, и с другими элеменатми работать не может.
          if(node.TypeElement() != ELEMENT_TYPE_POSITION)return;
          PosLine* posLine = node;
-         
+         //posLine.
          //Повторно разворачивать уже развернутую позицию не надо.
          //if(posLine.IsRestory())return;
          Position* pos = posLine.Position();

@@ -1,7 +1,7 @@
 #include "FileInfo.mqh"
 #include "XmlBase.mqh"
 #include "..\Log.mqh"
-#include "..\Math.mqh"
+#include "..\Math\Math.mqh"
 
 ///
 /// јтрибуты позиции.
@@ -385,7 +385,7 @@ int XmlPos2::TryOpenFile(int flags)
    int attempts = 3;
    for(int i = 0; i < attempts; i++)
    {
-      handle = FileOpen(fileName, flags);
+      handle = FileOpen(fileName, flags|Resources.FileCommon());
       if(handle != INVALID_HANDLE)
          break;
       //”станавливаем генератор в уникальное значение дл€ текущего экземпл€ра.

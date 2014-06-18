@@ -14,7 +14,6 @@ input string FileName = "test.xml"; //Name of xml file
 ///
 enum ENUM_SET_SECTIONS
 {
-   
    ///
    /// Секция определяет колонки и их ширину.
    ///

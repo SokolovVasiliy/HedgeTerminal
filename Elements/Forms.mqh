@@ -9,6 +9,7 @@ class MainForm : public ProtoNode
       MainForm():ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_FORM, "HedgePanel", NULL)
       {
          
+         
          BorderType(BORDER_FLAT);
          BackgroundColor(clrWhiteSmoke);
          
@@ -49,7 +50,17 @@ class MainForm : public ProtoNode
          status.FontColor(clrRed);
          childNodes.Add(status);
          
-         mailStatus = new Label("MailStatus", GetPointer(this));
+         resBuildAsynch = false;
+         asynchStatus = new Label("Asynch status", GetPointer(this));
+         asynchStatus.ReadOnly(true);
+         asynchStatus.BackgroundColor(BackgroundColor());
+         asynchStatus.BorderColor(BackgroundColor());
+         asynchStatus.FontColor(clrRed);
+         asynchStatus.Text("");
+         asynchStatus.Align(ALIGN_CENTER);
+         childNodes.Add(asynchStatus);
+         
+         /*mailStatus = new Label("MailStatus", GetPointer(this));
          mailStatus.ReadOnly(true);
          mailStatus.BackgroundColor(BackgroundColor());
          mailStatus.BorderColor(BackgroundColor());
@@ -67,7 +78,7 @@ class MainForm : public ProtoNode
          connected.Text(CharToString(40));
          connected.FontSize(12);
          connected.FontColor(clrRed);
-         childNodes.Add(connected);
+         childNodes.Add(connected);*/
          
       }
    private:
@@ -85,13 +96,17 @@ class MainForm : public ProtoNode
          status.Event(command);
          delete command;
          
-         command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), Width()-55, 1, 25, 18);
-         mailStatus.Event(command);
+         command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), Width()-40, 3, 15, 14);
+         BuildAsynchStatus();
+         asynchStatus.Event(command);
+         if(api != NULL && !api.Asyncronize())
+            asynchStatus.Text(" !");
+         //mailStatus.Event(command);
          delete command;
          
-         command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), Width()-88, 1, 25, 18);
+         /*command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), Width()-88, 1, 25, 18);
          connected.Event(command);
-         delete command;
+         delete command;*/
          
          command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 15, 0, 100, 30);
          start.Event(command);
@@ -102,8 +117,20 @@ class MainForm : public ProtoNode
          //delete command;
       }
       
+      void BuildAsynchStatus()
+      {
+         if(resBuildAsynch)return;
+         if(api != NULL && !api.Asyncronize())
+         {
+            asynchStatus.Text(" !");
+            asynchStatus.BorderColor(clrRed);
+            resBuildAsynch = true;  
+         }
+      }
+      
       virtual void OnEvent(Event* event)
       {
+         
          if(event.Direction() == EVENT_FROM_UP)
          {
             if(event.EventId() == EVENT_REFRESH)
@@ -111,7 +138,8 @@ class MainForm : public ProtoNode
                //Проверяем возможность торговли
                bool is_allowed = TerminalInfoInteger(TERMINAL_TRADE_ALLOWED);
                bool is_expert = MQLInfoInteger(MQL_TRADE_ALLOWED);
-               is_allowed = is_allowed && is_expert;
+               bool is_conn = TerminalInfoInteger(TERMINAL_CONNECTED);
+               is_allowed = is_allowed && is_expert && is_conn;
                if(is_allowed != allowed)
                {
                   allowed = is_allowed;
@@ -126,7 +154,7 @@ class MainForm : public ProtoNode
                      status.Text(CharToString(74));
                   }
                }
-               bool isMail = TerminalInfoInteger(TERMINAL_EMAIL_ENABLED);
+               /*bool isMail = TerminalInfoInteger(TERMINAL_EMAIL_ENABLED);
                if(isMail != mail_allowed)
                {
                   mail_allowed = isMail;
@@ -139,7 +167,7 @@ class MainForm : public ProtoNode
                   isConnected = isConn;
                   if(isConn)connected.FontColor(clrGreen);
                   else connected.FontColor(clrRed);
-               }
+               }*/
             }
          }
          if(event.EventId() == EVENT_NODE_CLICK)
@@ -211,6 +239,10 @@ class MainForm : public ProtoNode
       ///
       Label* mailStatus;
       ///
+      /// Индикатор асинхронного состояния позиций.
+      ///
+      Label* asynchStatus;
+      ///
       /// Флаг подключения к серверу.
       ///
       bool isConnected;
@@ -226,4 +258,12 @@ class MainForm : public ProtoNode
       /// Графическая кнопка меню.
       ///
       Image* btnMenu;
+      ///
+      ///
+      ///
+      bool resBuildAsynch;
+      ///
+      /// Количество обновления перед закрытием.
+      ///
+      int rr;
 };

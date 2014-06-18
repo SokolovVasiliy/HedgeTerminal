@@ -1,8 +1,9 @@
 #include "Transaction.mqh"
 #include "..\Log.mqh"
-#include "..\Math.mqh"
-#include "H.mqh"
-#include "..\Grid.mqh"
+#include "..\Math\Math.mqh"
+#include "..\Math\Crypto.mqh"
+//#include "H.mqh"
+//#include "..\Grid.mqh"
 ///
 /// Тип генерируемого маджика
 ///
@@ -83,7 +84,6 @@ class Order : public Transaction
       double EntryExecutedPrice(void);
       
       ulong GetMagic(ENUM_MAGIC_TYPE type);
-      ulong GetMagic1(ENUM_MAGIC_TYPE type);
       
       void Init(ulong orderId);
       bool IsPending(void);
@@ -185,10 +185,6 @@ class Order : public Transaction
       ///
       ulong magic;
       ///
-      /// Расшифрованное значение magic.
-      ///
-      ulong unhash;
-      ///
       /// Истина, если основные параметры исторического ордера уже получены.
       ///
       bool isCalc;
@@ -202,8 +198,24 @@ class Order : public Transaction
       ///
       /// Шифровка/расшифровка ордеров.
       ///
-      Grid grid;
-      
+      //Grid grid;
+      //Crypto crypto;
+      ///
+      /// Содержит битовое представление типа ордера.
+      ///
+      uchar bitType;
+      ///
+      /// Идентификатор тейк-профита. 
+      ///
+      uchar id_tp(){return 0xA0;}
+      ///
+      /// Идентификатор стоп-лосса.
+      ///
+      uchar id_sl(){return 0xC0;}
+      ///
+      /// Идентификатор рыночного ордера.
+      ///
+      uchar id_market(){return 0x80;}
 };
 
 /*PUBLIC MEMBERS*/
@@ -290,6 +302,7 @@ Order* Order::Clone(void)
 
 Order::~Order(void)
 {
+   //delete 
    deals.Clear();
 }
 
@@ -549,41 +562,28 @@ bool Order::InProcessing()
 ///
 /// Получает магик для закрытия данного ордера.
 ///
-ulong Order::GetMagic1(ENUM_MAGIC_TYPE magicType = MAGIC_TYPE_MARKET)
-{
-   switch(magicType)
-   {
-      case MAGIC_TYPE_MARKET:
-         return GetId();
-      case MAGIC_TYPE_SL:
-         return GetStopMask() | GetId();
-      case MAGIC_TYPE_TP:
-         return GetTakeMask() | GetId();
-   }
-   return GetId();
-}
-
-///
-/// Получает магик для закрытия данного ордера.
-///
 ulong Order::GetMagic(ENUM_MAGIC_TYPE magicType = MAGIC_TYPE_MARKET)
 {
    ulong value = 0;
    switch(magicType)
    {
       case MAGIC_TYPE_MARKET:
-         value = GetId();
+         value = id_market();
          break;
       case MAGIC_TYPE_SL:
-         value = GetStopMask() | GetId();
+         value = id_sl();
          break;
       case MAGIC_TYPE_TP:
-         value = GetTakeMask() | GetId();
+         value = id_tp();
          break;
    }
-   ulong id = grid.GenHash(value, this.Symbol());
-   return id;
-   //return hash.GetHash(GetPointer(this), value, HASH_FROM_VALUE);
+   value = value << 56;
+   value = value | GetId();
+   ulong m_magic = crypto.Crypt(value);
+   crypto.SetBit(m_magic, 63, true);
+   bool bit = crypto.GetBit(value, 62);
+   crypto.SetBit(m_magic, 62, bit);
+   return m_magic;
 }
 
 ///
@@ -713,7 +713,7 @@ void Order::RecalcValues(void)
    if(volumeExecuted > 0)
    {
       priceExecuted /= volumeExecuted;
-      priceExecuted = NormalizePrice(priceExecuted);
+      //priceExecuted = NormalizePrice(priceExecuted);
    }
    volumeExecuted = NormalizeDouble(volumeExecuted, 4);
    //calc setup price and comment.
@@ -764,15 +764,22 @@ void Order::RecalcValues(void)
 void Order::RecalcPosId()
 {
    positionId = 0;
-   unhash = 0;
-   if(!grid.FirstBitIsHighest(magic))return;
-   unhash = grid.GenValue(magic, this.Symbol());
+   ulong unhash = 0;
+   bool b1 = crypto.GetBit(magic, 63);
+   bool b2 = crypto.GetBit(magic, 62);
+   if(!b1)return;
+   unhash = crypto.Decrypt(magic);
+   crypto.SetBit(unhash, 63, b1);
+   crypto.SetBit(unhash, 62, b2);
+   ulong bType = 0xFC00000000000000 & unhash;
+   bType = bType >> 56;
+   bitType = (uchar)bType;
    // 6 старших битов оставляем для служебной информации.
    // остальное - для идентификатора номера.
    ulong mask = 0x03FFFFFFFFFFFFFF;
    ulong id = mask & unhash;
-   if(FindActivePosById(id) == -1)return;
-   positionId = id;
+   if(FindActivePosById(id) >= 0)
+      positionId = id;
 }
 
 int Order::FindActivePosById(ulong id)
@@ -781,8 +788,6 @@ int Order::FindActivePosById(ulong id)
    for(int i = 0; i < total; i++)
    {
       Position* pos = callBack.ActivePosAt(i);
-      if(pos.Symbol() != Symbol())
-         continue;
       if(pos.GetId() == id)
          return i;
    }
@@ -837,11 +842,7 @@ ulong Order::GetTakeMask(void)
 ///
 bool Order::IsStopLoss(void)
 {
-   bool res = (unhash & GetStopMask()) == GetStopMask();
-   //Сработавший стоп обрабатывается по-другому и стопом не считается.
-   return res;
-   //bool exe = IsExecuted();
-   //return res && !exe;
+   return bitType == id_sl();
 }
 
 ///
@@ -849,7 +850,7 @@ bool Order::IsStopLoss(void)
 ///
 bool Order::IsTakeProfit(void)
 {
-   return (unhash & GetTakeMask()) == GetTakeMask();
+   return bitType == id_tp();
 }
 
 ///

@@ -1,3 +1,5 @@
+#include "Aliases.mqh"
+#define DEMO_PERIOD 3
 #define VERSION "HedgeTerminal 1.0"
 class PanelSettings;
 #include "Resources\Resources.mqh"
@@ -275,7 +277,7 @@ enum ENUM_BUTTON_STATE
 
 //-------------------------------------------------------------------------------------------------------
 //
-#include "Math.mqh"
+#include "Math\Math.mqh"
 #include "Log.mqh"
 #include "Settings.mqh"
 #include "Keys.mqh"
@@ -294,3 +296,4 @@ CResources Resources;
 PanelSettings Settings;
 //class CEventExchange;
 CEventExchange EventExchange;
+Crypto crypto;

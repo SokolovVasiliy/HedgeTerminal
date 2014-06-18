@@ -11,6 +11,7 @@ class Cursor;
 class WorkArea : public Label
 {
    public:
+      
       WorkArea(Table* parNode) : Label(ELEMENT_TYPE_WORK_AREA, "WorkArea", parNode) 
       {
          //Ширина одного шага двадцать пикселей.
@@ -50,6 +51,53 @@ class WorkArea : public Label
          lineNode.NLine(pos);
          ChangeScroll();
       }
+      
+      /*void Add3(ProtoNode* lineNode, int pos)
+      {
+         if(lineNode.TypeElement() == ELEMENT_TYPE_TABLE_SUMMARY)
+         {
+            if(CheckPointer(summaryLine) != POINTER_INVALID)
+            {
+               delete lineNode;
+               return;
+            }
+            summaryLine = lineNode;
+            childNodes.Insert(summaryLine, pos);
+            summaryLine.NLine(pos);
+            ChangeScroll();
+            return;
+         }
+         if(CheckPointer(summaryLine) != POINTER_INVALID)   
+            childNodes.Detach(summaryLine.NLine());
+         childNodes.Insert(lineNode, pos);
+         lineNode.NLine(pos);
+         if(CheckPointer(summaryLine) != POINTER_INVALID)   
+            childNodes.Insert(summaryLine, childNodes.Total());
+         ChangeScroll();
+      }
+      
+      void Add(ProtoNode* lineNode, int pos)
+      {
+         if(summaryLine == NULL && lineNode.TypeElement() == ELEMENT_TYPE_TABLE_SUMMARY)
+            summaryLine = lineNode;
+         if(pos == childNodes.Total() && pos > 0)
+         {
+            ProtoNode* node = childNodes.At(pos-1);
+            if(node.TypeElement() == ELEMENT_TYPE_TABLE_SUMMARY)
+               pos -= 1;
+         }
+         childNodes.Insert(lineNode, pos);
+         lineNode.NLine(pos);
+         int n_line = 0;
+         if(summaryLine != NULL)
+            n_line = summaryLine.NLine();
+         if(summaryLine != NULL && summaryLine.NLine() != childNodes.Total()-1)
+         {
+            childNodes.Detach(summaryLine.NLine());
+            childNodes.Add(summaryLine);
+         }
+         ChangeScroll();
+      }*/
       ///
       /// Удаляет диапазон линий из таблицы.
       /// \param index - Индекс линии, начиная с которой необходимо удалять линии.
@@ -318,6 +366,9 @@ class WorkArea : public Label
          for(int i = stepCurrent; y_dist <= m_high && i < total; i++, y_dist += stepHigh)
          {
             ProtoNode* node = childNodes.At(i);
+            int dbg = 4;
+            if(node.TypeElement() == ELEMENT_TYPE_TABLE_SUMMARY)
+               dbg = 5;
             EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, NameID(), vis, 0, y_dist, Width(), stepHigh);
             node.Event(command);
             delete command;
@@ -359,6 +410,8 @@ class WorkArea : public Label
       {
          bool vis = command.Visible() && parentNode.Visible();
          TablePositions* table = parentNode;
+         if(vis)
+            RefreshVisibleLines(false);
          RefreshVisibleLines(vis);
          ChangeScroll();
       }
@@ -407,10 +460,7 @@ class WorkArea : public Label
       /// Индекс курсора.
       ///
       int cursorIndex;
-      ///
-      /// Указатель на результирующую строку, если она добавлена.
-      ///
-      Line* summaryLine;
+      
 };
 
 ///
@@ -468,4 +518,5 @@ class Cursor
       /// Содержит указатель на рабочую область таблицы.
       ///
       WorkArea* workArea;
+      
 };

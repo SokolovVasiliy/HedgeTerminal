@@ -38,5 +38,3 @@ void OnTick()
       printf("Test API: " + EnumToString(GetHedgeError()));
 }
 
-
-

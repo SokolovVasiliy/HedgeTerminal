@@ -83,7 +83,7 @@ ENUM_HEDGE_ERR GetHedgeError() export
 bool AsynchClose(HedgeTradeRequest& request)
 {
    CurrentPosition.ExitComment(request.exit_comment, false);
-   ENUM_HEDGE_ERR err = CurrentPosition.AddTask(new TaskClosePartPosition(CurrentPosition, request.volume, true));
+   ENUM_HEDGE_ERR err = CurrentPosition.AddTask(new TaskClosePartPosition(CurrentPosition, request.volume, Settings.GetDeviation(), true));
    hedgeErr = err;
    if(hedgeErr == HEDGE_ERR_NOT_ERROR)
       return true;
@@ -100,7 +100,7 @@ bool SynchClose(HedgeTradeRequest& request)
       if(!SynchEmulator(CurrentPosition))
          return false;
    }
-   ENUM_HEDGE_ERR err = CurrentPosition.AddTask(new TaskClosePartPosition(CurrentPosition, request.volume, false));
+   ENUM_HEDGE_ERR err = CurrentPosition.AddTask(new TaskClosePartPosition(CurrentPosition, request.volume, Settings.GetDeviation(), false));
    if(err == HEDGE_ERR_NOT_ERROR)
       return SynchEmulator(CurrentPosition);
    return false;

@@ -89,8 +89,11 @@ class Method : public CObject
 class MethodTradeByMarket : public Method
 {
    public:
-      MethodTradeByMarket(string symbol_op, ENUM_DIRECTION_TYPE direction, double volume, string comment_op, ulong magic_op, bool asynch_mode):
-      Method(symbol_op, direction, volume, 0.0, comment_op, magic_op, asynch_mode){;}
+      MethodTradeByMarket(string symbol_op, ENUM_DIRECTION_TYPE direction, double volume, ulong deviation, string comment_op, ulong magic_op, bool asynch_mode):
+      Method(symbol_op, direction, volume, 0.0, comment_op, magic_op, asynch_mode)
+      {
+         trade.SetDeviationInPoints(deviation);
+      }
       ///
       /// Возвращает уникальный идентификатор ордера.
       ///

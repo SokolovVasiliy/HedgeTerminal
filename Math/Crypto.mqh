@@ -1,53 +1,76 @@
-#include "Math.mqh"
+#include "Random.mqh"
 #include <Arrays\ArrayChar.mqh>
 #include <Arrays\List.mqh>
-#define ROUND 8
 ///
-/// Алгоритм шифрования на основе сети Фейстеля.
+/// Количество раундов используемых для шифрования.
 ///
-class Cripto
+#define ROUNDS 8
+
+///
+/// Алгоритм шифрования на основе сети Фейстеля, с задаваемой величиной блока в битах.
+///
+class Crypto
 {
    public:
-      
-      Cripto();
+      Crypto();
       ///
       /// Устанавливает длинну блока в битах, которую надо зашифровать.
       ///
-      Cripto(uchar b);
+      Crypto(uchar b);
       ///
       /// Деструктор.
       ///
-      ~Cripto();
+      ~Crypto();
+      ///
+      /// Возвращает значение бита, находящегося по индексу 'index' в переменной 'value'.
+      /// \return Истина, если бит установлен в единицу и ложь в противном случае.
+      ///
+      bool GetBit(ulong value, uchar index);
+      ///
+      /// Устанавливает значение бита в 'bit', находящегося по индексу 'index' в переменной 'value'.
+      ///
+      void SetBit(ulong& value, uchar index, bool bit);
       ///
       /// Шифрует переданное значение.
       ///
       ulong Crypt(ulong value);
       ///
-      /// Дешефрует переданный ключ.
+      /// Дешифрует переданный шифр.
       ///
       ulong Decrypt(ulong hash);
-   //private:
-      void crypt(ulong& left, ulong& right);
-      void decrypt(ulong& left, ulong& right);
-      ulong Commutator(ulong subblock, int keyIndex);
-      int f1(ulong subblock, ulong key);
       ///
-      /// Генерирует карту подстановок на основе вектора и ключа.
+      /// Возвращает хеш строки.
+      ///
+      ulong Adler32(string buf);
+   private:
+      ///
+      /// Шифрование открытого текста.
+      /// \param left - левый входной подблок.
+      /// \param right - правый входной подблок.
+      ///
+      void Encryption(ulong& left, ulong& right);
+      ///
+      /// Расшифрование текста.
+      /// \param left - левый зашифрованный подблок.
+      /// \param right - правый зашифрованный подблок.
+      ///
+      void Decryption(ulong& left, ulong& right);
+      ///
+      /// Перестановочная функция. Перемешивает быты в зависимости от ключа. 
+      /// \param subblock - субблок, биты в котором необходимо перемешать.
+      /// \param keyIndex - индекс ключа, в массиве ключей, который необходимо использовать.
+      ///
+      ulong Commutator(ulong subblock, int keyIndex);
+      ///
+      /// Генерирует карту подстановок на основе ключа, индекс которого содержиться в keyIndex.
+      /// \param keyIndex - Индекс ключа, в масиве ключей.
       ///
       CArrayChar* GenHashMap(int keyIndex);
       ///
-      /// Инициирует вектор из которого формируется карта подстановок.
+      /// Инициирует вектор из которого формируется карта подстановок, а также ключи для работы с шифрованием.
       ///
       void InitCharArray();
-      ///
-      /// Возвращает значение бита, находящегося по индексу index в переменной value.
-      /// Возвращает истину если бит установлен в единицу и ложь в противном случае.
-      ///
-      bool GetBit(ulong value, uchar index);
-      ///
-      /// Устанавливает значение бита в 'bit', находящегося по индексу index в переменной value.
-      ///
-      void SetBit(ulong& value, uchar index, bool bit);
+      
       ///
       /// Разделяет блок на левую и правую части.
       /// \param block - блок, который необходимо разделить на подблоки.
@@ -62,7 +85,7 @@ class Cripto
       ///
       ulong Merge(ulong left, ulong right);
       ///
-      /// Выводит карту подстановок.
+      /// Выводит карту подстановок map.
       ///
       void PrintMap(CArrayChar* map);
       ///
@@ -70,8 +93,8 @@ class Cripto
       ///
       void GenMask(void);
       ///
-      /// Количество бит, которое будет использоваться для каждого из двух блоков шифрования.
-      /// bits = блок шифрования / 2.
+      /// Количество бит, которое используется в блоке шифрования. 
+      /// Может быть четным значением и быть в деапазоне от 2 до 64.
       ///
       uchar bits;
       ///
@@ -81,26 +104,25 @@ class Cripto
       ///
       /// Массив уникальных ключей, по одному на каждый раунд.
       ///
-      ulong keys[ROUND];
+      ulong keys[ROUNDS];
       ///
       /// Массивы сгенерированных карт перестановок. Т.к. ключи используемые
       /// для шифрования одни и теже, то карты перестановок сгенерированные ими будут одни и теже
       ///
-      CArrayChar* maps[ROUND];
+      CArrayChar* maps[ROUNDS];
       ///
-      /// Битовая маска.
+      /// Битовая маска. Используется в операции &, для сокращения хешей до величины 'bits'.
       ///
       ulong mask;
-      
 };
 
-Cripto::Cripto(void)
+Crypto::Crypto(void)
 {
-   bits = 64;
+   bits = 62;
    InitCharArray();
 }
 
-Cripto::Cripto(uchar b)
+Crypto::Crypto(uchar b)
 {
    if(b%2 != 0)
       b--;
@@ -108,32 +130,33 @@ Cripto::Cripto(uchar b)
    InitCharArray();
 }
 
-Cripto::~Cripto(void)
+Crypto::~Crypto(void)
 {
    for(int i = 0; i < ArraySize(maps); i++)
-      delete maps[i];
+   {
+      if(CheckPointer(maps[i]) != POINTER_INVALID)
+         delete maps[i];
+   }
 }
-void Cripto::InitCharArray(void)
+
+void Crypto::InitCharArray(void)
 {
    ArrayResize(c_array, bits);
    for(uchar i = 0; i < bits; i++)
       c_array[i] = i;
    Random rnd;
-   for(uchar i = 0; i < ROUND; i++)
+   for(uchar i = 0; i < ROUNDS; i++)
       keys[i] = rnd.Rand();
    GenMask();
 }
 
-void Cripto::GenMask(void)
+void Crypto::GenMask(void)
 {
    for(uchar i = 0; i < bits; i++)
       SetBit(mask, i, true);
 }
-/* функция преобразования подблока по ключу (зависит от конкретного алгоритма)
-subblock - преобразуемый подблок
-key - ключ
-возвращаяемое значение - преобразованный блок*/
-ulong Cripto::Commutator(ulong subblock, int keyIndex)
+
+ulong Crypto::Commutator(ulong subblock, int keyIndex)
 {
    CArrayChar* map = GenHashMap(keyIndex);
    CArrayChar* obj = maps[keyIndex];
@@ -145,12 +168,11 @@ ulong Cripto::Commutator(ulong subblock, int keyIndex)
       bool bit = GetBit(subblock, ind);   // Получаем значение бита по индексу.
       SetBit(hash, i, bit);               // Устанавливаем бит шифра в нужное значение.
    }
-   //PrintMap(map);
    return hash;
    return 1;
 }
- 
-CArrayChar* Cripto::GenHashMap(int keyIndex)
+
+CArrayChar* Crypto::GenHashMap(int keyIndex)
 {
    //Пробуем найти карту перестановок по идексу ключа.
    if(keyIndex < ArraySize(maps) && maps[keyIndex] != NULL)
@@ -177,7 +199,7 @@ CArrayChar* Cripto::GenHashMap(int keyIndex)
    return map;
 }
 
-bool Cripto::GetBit(ulong value, uchar index)
+bool Crypto::GetBit(ulong value, uchar index)
 {
    ulong m_mask = 1;
    m_mask = m_mask << index;
@@ -188,14 +210,14 @@ bool Cripto::GetBit(ulong value, uchar index)
    return false;
 }
 
-void Cripto::SetBit(ulong& value, uchar index, bool bit)
+void Crypto::SetBit(ulong& value, uchar index, bool bit)
 {
    ulong m_mask = bit ? 1 : 0;
    m_mask = m_mask << index;
    value = (value | m_mask);
 }
 
-void Cripto::PrintMap(CArrayChar* map)
+void Crypto::PrintMap(CArrayChar* map)
 {
    string str = "";
    for(int i = 0; i < map.Total(); i++)
@@ -206,7 +228,7 @@ void Cripto::PrintMap(CArrayChar* map)
    printf(str);
 }
 
-void Cripto::Split(ulong block, ulong& left, ulong& right)
+void Crypto::Split(ulong block, ulong& left, ulong& right)
 {
    ulong uleft = 0, uright = 0;
    uchar size = bits/2;
@@ -228,7 +250,7 @@ void Cripto::Split(ulong block, ulong& left, ulong& right)
    right = uright;
 }
 
-ulong Cripto::Merge(ulong left, ulong right)
+ulong Crypto::Merge(ulong left, ulong right)
 {
    ulong block = 0;
    uchar size = bits/2;
@@ -246,31 +268,26 @@ ulong Cripto::Merge(ulong left, ulong right)
    return block;
 }
 
-ulong Cripto::Crypt(ulong value)
+ulong Crypto::Crypt(ulong value)
 {
    ulong left=0, right = 0;
    Split(value, left, right);
-   crypt(left, right);
+   Encryption(left, right);
    return Merge(left, right);
 }
 
-ulong Cripto::Decrypt(ulong hash)
+ulong Crypto::Decrypt(ulong hash)
 {
    ulong left=0, right=0;
    Split(hash, left, right);
-   decrypt(left, right);
+   Decryption(left, right);
    return Merge(left, right);
 }
-  
-/*Шифрование открытого текста
-left - левый входной подблок
-right - правый входной подблок
-* key - массив ключей (по ключу на раунд)
-rounds - количество раундов*/
-void Cripto::crypt(ulong& left, ulong& right)
+
+void Crypto::Encryption(ulong& left, ulong& right)
 {
 	ulong temp = 0;
-	for(int i = 0; i < ROUND; i++)
+	for(int i = 0; i < ROUNDS; i++)
 	{
 		temp = right ^ Commutator(left, i);
 		temp = temp & mask;
@@ -278,50 +295,36 @@ void Cripto::crypt(ulong& left, ulong& right)
 		left = temp;
 	}
 }
- 
-/*Расшифрование текста
-left - левый зашифрованный подблок
-right - правый зашифрованный подблок*/
-void Cripto::decrypt(ulong& left, ulong& right)
- {
+
+///
+/// Расшифрование текста.
+/// \param left - левый зашифрованный подблок.
+/// \param right - правый зашифрованный подблок.
+///
+void Crypto::Decryption(ulong& left, ulong& right)
+{
 	ulong temp;
-	for(int i = ROUND-1; i >= 0; i--)
+	for(int i = ROUNDS-1; i >= 0; i--)
 	{
 		temp = left ^ Commutator(right, i);
 		temp = temp & mask;
 		left = right;
 		right = temp;
 	}	
- }
-int CountWhile;
-
-void GenMap(ulong key, uchar& map[])
-{
-         ArrayResize(map, 63);
-         CArrayChar cArray;
-         cArray.Sort();
-         Random rnd;
-         rnd.Seed(key);
-         int index = 0;
-         string str = "";
-         int max = 0;
-         while(true)
-         {
-            CountWhile++;
-            uchar ch = (uchar)rnd.Rand(0, 63);
-            if(ch > max)
-               max = ch;
-            int t = cArray.Total();
-            if(cArray.Search((char)ch) == -1)
-            {
-               map[index++] = ch;
-               str += (string)ch + ",";
-               cArray.InsertSort((char)ch);
-               if(cArray.Total() == 63)
-                  break;
-            }
-            continue;
-         }
-         ulong m = cArray.At(cArray.Total()-1);
-         int dbg = 5;
 }
+
+ulong Crypto::Adler32(string buf)
+  {
+     ulong s1 = 1;
+     ulong s2 = 0;
+     uint buflength=StringLen(buf);
+     uchar array[];
+     ArrayResize(array, buflength,0);
+     StringToCharArray(buf, array, 0, -1, CP_ACP);
+     for (uint n=0; n<buflength; n++)
+     {
+        s1 = (s1 + array[n]) % 65521;
+        s2 = (s2 + s1)     % 65521;
+     }
+     return ((s2 << 16) + s1);
+  }

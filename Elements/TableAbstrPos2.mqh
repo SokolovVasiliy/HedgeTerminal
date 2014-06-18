@@ -1,5 +1,5 @@
 #include "Table.mqh"
-#include "..\Math.mqh"
+#include "..\Math\Math.mqh"
 #include "Node.mqh"
 #include "TextNode.mqh"
 #include "..\Settings.mqh"
@@ -455,7 +455,7 @@ class PosLine : public AbstractLine
          //pos.AsynchClose(pos.VolumeExecuted(), value);
          //ѕровер€ем, можем ли мы закрыть позицию.
          //...
-         TaskClosePosition* cPos = new TaskClosePosition(pos, MAGIC_TYPE_MARKET, true);
+         TaskClosePosition* cPos = new TaskClosePosition(pos, MAGIC_TYPE_MARKET, Settings.GetDeviation(), true);
          pos.AddTask(cPos);
          //TaskClosePos* closePos = new TaskClosePos(pos, value);
          //pos.AddTask(closePos);
@@ -477,7 +477,7 @@ class PosLine : public AbstractLine
          editNode.Text(pos.VolumeToString(setVol)+"...");
          //string exitComment = GetStringValue(COLUMN_EXIT_COMMENT);
          double vol = curVol < setVol ? setVol : curVol - setVol;
-         pos.AddTask(new TaskClosePartPosition(pos, vol, true));
+         pos.AddTask(new TaskClosePartPosition(pos, vol, Settings.GetDeviation(), true));
          //pos.AsynchClose(vol, exitComment);
       }
       
@@ -607,6 +607,7 @@ class PosLine : public AbstractLine
                comby.value = comby.element;
                break;
             case COLUMN_VOLUME:
+            case COLUMN_EXIT_MAGIC:
             case COLUMN_EXIT_COMMENT:
                comby.element = GetDefaultEditEl(el);
                comby.value = comby.element;
@@ -944,7 +945,14 @@ class DealLine : public AbstractLine
       virtual TextNode* GetDefaultEl(DefColumn* el)
       {
          TextNode* build = AbstractLine::GetDefaultEl(el);
-         build.FontSize(build.FontSize()-1);
+         build.FontSize(build.FontSize()-2);
+         build.FontColor(C'70,70,70');
+         //build.FontColor(clrDimGray);
+         /*build.Font("Arial Rounded MT Bold");
+         build.Font("Consolas");
+         build.Font("Georgia");
+         build.Font("Arial Italic");
+         build.Font("Courier New");*/
          return build;
       }
       virtual tnode* GetColumn(DefColumn* el)
@@ -1121,29 +1129,49 @@ class Summary : public AbstractLine
    public:
       Summary(ProtoNode* parNode, ENUM_TABLE_TYPE tType) : AbstractLine("Summary", ELEMENT_TYPE_TABLE_SUMMARY, parNode, tType)
       {
+         refHistory = true;
+         typeTable = tType;
          textNode = new Label("summary", GetPointer(this));
          textNode.Font("\Resources\Fonts\Arial Rounded MT Bold Bold.ttf");
          textNode.Font("Arial Rounded MT Bold");
-         textNode.Text("Summury Active Positions");
+         textNode.Text("Summary Active Positions");
          textNode.FontSize(9);
          //textNode.Font("Arial Black");
          textNode.BackgroundColor(clrGainsboro);
          textNode.BorderColor(Settings.ColorTheme.GetSystemColor2());
          Add(textNode);
-         if(tType == TABLE_POSHISTORY)
+         if(typeTable == TABLE_POSHISTORY)
             RefreshHistory();
       }
       ///
       /// ќбновл€ет текст итоговой строки дл€ активной таблицы.
       ///
-      void RefreshSummury(void)
+      /*void RefreshSummury(void)
       {
          if(TableType() == TABLE_POSACTIVE)
             RefreshActive();
          if(TableType() == TABLE_POSHISTORY)
             RefreshHistory();
-      }
+      }*/
       
+      virtual void OnEvent(Event* event)
+      {
+         switch(event.EventId())
+         {
+            case EVENT_REFRESH:
+               if(typeTable == TABLE_POSACTIVE)
+                  RefreshActive();
+               if(refHistory && typeTable == TABLE_POSHISTORY)
+               {
+                  RefreshHistory();
+                  refHistory = false;
+               }
+               break;
+            default:
+               EventSend(event);
+               break;
+         }   
+      }
    private:
       ///
       /// ќбновл€ет итоговую строку дл€ вкладки активных позиций.
@@ -1152,14 +1180,20 @@ class Summary : public AbstractLine
       {
          RefreshSummary();
          double margin = AccountInfoDouble(ACCOUNT_MARGIN);
-         string strPerMargin = DoubleToString(margin/AccountInfoDouble(ACCOUNT_BALANCE), 2);
+         double m_balance = AccountInfoDouble(ACCOUNT_BALANCE);
+         string strPerMargin = "0.0";
+         if(!Math::DoubleEquals(0.0, m_balance))
+            strPerMargin = DoubleToString(margin/m_balance, 2);
          
          string strBalance = DoubleToString(AccountInfoDouble(ACCOUNT_BALANCE), 2);
          
          string strComm = DoubleToString(commission, 2);
          double pl = GetFloatPL();
-         string strPerPl = DoubleToString(pl/AccountInfoDouble(ACCOUNT_BALANCE)*100.0, 2);
+         string strPerPl = "0.0";
+         if(!Math::DoubleEquals(0.0, m_balance))
+            strPerPl = DoubleToString(pl/m_balance*100.0, 2);
          string strPL = DoubleToString(GetFloatPL(), 2);
+         //double leverage = AccountInfoDouble(ACCOUNT_CREDIT)
          //" Comm.: " + strComm + 
          string str = "Balance: " + strBalance + "  Floating P/L: " + strPL + " (" + strPerPl + "%)  Margin: " + strPerMargin + "%";
          //string str = "Current time: " + TimeToString(TimeCurrent(), TIME_DATE|TIME_MINUTES|TIME_SECONDS);
@@ -1235,4 +1269,12 @@ class Summary : public AbstractLine
       /// ¬сего позиций.
       ///
       int posTotal;
+      ///
+      /// »стина, если требуетс€ обновить исторический итог.
+      ///
+      bool refHistory;
+      ///
+      /// “ип таблицы, к которой принадлежит текуща€ итогова€ строка.
+      ///
+      ENUM_TABLE_TYPE typeTable;
 };

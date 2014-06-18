@@ -404,6 +404,10 @@ struct HedgeTradeRequest //HedgeTradeRequest
    ///
    bool asynch_mode;
    ///
+   /// Deviation in step price.
+   ///
+   ulong deviation;
+   ///
    /// Constructor.
    ///
    HedgeTradeRequest()

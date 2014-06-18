@@ -23,7 +23,8 @@ class XmlLoader
       string GetNameExpertByMagic(ulong magic);
       double GetLevelVirtualOrder(ulong id, ENUM_VIRTUAL_ORDER_TYPE type);
       void SaveXmlAttr(ulong id, ENUM_VIRTUAL_ORDER_TYPE type, string level);
-      
+      ulong GetDeviation(){return deviation;}
+      uint GetRefreshRates(){return refrshRates;}
    private:
       ///
       /// Известные секции настроек.
@@ -111,15 +112,15 @@ class XmlLoader
       ENUM_SET_SECTIONS GetTypeSection(string nameNode);
       //Группа функций для парсинга прочих настроек.
       void ParseOtherSettings(CXmlElement* xmlItem);
-      void ParseBeginMarker(CXmlElement* xmlItem);
+      void ParseRefreshRates(CXmlElement* xmlItem);
       void ParseDeviation(CXmlElement* xmlItem);
       void ParseTimeout(CXmlElement* xmlItem);
-      void ParseRefreshRates(CXmlElement* xmlItem);
+      
       //Группа переменных содержащие значения прочих настроек.
       ulong beginMarker;
-      int deviation;
+      ulong deviation;
       int timeout;
-      int refrshRates;
+      uint refrshRates;
       
       void ParseColumnsSettings(CXmlElement* xmlItem);
       void ParseColumns(CXmlElement* activeTab, ENUM_TAB_TYPE tabType);
@@ -149,8 +150,7 @@ void XmlLoader::LoadSettings(void)
 {
    CXmlDocument doc;
    string err;
-   string path = ".\HedgeTerminal\Settings.xml";
-   if(!doc.CreateFromFile(path, err))
+   if(!doc.CreateFromFile(Resources.GetFileNameByType(RES_SETTINGS_XML), err))
    {
       printf(err);
       return;
@@ -176,8 +176,7 @@ void XmlLoader::LoadAliases(void)
       return;
    CXmlDocument doc;
    string err;
-   string path = ".\HedgeTerminal\ExpertAliases.xml";
-   if(!doc.CreateFromFile(path, err))
+   if(!doc.CreateFromFile(Resources.GetFileNameByType(RES_EXPERT_ALIASES), err))
    {
       printf(err);
       return;
@@ -389,23 +388,11 @@ void XmlLoader::ParseOtherSettings(CXmlElement *xmlItem)
    for(int i = 0; i < xmlItem.GetChildCount(); i++)
    {
       CXmlElement* xmlTab = xmlItem.GetChild(i);
-      if(xmlTab.GetName() == "Begin-Marker")
-         ParseBeginMarker(xmlTab);
+      if(xmlTab.GetName() == "RefreshRates")
+         ParseRefreshRates(xmlTab);
       else if(xmlTab.GetName() == "Deviation")
          ParseDeviation(xmlTab);
    }
-}
-
-///
-/// Парсит узел настроек отвечающий за значение начального маркера.
-///
-void XmlLoader::ParseBeginMarker(CXmlElement* xmlTab)
-{
-   CXmlAttribute* attr = xmlTab.GetAttribute("ID");
-   if(attr == NULL)return;
-   int id = (int)StringToInteger(attr.GetValue());
-   if(id > 0)
-      beginMarker = id;
 }
 
 ///
@@ -415,7 +402,7 @@ void XmlLoader::ParseDeviation(CXmlElement *xmlTab)
 {
    CXmlAttribute* attr = xmlTab.GetAttribute("Value");
    if(attr == NULL)return;
-   int dev = (int)StringToInteger(attr.GetValue());
+   ulong dev = (ulong)StringToInteger(attr.GetValue());
    if(dev > 0)
       deviation = dev;
 }
@@ -439,7 +426,7 @@ void XmlLoader::ParseRefreshRates(CXmlElement *xmlTab)
 {
    CXmlAttribute* attr = xmlTab.GetAttribute("Milliseconds");
    if(attr == NULL)return;
-   int msc = (int)StringToInteger(attr.GetValue());
+   uint msc = (uint)StringToInteger(attr.GetValue());
    if(msc > 0)
       refrshRates = msc;
 }

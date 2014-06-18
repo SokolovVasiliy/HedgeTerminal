@@ -1011,7 +1011,10 @@ class ProtoNode : public CObject
          if(name == NULL || name == "")
             name = "VisualForm";
          //nameId = name;
-         nameId = ShortName();
+         #ifndef RELEASE
+            nameId = ShortName();
+         #else
+            nameId = "_x" + (string)crypto.Adler32(ShortName());
          //Если объект с таким именем уже существует
          //добавляем к имени индекс, до тех пор пока имя не станет уникальным.
          int index = 0;
