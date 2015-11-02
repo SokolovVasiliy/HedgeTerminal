@@ -1,6 +1,6 @@
 #include <Arrays\ArrayObj.mqh>
-#include "XmlBase.mqh"
-#include "XmlDocument.mqh"
+#include <XML\XmlBase.mqh>
+#include <XML\XmlDocument.mqh>
 #include "..\Log.mqh"
 ///
 /// —борщик устаревших узлов XML

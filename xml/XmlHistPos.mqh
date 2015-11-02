@@ -1,5 +1,5 @@
 #include <Object.mqh>
-#include "XmlBase.mqh"
+#include <XML\XmlBase.mqh>
 ///
 /// Тип виртуального ордера.
 ///

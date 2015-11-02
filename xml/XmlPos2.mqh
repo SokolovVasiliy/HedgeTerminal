@@ -1,5 +1,5 @@
 #include "FileInfo.mqh"
-#include "XmlBase.mqh"
+#include <XML\XmlBase.mqh>
 #include "..\Log.mqh"
 #include "..\Math\Math.mqh"
 

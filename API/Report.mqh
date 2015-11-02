@@ -4,9 +4,9 @@
 #include "Position.mqh"
 #include "..\Settings.mqh"
 #include "..\Time.mqh"
-#include "..\xml\XmlAttribute.mqh"
-#include "..\xml\XmlElement.mqh"
-#include "..\xml\XmlDocument.mqh"
+#include <XML\XmlAttribute.mqh>
+#include <XML\XmlElement.mqh>
+#include <XML\XmlDocument.mqh>
 ///
 /// Тип генерируемого отчета.
 ///

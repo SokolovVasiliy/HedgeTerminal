@@ -50,7 +50,7 @@ enum ENUM_MESSAGE_LEVEL
 ///
 /// Тип выводимого сообщения.
 ///
-enum ENUM_MESSAGE_TYPE
+enum ENUM_MESSAGE_TYPE_HT
 {
    ///
    /// Информационное сообщение.
@@ -69,7 +69,7 @@ enum ENUM_MESSAGE_TYPE
 ///
 /// Записывает сообщение в лог (текстовой файл)
 ///
-void LogWriter(string message, ENUM_MESSAGE_TYPE type)
+void LogWriter(string message, ENUM_MESSAGE_TYPE_HT type)
 {
    if(type == MESSAGE_TYPE_ERROR && _LastError != 0)
    {

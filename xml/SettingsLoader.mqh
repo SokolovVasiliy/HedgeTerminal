@@ -1,9 +1,9 @@
 #include <Arrays\ArrayObj.mqh>
 #include <Arrays\ArrayLong.mqh>
-#include "XmlBase.mqh"
-#include "XmlDocument.mqh"
-#include "XmlElement.mqh"
-#include "XmlAttribute.mqh"
+#include <XML\XmlBase.mqh>
+#include <XML\XmlDocument.mqh>
+#include <XML\XmlElement.mqh>
+#include <XML\XmlAttribute.mqh>
 
 
 #include "..\Log.mqh"

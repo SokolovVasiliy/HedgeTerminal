@@ -35,11 +35,11 @@ class SwapPosition : public CObject
       ///
       /// Время когда на позицию начислился своп впервые.
       ///
-      CTime firstSwapTime;
+      HtTime firstSwapTime;
       ///
       /// Время когда на позицию начислился своп в последний раз.
       ///
-      CTime lastSwapTime;
+      HtTime lastSwapTime;
       ///
       /// Объем совокупной позиции, на которую был произведено начисление свопа.
       ///
