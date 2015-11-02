@@ -6,35 +6,27 @@
 #property copyright "Copyright 2013, MetaQuotes Software Corp."
 #property link      "http://www.mql5.com"
 #property version   "1.00"
-
-//#define API_INTRO
+string VERSION = "HT";
+#define API_INTRO
 #ifdef API_INTRO
-   #include ".\API\HedgePanelAPI.mq5"
+   #include ".\API\HedgeTerminalAPI.mq5"
 #else
-   #include "Prototypes.mqh"
+   #include <Prototypes.mqh>
 #endif
 //+------------------------------------------------------------------+
 //| Script program start function                                    |
 //+------------------------------------------------------------------+
 void OnStart()
 {
-   int total = TransactionsTotal(MODE_HISTORY);
-   if(!TransactionSelect(total-1, SELECT_BY_POS, MODE_HISTORY))
-      printf("Error select pos: " + EnumToString(GetHedgeError()));
-   //printf("POSITION PARAMS:");
-   //PrintPositionParamsInt();
-   //PrintPositionParamsDbl();
-   //PrintPositionParamsStr();
-   if(!HedgeOrderSelect(ORDER_SELECTED_INIT))
-      printf("Error select order: " + EnumToString(GetHedgeError()));
-   //PrintOrderParamsInt();
-   //PrintOrderParamsDbl();
-   total = (int)HedgeOrderGetInteger(HEDGE_ORDER_DEALS_TOTAL);
-   if(total > 0)
-      if(!HedgeDealSelect(0))
-         printf("Error select deal: " + EnumToString(GetHedgeError()));
-   PrintDealParamsDbl();
+   double ts =  SymbolInfoDouble("RTS-6.15", SYMBOL_TRADE_TICK_SIZE);
+   FOREACH_POSITION
+   {
+      TransactionSelect(i);
+      double profit = HedgePositionGetDouble(HEDGE_POSITION_PROFIT_CURRENCY);
+      printf(profit);   
+   }
 }
+
 
 void PrintPositionParamsInt()
 {
@@ -120,4 +112,30 @@ void PrintDealParamsDbl()
       double value = HedgeDealGetDouble(type);
       printf("----" + EnumToString(type) + ": " + DoubleToString(value, 5));
    }
+}
+
+void DrawSLTP()
+{
+   FOREACH_POSITION
+   {
+      if(!TransactionSelect(i))continue;
+      //if(!Environment.IsMainPosition())continue;
+      double sl = HedgePositionGetDouble(HEDGE_POSITION_SL);
+      double tp = HedgePositionGetDouble(HEDGE_POSITION_TP);
+      string name_tp = "ilan_tp " + TimeToString(TimeCurrent(), TIME_DATE|TIME_MINUTES|TIME_SECONDS);
+      //string name_sl = "ilan_sl " + TimeToString(TimeCurrent(), TIME_DATE|TIME_MINUTES|TIME_SECONDS);
+      if(ObjectCreate(ChartID(), name_tp, OBJ_TEXT, 0, TimeCurrent(), tp))
+      {
+         Comment("Create point");
+         ObjectSetInteger(ChartID(), name_tp, OBJPROP_COLOR, clrGreen);
+         ObjectSetString(ChartID(), name_tp, OBJPROP_TEXT, CharToString(0x95));
+      }
+      break;
+   }
+}
+
+void TestHistoryTransTotal()
+{
+   int i = TransactionsTotal(MODE_HISTORY);
+   printf("Trans total: " + (string)i);
 }

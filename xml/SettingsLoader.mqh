@@ -22,7 +22,7 @@ class XmlLoader
       CArrayLong* GetExcludeOrders();
       string GetNameExpertByMagic(ulong magic);
       double GetLevelVirtualOrder(ulong id, ENUM_VIRTUAL_ORDER_TYPE type);
-      void SaveXmlAttr(ulong id, ENUM_VIRTUAL_ORDER_TYPE type, string level);
+      void SaveXmlHistPos(ulong id, ENUM_VIRTUAL_ORDER_TYPE type, string level);
       ulong GetDeviation(){return deviation;}
       uint GetRefreshRates(){return refrshRates;}
    private:
@@ -88,7 +88,7 @@ class XmlLoader
       class Aliase : public CObject
       {
          public:
-            ulong Magic(void){return magic;}
+            ulong Magic(void)const{return magic;}
             void Magic(ulong mg){magic = mg;}
             string Name(void){return name;}
             void Name(string n){name = n;}
@@ -99,9 +99,9 @@ class XmlLoader
                name = ex_name;
             }
          private:
-            virtual int Compare(CObject* node, int mode=0)
+            virtual int Compare(const CObject* node, const int mode=0)const
             {
-               Aliase* aliase = node;
+               const Aliase* aliase = node;
                if(magic > aliase.Magic())return 1;
                if(magic < aliase.Magic())return -1;
                return 0;
@@ -148,6 +148,7 @@ XmlLoader::XmlLoader()
 
 void XmlLoader::LoadSettings(void)
 {
+   #ifdef HEDGE_PANEL
    CXmlDocument doc;
    string err;
    if(!doc.CreateFromFile(Resources.GetFileNameByType(RES_SETTINGS_XML), err))
@@ -168,6 +169,7 @@ void XmlLoader::LoadSettings(void)
             break;
       }
    }
+   #endif
 }
 
 void XmlLoader::LoadAliases(void)
@@ -201,7 +203,7 @@ CArrayLong* XmlLoader::GetExcludeOrders()
    string err;
    
    string path = Resources.GetFileNameByType(RES_EXCLUDE_ORDERS);
-   if(!FileIsExist(path))
+   if(!FileIsExist(path, FILE_COMMON))
       return ex;
    if(!doc.CreateFromFile(path, err))
    {
@@ -216,7 +218,7 @@ CArrayLong* XmlLoader::GetExcludeOrders()
    return ex;
 }
 
-void XmlLoader::SaveXmlAttr(ulong id, ENUM_VIRTUAL_ORDER_TYPE type, string level)
+void XmlLoader::SaveXmlHistPos(ulong id, ENUM_VIRTUAL_ORDER_TYPE type, string level)
 {
    if(MQLInfoInteger(MQL_TESTER))
       return;

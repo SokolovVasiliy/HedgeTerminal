@@ -636,7 +636,7 @@ class ProtoNode : public CObject
          if(nameId == NULL || nameId == "")
             GenNameId();
          EventResize* er = new EventResize(EVENT_FROM_UP, NameID(), Width(), High());
-         OnResize(er);
+         //OnResize(er);
          delete er;
          
          return true;
@@ -822,7 +822,7 @@ class ProtoNode : public CObject
          if(nameId == NULL || nameId == "")
             GenNameId();
          EventMove* em = new EventMove(EVENT_FROM_UP, nameId, XAbsDistance(), YAbsDistance(), COOR_GLOBAL);
-         OnMove(em);
+         //OnMove(em);
          delete em;
          return res;
       }
@@ -1015,6 +1015,7 @@ class ProtoNode : public CObject
             nameId = ShortName();
          #else
             nameId = "_x" + (string)crypto.Adler32(ShortName());
+         #endif
          //Если объект с таким именем уже существует
          //добавляем к имени индекс, до тех пор пока имя не станет уникальным.
          int index = 0;

@@ -8,7 +8,8 @@ class CheckBox : public Button
          
          Font("Wingdings");
          checked = false;
-         Text(CharToString(168));
+         uchar ch[] = {168};
+         Text(CharArrayToString(ch, 0, 1, CP_SYMBOL));
       }
       bool Checked(){return checked;}
    private:
@@ -17,12 +18,14 @@ class CheckBox : public Button
          if(State() == BUTTON_STATE_OFF)
          {
             checked = false;
-            Text(CharToString(168));
+            uchar ch[] = {168};
+            Text(CharArrayToString(ch, 0, 1, CP_SYMBOL));
          }
          else
          {
             checked = true;
-            Text(CharToString(254));
+            uchar ch[] = {254};
+            Text(CharArrayToString(ch, 0, 1, CP_SYMBOL));
             //BackgroundColor(Settings.ColorTheme.GetSystemColor2());
          }
          if(ChildsTotal() > 0)

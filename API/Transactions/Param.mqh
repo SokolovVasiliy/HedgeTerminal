@@ -1,8 +1,0 @@
-///
-///
-///
-class Param
-{
-   protected:
-      Param(){;}
-};

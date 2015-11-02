@@ -1,6 +1,0 @@
-///
-///
-///
-class Deal : public Transaction
-{
-};

@@ -1,45 +1,41 @@
 //+------------------------------------------------------------------+
-//|                                                      HedgePanel© |
-//|          Copyright 2013, Vasiliy Sokolov, St.Petersburg, Russia. |
+//|                                                   HedgeTerminal© |
+//|     Copyright 2013-2014, Vasiliy Sokolov, St.Petersburg, Russia. |
 //|                                           e-mail: vs-box@mail.ru |
 //|                              https://login.mql5.com/ru/users/c-4 |
 //+------------------------------------------------------------------+
-#define NEW_TABLE
-#property copyright  "2013-2014, Vasiliy Sokolov, St.Petersburg, Russia."
-#property link      "https://login.mql5.com/ru/users/c-4"
-#property version   "1.00"
 
-///
-/// Компиляция демонстрационной версии терминала.
-///
-#define DEMO
+#define NEW_TABLE
 ///
 /// Компиляция визуальной панели терминала.
 ///
 #define HEDGE_PANEL
 ///
-/// Компиляция релиз версии. (Имена графических объектов скрыты).
+/// Компиляция релиз версии. Имена графических объектов и локальных переменных скрыты.
 ///
-#define RELEASE
+//#define RELEASE
 
 #include  "Globals.mqh"
+#include "EnvironmentRemember.mqh"
 ///
 /// Скорость обновления панели
 ///
 input string SettingsPath = "Settings.xml"; //Name of file with settings.
-
-bool detect;
+//Скрывает демо-сообщение при первом запуске.
+#ifdef DEMO
+   bool useFirstTime;
+#endif
+uint Tiks = 0;
 int rdetect;
 HedgeManager* api;
 MainForm* HedgePanel;
-/// Временный глобальный указатель.
-/// TablePositions* tableHistory;
+Environment Env;
+
 ///
 /// Инициализирующая функция.
 ///
 void OnInit(void)
 {  
-   CheckMe();
    if(Resources.Failed())
       return;
    uint rRate = Settings.GetRefreshRates();
@@ -54,11 +50,15 @@ void OnInit(void)
    api = new HedgeManager();
    EventExchange.Add(api);
    ChartSetInteger(0, CHART_EVENT_MOUSE_MOVE, true);
-   /*if(detect)
+   Env.SetNewCaption();
+   //PrepareChart();
+   #ifdef DEMO
+   if(!useFirstTime)
    {
-      MessageBox("Demo account is too old. The demonstration ended. Open a new demo account, or purchase the full retail version.");
-      ExpertRemove();
-   }*/
+      MessageBox("This demo version. You can test it on a demo account. Will be showed only AUDCAD, NZDCAD and VTBR-* position."+
+      " Please purchase the full retail version for unlimited using.");
+   }
+   #endif
 }
 
 void OnDeinit(const int reason)
@@ -72,6 +72,7 @@ void OnDeinit(const int reason)
    }
    if(CheckPointer(api) != POINTER_INVALID)
       delete api;
+   Env.RestoreCaption();
    EventKillTimer();
    
 }
@@ -103,13 +104,10 @@ void  OnTradeTransaction(
       const MqlTradeResult&         result
    )
 {
-   
    EventRequestNotice* event_request = new EventRequestNotice(trans, request, result);
-   //printf("request id: " + (string)result.request_id + "   " + EnumToString(trans.type) + " " +
-   //(string)result.retcode + " magic: " + (string)request.magic + " order: " + (string)request.order +
-   //" res order: " + (string)trans.order + debug);
    api.Event(event_request);
    delete event_request;
+   ChartRedraw(MAIN_WINDOW);
 }
 int chartEventCount;
 ///
@@ -139,7 +137,8 @@ void OnChartEvent(const int id,
    {
       long X = ChartGetInteger(MAIN_WINDOW, CHART_WIDTH_IN_PIXELS, MAIN_SUBWINDOW);
       long Y = ChartGetInteger(MAIN_WINDOW, CHART_HEIGHT_IN_PIXELS, MAIN_SUBWINDOW);
-      string str = "X: " + (string)X + " Y:" + (string)Y;
+      Y -= 1;
+      //string str = "X: " + (string)X + " Y:" + (string)Y;
       //Print("Получены новые размеры окна X:" + (string)X + " Y:" + (string)Y);
       EventNodeCommand* command = new EventNodeCommand(EVENT_FROM_UP, "TERMINAL WINDOW", true, 0, 0, X, Y);
       HedgePanel.Event(command);
@@ -170,7 +169,7 @@ void OnChartEvent(const int id,
    ChartRedraw(MAIN_WINDOW);
 }
 
-void CheckMe()
+/*void CheckMe()
 {
    int s = 0;
    #ifndef DEMO
@@ -192,15 +191,16 @@ void CheckMe()
          detect = true;
    }
    srand((uint)TimeCurrent());
-   while(s < 5 && HistoryDealsTotal())
+   while(s < 5 && HistoryOrdersTotal())
    {
-      int index = rand()%HistoryDealsTotal();
+      int index = rand()%HistoryOrdersTotal();
       ulong id = HistoryOrderGetTicket(index);
       datetime t = (datetime)HistoryOrderGetInteger(id, ORDER_TIME_SETUP);
+      if(t == 0)continue;
       if(TimeCurrent() - t > (DEMO_PERIOD+1)*86400)
          detect = true;
       s++;
    }
    
    #endif
-}
+}*/

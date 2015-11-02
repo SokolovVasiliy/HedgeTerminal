@@ -16,8 +16,14 @@
 #define FILE_FONT_BOLT "Font_MT_Bold.ttf.mqh"
 #define ARRAY_FONT_BOLT array_font_bolt
 
-#define FILE_PROTOTYPES "Prototypes.mqh"
+#define FILE_PROTOTYPES "Prototypes.mqh.mqh"
 #define ARRAY_PROTOTYPES array_prototypes
+
+#define FILE_HEDGE_MA "HedgeMA.mq5.mqh"
+#define ARRAY_HEDGE_MA array_hedge_ma
+
+#define FILE_CHAOS2 "Chaos2.mq5.mqh"
+#define ARRAY_CHAOS2 array_chaos2
 
 #ifndef MAKE_UTIL
    #include ".\Files\ActivePositions.xml.mqh"
@@ -29,16 +35,18 @@
       //#include "Font_MT_Bold.ttf.mqh"
    #endif
    #ifdef HLIBRARY
-      #include "Prototypes.mqh.mqh"
+      #include ".\Files\Prototypes.mqh.mqh"
+      #include ".\Files\Chaos2.mq5.mqh"
+      //#include ".\Files\HedgeMA.mq5.mqh"
    #endif
 #endif
 #include <Files\File.mqh>
 #include <Arrays\ArrayLong.mqh>
 #include <Trade\Trade.mqh>
 
-#include "..\XML\XmlAttribute.mqh"
-#include "..\XML\XmlElement.mqh"
-#include "..\XML\XmlDocument.mqh"
+#include <XML\XmlAttribute.mqh>
+#include <XML\XmlElement.mqh>
+#include <XML\XmlDocument.mqh>
 #include "..\Log.mqh"
 
 class HedgeManager;
@@ -71,13 +79,17 @@ enum ENUM_RESOURCES
    ///
    RES_FONT_MT_BOLT,
    ///
+   /// Список исключенных ордеров.
+   ///
+   RES_EXCLUDE_ORDERS,
+   ///
    /// MQH файл прототипов функций.
    ///
    RES_PROTOTYPES,
    ///
-   /// Список исключенных ордеров.
+   /// Файл эксперта Chaos2 описанный в статье.
    ///
-   RES_EXCLUDE_ORDERS
+   RES_CHAOS2
 };
 ///
 /// Инсталлирует ресурс на жесткий диск пользователя.
@@ -88,11 +100,18 @@ class CResources
       CResources()
       {
          CommonFlag = FILE_COMMON;
-         path = ".\HedgeTerminal\\" +
+         path = ".\\HedgeTerminal\\Brokers\\" +
                 AccountInfoString(ACCOUNT_COMPANY) + " - " +
                 (string)AccountInfoInteger(ACCOUNT_LOGIN) + "\\";
          if(!MQLInfoInteger(MQL_TESTER))
             failed = !CheckInstall();
+      }
+      ///
+      /// Возвращает путь к директории текущего брокера.
+      ///
+      string GetBrokerDirectory()
+      {
+         return path;
       }
       ///
       /// Возвращает флаг, указывающий на тип используемой директории.
@@ -108,14 +127,21 @@ class CResources
       ///
       bool UsingFirstTime()
       {
+         #ifdef DEMO
+         useFirstTime = false;
+         #endif
          string name;
          string filter = path+"*";
          long handle = FileFindFirst(filter, name, CommonFlag);
+         //printf("handle: " + (string)handle + " filter: " + filter + " Common: " + (string)CommonFlag);
          if(handle != INVALID_HANDLE)
          {
             FileFindClose(handle);
             return false;
          }
+         #ifdef DEMO
+         useFirstTime = true;
+         #endif
          return true;
       }
       ///
@@ -125,12 +151,14 @@ class CResources
       {
          if(!MQLInfoInteger(MQL_TESTER))
          {
-            int res = MessageBox("HedgeTerminal detected first time use. This master help you install" + 
-            " HedgeTerminal on your PC. Press \'OK' for continue or cancel for exit HedgeTerminal.", VERSION, MB_OKCANCEL);
-            if(res == IDCANCEL)
-               return false;
-            res = MessageBox("For corectly work HedgeTerminal needed install some files in" +
-            " .\MQL5\Files\HedgeTerminal derectory. For install files press \'ОК\' or cancel for exit.", VERSION, MB_OKCANCEL);
+            //
+            // HedgeTerminal определил, что используется впервые. Этот мастер установки поможет вам инсталлировать
+            // HedgeTerminal на Ваш компьютер. Для корректной работы, HedgeTerminal'у необходимо установить некоторые файлы
+            // на Ваш компьютер, в директорию .\HedgeTerminal. Для начала установки файлов нажмите O.K. или CANCEL для выхода.
+            //
+            int res = MessageBox("HedgeTerminal is used for the first time. This Wizard will help you to install" + 
+            " HedgeTerminal on your PC. For its corect operation, HedgeTerminal is required to install some files to the " +
+            ".\\HedgeTerminal folder. Click \'ОК\' to begin installation or \'Cancel\' to exit.", VERSION, MB_OKCANCEL);
             if(res == IDCANCEL)
                return false;
          }
@@ -156,18 +184,25 @@ class CResources
                ExpertRemove();
             return;
          }
-         int res = MessageBox("HedgeTerminal detected first time use, but your have " + (string)total + " active orders."+
-         " You can manually close them in HedgeTeminal or hide it in HedgeTerminal. If you want close orders manuale, press \'YES\' "+
-         "In this case, you have to make a further " + (string)total + " trading activities. If you want to hide these orders from HedgeTerminal,"+
-         " press \'NO\' and go into the next step. If you are not ready continue press \'CANCEL\'. In this case HedgeTerminal complete its work.",
+         //
+         // HedgeTerminal определил, что используется впервые, однако вы имеете #total активных ордеров (разнонаправленных позиций). Вы можете скрыть их в 
+         // HedgeTerminal сейчас, или вручную закрыть их позже. Если Вы хотите скрыть эти ордера (разнонаправленные позиции) сейчас, то нажмите кнопку YES
+         // и перейдите к следующему шагу установки. Если Вы хотите закрыть ордера позже, вручную, нажмите NO. В этом случае, в будущем, Вам потребуется
+         // совершить #total торговых действий по закрытию этих ордеров, ордерами противоположного направления.Если Вы не готовы продолжать,
+         // или не знаете, какой вариант выбрать - нажмите CANCEL. В этом случае HedgeTerminal завершит свою работу.
+         //
+         int res = MessageBox("HedgeTerminal is used for the first time, but your have " + (string)total + " active orders."+
+         " You can hide them in HedgeTerminal or close manually later. To hide these orders, click \'Yes\' and go into the next step." + 
+         " Click \'No\' if you want close these orders manually later. In this case, you have to perform " + (string)total + " trades of opposite direction." +
+         " Click \'Cancel\' if you are not ready to continue. In this case HedgeTerminal will be terminated.",
          VERSION, MB_YESNOCANCEL);
          switch(res)
          {
-            case IDYES:
+            case IDNO:
                if(!InstallResource(RES_EXCLUDE_ORDERS))
                   ExpertRemove();
                return;
-            case IDNO:
+            case IDYES:
                if(!WizardClosePositions())
                   ExpertRemove();
                else
@@ -187,15 +222,24 @@ class CResources
       ///
       bool WizardClosePositions()
       {
+         if(PositionsTotal() == 0)return true;
          int res = IDRETRY;
-         int autoClose = MessageBox("The HedgeTerminal can automatically close all active positions." + 
-         " Click 'OK' if you want to automatically close all positions. Click 'Cancel' if you want to close a position manually.", VERSION, MB_OKCANCEL);
+         //
+         // HedgeTerminal может автоматически закрыть все активные ордера (разнонаправленные позиции). Нажмите OK, если Вы хотите
+         // закрыть их автоматически. Нажмите CANCEL, если Вы хотите закрыть позиции вручную.
+         //
+         int autoClose = MessageBox("HedgeTerminal can automatically close all active positions." + 
+         " Click 'OK' if you want to close all positions automatically. Click 'Cancel' if you want to close positions manually.", VERSION, MB_OKCANCEL);
          if(autoClose == IDOK)
             AutoClose();
          while(res == IDRETRY && PositionsTotal()>0)
          {
-            res = MessageBox("To hide the orders need to close all positions. You have " + (string)PositionsTotal() + " positions to be closed." +
-            " Now close them in MetaTrader 5 and press \'RETRY\' to continue. If you can not close a position or change your mind, click \'CANCEL\'.",
+            //
+            // Прежде чем скрыть все активные ордера, необходимо закрыть #PositionsTotal существующих нетто-позиций в MetaTrader 5. Сейчас закройте
+            // их в MetaTrader 5 и нажмите RETRY для продолжения. Если Вы не можете закрыть позиции или передумали - нажмите CANCEL.
+            //
+            res = MessageBox("Prior to hiding all the active orders, you need to close " + (string)PositionsTotal() + " active positions." +
+            " Close them in MetaTrader 5 now and click \'Retry\' to continue. Click \'Cancel\' if you cannot close positions or if you've changed your mind.",
             VERSION, MB_RETRYCANCEL);
          }
          if(PositionsTotal()>0)
@@ -209,19 +253,25 @@ class CResources
       {
          if(PositionsTotal() == 0)return;
          CTrade trade;
-         for(int i = PositionsTotal()-1; i >= 0; i++)
+         trade.LogLevel(LOG_LEVEL_NO);
+         for(int i = PositionsTotal()-1; i >= 0; i--)
          {
             string symbol = PositionGetSymbol(i);
             bool res = trade.PositionClose(symbol, Settings.GetDeviation());
-            if(res == false)
-               LogWriter("Trying to close the position on symbol "+ symbol +
-               " failed. Reason: " + trade.ResultRetcodeDescription(), MESSAGE_TYPE_WARNING);
+            if(PositionSelect(symbol))
+               //
+               // Попытка закрыть позицию на символе symbol 'symbol' завершилась неудачей. Причина: trade.ResultRetcodeDescription()
+               //
+               LogWriter("Failed to close position on symbol "+ symbol+". Reason: " + trade.ResultRetcodeDescription(), MESSAGE_TYPE_WARNING);
             else
-               LogWriter("Position on the " + symbol + " successfully closed.", MESSAGE_TYPE_INFO);
+               LogWriter("Position on " + symbol + " successfully closed.", MESSAGE_TYPE_INFO);
          }
          if(PositionsTotal() > 0)
          {
-            int res = MessageBox("Automatic closing of positions failed. Check the settings of the terminal and try to close the position manually.",
+            //
+            // Автоматическое закрытие позиции завершилось неудачей. Проверьте настройки терминала или попробуйте закрыть позиции вручную, через MetaTrader 5.
+            //
+            int res = MessageBox("Failed to close positions automatically. Check terminal settings and try to close positions manually.",
             VERSION, MB_OK);
          }
       }
@@ -259,18 +309,25 @@ class CResources
       bool InstallMissingFiles(void)
       {
          bool res = true;
-         if(!CheckResource(RES_ACTIVE_POS_XML))
-            res = InstallResource(RES_ACTIVE_POS_XML);
+         #ifdef HEDGE_PANEL
          if(!CheckResource(RES_SETTINGS_XML))
             res = InstallResource(RES_SETTINGS_XML);
-         if(!CheckResource(RES_HISTORY_POS_XML))
-            res = InstallResource(RES_HISTORY_POS_XML);
-         if(!CheckResource(RES_EXPERT_ALIASES))
-            res = InstallResource(RES_EXPERT_ALIASES);
-         //if(!CheckResource(RES_FONT_MT_BOLT))
-         //   res = InstallResource(RES_FONT_MT_BOLT);
-         //string fail = res ? "O.K." : "Failed";
-         //printf("Check the missing files and install them... " + fail);
+         #endif
+         if(!MQLInfoInteger(MQL_TESTER))
+         {
+            if(!CheckResource(RES_ACTIVE_POS_XML))
+               res = InstallResource(RES_ACTIVE_POS_XML);
+            if(!CheckResource(RES_HISTORY_POS_XML))
+               res = InstallResource(RES_HISTORY_POS_XML);
+            if(!CheckResource(RES_EXPERT_ALIASES))
+               res = InstallResource(RES_EXPERT_ALIASES);
+         }
+         #ifdef HLIBRARY
+         if(!CheckResource(RES_PROTOTYPES))
+            res = InstallResource(RES_PROTOTYPES);
+         if(!CheckResource(RES_CHAOS2))
+            res = InstallResource(RES_CHAOS2);
+         #endif
          return res;
       }
       ///
@@ -290,15 +347,13 @@ class CResources
       string GetFileNameByType(ENUM_RESOURCES typeRes)
       {
          string fileName = path;
+         string dir = ".\\HedgeTerminal\\";
          switch(typeRes)
          {
             case RES_SETTINGS_XML:
                #ifdef HEDGE_PANEL
-                  fileName += SettingsPath;
+                  fileName = dir + SettingsPath;
                #endif
-               //#ifndef HEDGE_PANEL
-               //   fileName += "Settings.xml";
-               //#endif
                break;
             case RES_ACTIVE_POS_XML:
                fileName += "ActivePositions.xml";
@@ -306,17 +361,21 @@ class CResources
             case RES_HISTORY_POS_XML:
                fileName += "HistoryPositions.xml";
                break;
-            case RES_EXPERT_ALIASES:
-               fileName += "ExpertAliases.xml";
-               break;
-            case RES_FONT_MT_BOLT:
-               fileName += "Arial Rounded MT Bold.ttf";
-               break;
-            case RES_PROTOTYPES:
-               fileName += "Prototypes.mqh";
-               break;
             case RES_EXCLUDE_ORDERS:
                fileName += "ExcludeOrders.xml";
+               break;
+            case RES_EXPERT_ALIASES:
+               fileName = dir + "ExpertAliases.xml";
+               break;
+            /*case RES_FONT_MT_BOLT:
+               fileName += "Arial Rounded MT Bold.ttf";
+               break;*/
+            case RES_PROTOTYPES:
+               fileName = dir + "MQL5\\Include\\Prototypes.mqh";
+               break;
+            case RES_CHAOS2:
+               fileName = dir + "MQL5\\Experts\\Chaos2.mq5";
+               break;
          }
          return fileName;
       }
@@ -324,7 +383,7 @@ class CResources
       /// Инсталлирует файл соответствующего типа.
       /// \param typeRes - Тип инсталлируемого файла.
       ///
-      bool InstallResource(ENUM_RESOURCES typeRes)
+      bool  InstallResource(ENUM_RESOURCES typeRes)
       {
          string fileName = GetFileNameByType(typeRes);
          if(!CheckCreateFile(fileName))return false;
@@ -356,14 +415,23 @@ class CResources
             case RES_PROTOTYPES:
                FileWriteArray(handle, ARRAY_PROTOTYPES);
                break;
+            case RES_CHAOS2:
+               FileWriteArray(handle, ARRAY_CHAOS2);
+               break;
             #endif
             default:
-               printf("HedgeTerminal is not unable to create the file " + fileName + ". Check your permission and settings.");
+               //
+               // HedgeTerminal не смог создать файл fileName. Проверте Ваши разрешения в системе на создание файлов.
+               //
+               printf("HedgeTerminal failed to create the '" + fileName + "' file. Check your system permissions to create files.");
                FileClose(handle);
                return false;
          }
          FileClose(handle);
-         printf("HedgeTerminal install " + fileName + " on your PC.");
+         //
+         // HedgeTerminal инсталлирован на Ваш компьютер.
+         //
+         printf("HedgeTerminal installed '" + fileName + "' on your PC.");
          return true;
       }
    private:
@@ -375,10 +443,16 @@ class CResources
          bool res = true;
          if(UsingFirstTime())
          {
-            printf("Defined first use. The installation wizard starts...");
+            //
+            // Определено первое использование. Запускается мастер установки...
+            //
+            printf("First time use. Starting the Installation Wizard...");
             if(!WizardForUseFirstTime())
             {
-               printf("Installing HedgeTerminal filed. Unable to continue. Goodbuy:(");
+               //
+               // Инсталляция HedgeTerminal завершилась неудачей. Продолжение невозможно. Пока:(
+               //
+               printf("Failed to install HedgeTerminal. Unable to continue.");
                ExpertRemove();
                return false;
             }
@@ -395,12 +469,18 @@ class CResources
          bool res = FolderCreate("HedgeTerminal", CommonFlag);
          if(!res)
          {
-            printf("Failed create directory of HedgeTerminal. LastError:", GetLastError());
+            //
+            // Не удалось создать директорию для HedgeTerminal. Последняя ошибка GetLastError().
+            //
+            printf("Failed to create HedgeTerminal folder. LastError:", GetLastError());
             return false;
          }
          if(FileIsExist(fileName, CommonFlag))
          {
-            printf("File \'" + fileName + "\' already exits, for reinstalling file delete it.");
+            //
+            // Файл 'fileName' уже существует, для переустановки файла удалите его старую версию.
+            //
+            printf("File \'" + fileName + "\' already exits. To reinstall the file, simply delete its older version.");
             return false;
          }
          return true;
@@ -412,7 +492,10 @@ class CResources
       {
          int handle = FileOpen(fileName, CommonFlag|FILE_BIN|FILE_WRITE);
          if(handle == -1)
-            printf("Failed create file \'" + fileName + "\'. LastError: " + (string)GetLastError());
+            //
+            // Не удалось создать файл 'fileName' + последняя ошибка GetLastError()
+            //
+            printf("Failed to create \'" + fileName + "\' file. LastError: " + (string)GetLastError());
          return handle;
       }
       

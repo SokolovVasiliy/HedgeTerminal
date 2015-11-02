@@ -6,7 +6,7 @@
 enum DEAL_STATUS
 {
     ///
-    /// Сделка отсутствует в теминале или неинициализирована.
+    /// Сделка отсутствует в терминале или неинициализирована.
     ///
     DEAL_NULL,
     ///
@@ -16,7 +16,11 @@ enum DEAL_STATUS
     ///
     /// Сделка является торговой операцией на счете.
     ///
-    DEAL_TRADE
+    DEAL_TRADE,
+    ///
+    /// Сделка является конверсионной операцией по начислению свопа
+    ///
+    DEAL_BROKERAGE_SWAP
 };
 
 ///
@@ -44,12 +48,18 @@ class Deal : public Transaction
       virtual ulong Magic(){return magic;}
       virtual ENUM_DIRECTION_TYPE Direction(void);
       virtual double Commission();
+      double Swap();
    protected:
       ///
       /// Содержит комиссию в пересчете на 1 базовый контракт.
       ///
       double commission;
    private:
+      ///
+      /// Определяет статус.
+      ///
+      void DetectStatus();
+      bool IsRolloverDeal();
       ///
       /// Истина, если свойства текущего ордера доступны в истории терминала,
       /// ложь в противном случае.
@@ -93,6 +103,10 @@ class Deal : public Transaction
       /// Идентификатор эксперта, которому принадлежит текущая сделка.
       ///
       ulong magic;
+      ///
+      /// Содержит накопленный своп.
+      ///
+      double swap;
       
 };
 
@@ -120,6 +134,7 @@ Deal::Deal(Deal* deal) : Transaction(TRANS_DEAL)
    type = deal.DealType();
    magic = deal.Magic();
    commission = deal.commission;
+   swap = deal.Swap();
    //Копируются все значения кроме ссылки на ордер.
    //order = deal.Order();
 }
@@ -160,6 +175,7 @@ void Deal::Init(ulong dealId)
    volumeExecuted = HistoryDealGetDouble(dealId, DEAL_VOLUME);
    //Рассчитываем комиссию на один базовый контракт.
    commission = HistoryDealGetDouble(dealId, DEAL_COMMISSION);
+   swap += HistoryDealGetDouble(dealId, DEAL_SWAP);
    if(Math::DoubleEquals(volumeExecuted, 0.0))
       commission = 0.0;
    else
@@ -174,17 +190,42 @@ void Deal::Init(ulong dealId)
    type = (ENUM_DEAL_TYPE)HistoryDealGetInteger(dealId, DEAL_TYPE);
    comment = HistoryDealGetString(dealId, DEAL_COMMENT);
    magic = HistoryDealGetInteger(dealId, DEAL_MAGIC);
-   if(type == DEAL_TYPE_BUY || type == DEAL_TYPE_SELL)
-   {
-      status = DEAL_TRADE;
-      orderId = HistoryDealGetInteger(GetId(), DEAL_ORDER);
-   }
-   else
-      status = DEAL_BROKERAGE;
+   DetectStatus();
    if(!isSelected)
       HistorySelect(0, TimeCurrent());
 }
 
+double Deal::Swap(void)
+{
+   return swap;
+}
+///
+/// Определяет статус (DEAL_STATUS) сделки и
+/// идентификатор ее инициализирующего ордера, если
+/// это возможно.
+///
+void Deal::DetectStatus(void)
+{
+   orderId = HistoryDealGetInteger(GetId(), DEAL_ORDER);
+   if(type == DEAL_TYPE_BUY || type == DEAL_TYPE_SELL)
+   {
+      if(orderId > 0)status = DEAL_TRADE;
+      else if(IsRolloverDeal())
+         status = DEAL_BROKERAGE_SWAP;
+   }
+   else
+      status = DEAL_BROKERAGE;
+}
+bool Deal::IsRolloverDeal(void)
+{
+   string lower_comment = comment;
+   StringToLower(lower_comment);
+   int index = StringFind(lower_comment, "rollover");
+   int index2 = StringFind(lower_comment, "variation margin");
+   if(index == -1 && index2 == -1)
+      return false;
+   return true;
+}
 ///
 ///
 ///
@@ -283,7 +324,7 @@ ENUM_DIRECTION_TYPE Deal::Direction()
    if(type == DEAL_TYPE_SELL)
       return DIRECTION_SHORT;
    else
-      return DIRECTION_NDEF;
+      return DIRECTION_UNDEFINED;
 }
 
 ///

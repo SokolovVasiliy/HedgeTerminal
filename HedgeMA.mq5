@@ -2,15 +2,30 @@
 //|                                                      HedgeMA.mq5 |
 //|     Copyright 2014, Vasiliy Sokolov especially for HedgeTerminal |
 //|                              https://login.mql5.com/ru/users/c-4 |
+//|   DESCRIPTION: This is a simple moving average expert working on |
+//| multi timeframes and periods. This expert advisor show how using |
+//|HedgeTerminal API. Use this example for build your expert advisor |
+//| For compiling this expert copy this file in MQL5\Experts         |
+//| directory your terminal. For example:                            |
+//| "C:\Programm Files\MetaTrader 5\MQL5\Experts\HedgeMA.mq5\".      |
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2014, Vasiliy Sokolov especially for HedgeTerminal"
 #property link      "https://login.mql5.com/ru/users/c-4"
 #property version   "1.00"
 
-#define API_INTRO
+input int ma_period = 12; // MA period
+input int sl_pips = 100;  //Trailing stop in pips
+
+//#define API_INTRO
 #ifdef API_INTRO
-   #include ".\API\HedgePanelAPI.mq5"
+   #include ".\API\HedgeTerminalAPI.mq5"
 #else
+   enum ENUM_DIRECTION_TYPE
+   {
+      DIRECTION_NDEF,
+      DIRECTION_LONG,
+      DIRECTION_SHORT
+   };
    #include "Prototypes.mqh"
 #endif
 #include <Trade\Trade.mqh>
@@ -106,11 +121,12 @@ class MAExpert : public CObject
       ///
       /// Create expert by based parameters.
       ///
-      MAExpert(ulong mg, ENUM_TIMEFRAMES tf, int mperiod, double stopLevel)
+      MAExpert(ulong mg, ENUM_TIMEFRAMES tf, int mperiod, int stopLevel)
       {
          config.magic = mg;
          config.timeframe = tf;
          config.ma_period = mperiod;
+         config.stop_pips = stopLevel;
          CreateMA();
       }
       ///
@@ -352,6 +368,9 @@ class MAExpert : public CObject
       ///
       void TrailingStop()
       {
+         int dbg = 5;
+         if(config.magic == 1000)
+            dbg = 4;
          if(config.stop_pips == 0)return;
          while(SelectPosition())
          {
@@ -401,7 +420,7 @@ class MAExpert : public CObject
       void PrintTaskLog()
       {
          int totalActions = (int)HedgePositionGetInteger(HEDGE_POSITION_ACTIONS_TOTAL);
-         printf("Hedge error: " + EnumToString(hedgeErr));
+         printf("Hedge error: " + EnumToString(GetHedgeError()));
          for(int i = 0; i < totalActions; i++)
          {
             ENUM_TARGET_TYPE type;
@@ -480,28 +499,75 @@ class Fibo
 CArrayObj experts;
 
 ///
+/// This enum define 3 sets good settings for MAExpert.
+///
+enum ENUM_MA_EXPERT_TYPE
+{
+   MA_EXPERT_SET1,
+   MA_EXPERT_SET2,
+   MA_EXPERT_SET3,
+   MA_EXPERT_SET4,
+};
+
+ConfigMA* Configure(ENUM_MA_EXPERT_TYPE type = MA_EXPERT_SET1)
+{
+   ConfigMA* cnf = new ConfigMA();
+   switch(type)
+   {
+      case MA_EXPERT_SET1:
+         cnf.ma_period = 12;
+         cnf.magic = 1000;
+         break;
+      case MA_EXPERT_SET2:
+         cnf.ma_period = 22;
+         cnf.magic = 1001;
+         break;
+      case MA_EXPERT_SET3:
+         cnf.ma_period = 16;
+         cnf.magic = 1002;
+         break;
+      case MA_EXPERT_SET4:
+         cnf.ma_period = 24;
+         cnf.magic = 1003;
+         break;
+   }
+   cnf.stop_pips = sl_pips;
+   cnf.symbol_name = Symbol();
+   cnf.timeframe = PERIOD_CURRENT;
+   return cnf;
+}
+
+///
 /// Create array of experts based on moving average and configure it.
 ///
 int OnInit()
   {
+   //MAExpert expert = new MAExpert(basedMagic+period, PERIOD_M1, ,
+   /*experts.Add(new MAExpert(Configure(MA_EXPERT_SET1)));
+   experts.Add(new MAExpert(Configure(MA_EXPERT_SET2)));
+   experts.Add(new MAExpert(Configure(MA_EXPERT_SET3)));
+   experts.Add(new MAExpert(Configure(MA_EXPERT_SET4)));*/
+   int total = TransactionsTotal();
+   ExpertRemove();
+   //experts.Add(new MAExpert(1000, PERIOD_CURRENT, ma_period, sl_pips));
    //ObjectCreate(0, "sss", OBJ_LABEL, 0, 0, 0);
    //ObjectSetInteger(0, "sss", OBJPROP_XSIZE, 200);
    //ObjectSetInteger(0, "sss", OBJPROP_YSIZE, 200);
    //ObjectSetInteger(0, "sss", OBJPROP_BGCOLOR, clrBlue);
-   Fibo fibo;
-   ulong basedMagic = 1000000; //Based magic expert class.
+   //Fibo fibo;
+   //ulong basedMagic = 1000000; //Based magic expert class.
    //for(int i = 0; i < 100; i++)
    //   printf("i: " + (string)i + " - " + (string)fibo.GetNextFiboNumber());
    //Create 25 experts of moving average
    //experts.Add(new MAExpert(basedMagic+50, PERIOD_CURRENT, 50, 0.0025));
    //experts.Add(new MAExpert(basedMagic+200, PERIOD_CURRENT, 200, 0.0025));
-   while(true)
+   /*while(true)
    {
       //if(experts.Total() > 2)return INIT_SUCCEEDED;
       int period = fibo.GetNextFiboNumber();
       if(period > 1000)return INIT_SUCCEEDED;
       experts.Add(new MAExpert(basedMagic+period, PERIOD_CURRENT, period, 0.0025));
-   }
+   }*/
    return INIT_SUCCEEDED;
   }
 

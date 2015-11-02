@@ -31,11 +31,11 @@ class Image : public ProtoNode
       }*/
 };
 
-class MenuButton : public Image
+/*class MenuButton : public Image
 {
    public:
       MenuButton(ProtoNode* parNode) : Image("HP Menu", parNode, IMG_MENU)
       {
          imgName = IMG_MENU;
       }
-};
+};*/

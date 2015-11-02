@@ -1,6 +1,0 @@
-///
-///
-///
-class Order : public Transaction
-{
-};

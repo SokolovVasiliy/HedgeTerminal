@@ -7,11 +7,11 @@ class Random
    public:
       Random()
       {              
-         #ifndef DEMO 
+         ///#ifndef DEMO 
             InitValues(RANDOM_KNUTH);
-         #else
-            InitValues(RANDOM_NEWLIB);
-         #endif 
+         //#else
+         //   InitValues(RANDOM_NEWLIB);
+         //#endif 
       }
       
       void Seed(ulong seed)

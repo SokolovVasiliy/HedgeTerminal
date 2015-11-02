@@ -2,14 +2,6 @@ input string FileName;
 #include <Files\FileBin.mqh>
 #include <Files\FileTxt.mqh>
 
-void OnStart()
-{
-   bool res = FolderCreate("HedgeTerminal");
-   printf(res);
-   CreatedResources::LoadResource("test.xml");
-   CreatedResources::SaveResurce("test.mqh", "test_mqh");
-}
-
 ///
 /// Создатель ресурсов.
 ///
@@ -20,10 +12,14 @@ class CreatedResources
       /// Загружает ресурс из файла.
       /// \return Истина, если загрузка прошла успешно и ложь в противном случае.
       ///
-      static bool LoadResource(string fileName)
+      bool LoadResource(string fileName)
       {
-         int handle = FileOpen(fileName, FILE_READ|FILE_BIN, "");
-         if(handle == -1)return false;
+         int handle = FileOpen(fileName, FILE_COMMON|FILE_READ|FILE_BIN, "");
+         if(handle == -1)
+         {
+            printf("Filed open file " + fileName + ". Reason: " + (string)GetLastError());
+            return false;
+         }
          int size = ArrayResize(resource, (int)FileSize(handle));
          for(int seek = 0; seek < size; seek++)
          {
@@ -33,7 +29,7 @@ class CreatedResources
          }
          return true;
       }
-      static bool SaveResurce(string fileName, string nameArray)
+      bool SaveResurce(string fileName, string nameArray)
       {
          int handle = FileOpen(fileName, FILE_WRITE|FILE_TXT, "");
          if(handle == -1)
@@ -66,55 +62,35 @@ class CreatedResources
          FileClose(handle);
          return true;
       }
-      ///
-      /// Создает массив ресурса и сохраняет его в виде текстового массива в файле fileName
-      /// \param fileName - Имя файла в котором будет распологаться массив ресурса.
-      /// \param nameArray - Имя массива ресурса.
-      /// \return 
-      ///
-      /*static bool SaveResurce(string fileName, string nameArray)
-      {
-         int handle = FileOpen(fileName, FILE_WRITE|FILE_TXT, "");
-         
-         if(!fileOut.Open(fileName, FILE_WRITE|FILE_TXT, ""))
-            return false;
-         int size = ArraySize(resource);
-         string strSize = (string)size;
-         //fileOut.WriteString("// This file was created automated. Manual editing not welcome.");
-         fileOut.WriteString("uchar " +nameArray + "[" + strSize + "] = {" );
-         // Количество байт в одной строке
-         int chaptersLine = 32;
-         string line = "";
-         for(int i = 0; i < size; i++)
-         {
-            ushort ch = resource[i];
-            line += "," + (string)ch;
-            if(i%chaptersLine == 0)
-            {
-               fileOut.WriteString(line + ",");
-               line = "";
-            }
-         }
-         fileOut.WriteString("};");
-         fileOut.Close();
-         
-         return true;
-      }*/
+      
    private:
       ///
       /// Читатель бинарного файла.
       ///
-      static CFileBin fileIn;
+      CFileBin fileIn;
       ///
       /// Создатель файла ресурса.
       ///
-      static CFileTxt fileOut;
+      CFileTxt fileOut;
       ///
       /// Динамический массив, содержащий байтовое представление ресурса.
       ///
-      static ushort resource[];
+      ushort resource[];
       ///
       /// Экземпляр создать нельзя.
       ///
-      CreatedResources();
+      //CreatedResources();
 };
+
+CreatedResources CR;
+
+void OnStart()
+{
+   //Загружаем из папки Common\Files
+   //CR.LoadResource("Prototypes.mqh");
+   //Сохраняем в локальную папку \Files
+   //CR.SaveResurce("Prototypes.mqh.mqh", "array_prototypes");
+   
+   CR.LoadResource("HedgeMAExpert.mq5");
+   CR.SaveResurce("HedgeMA.mq5.mqh", "array_hedge_ma");
+}

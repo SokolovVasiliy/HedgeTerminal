@@ -59,6 +59,10 @@ class Target : public CObject
       {
          return true;
       }
+      virtual int Type()
+      {
+         return 23;
+      }
       ///
       /// Возвращает идентификатор подзадания.
       ///

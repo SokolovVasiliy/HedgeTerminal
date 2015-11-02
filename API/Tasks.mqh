@@ -57,7 +57,9 @@ class Task2 : public CObject
          {
             if(CheckPointer(position) != POINTER_INVALID)
                position.SetBlock(TimeCurrent(), true);
-            currTarget = targets.GetFirstNode();
+            CObject* obj = targets.GetFirstNode();
+            int type = obj.Type();
+            currTarget = obj;
             isContinue = true;
             //Раз проваленую задачу больше не исполняем.
             if(status == TASK_STATUS_FAILED)
@@ -430,7 +432,7 @@ class TaskClosePartPosition : public Task2
       /// \param pos - Позиция, часть объема которой требуется закрыть.
       /// \param volume - объем, который требуется закрыть.
       ///
-      TaskClosePartPosition(Position* pos, double volume, ulong deviation, bool asynchMode) : Task2(pos, asynchMode)
+      TaskClosePartPosition(Position* pos, double volume, ulong deviation, bool asynchMode, ENUM_CLOSE_TYPE closeType = CLOSE_AS_MARKET) : Task2(pos, asynchMode)
       {
          if(FailedIfNotActivePos())
             return;
@@ -450,7 +452,20 @@ class TaskClosePartPosition : public Task2
          }
          ENUM_DIRECTION_TYPE dir = pos.Direction() == DIRECTION_LONG ? DIRECTION_SHORT: DIRECTION_LONG;
          Order* initOrder = pos.EntryOrder();
-         ulong magic = initOrder.GetMagic(MAGIC_TYPE_MARKET);
+         ENUM_MAGIC_TYPE mgType = MAGIC_TYPE_MARKET;
+         switch(closeType)
+         {
+            case CLOSE_AS_MARKET:
+               mgType = MAGIC_TYPE_MARKET;
+               break;
+            case CLOSE_AS_STOP_LOSS:
+               mgType = MAGIC_TYPE_SL;
+               break;
+            case CLOSE_AS_TAKE_PROFIT:
+               mgType = MAGIC_TYPE_TP;
+               break;
+         }
+         ulong magic = initOrder.GetMagic(mgType);
          AddTarget(new TargetTradeByMarket(pos.Symbol(), dir, volume, deviation, pos.ExitComment(), magic, asynchMode));
          //Восстанавливаем стоп ордер если необходимо.
          if(pos.UsingStopLoss() && volume < pos.VolumeExecuted())

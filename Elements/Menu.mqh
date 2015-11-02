@@ -20,7 +20,11 @@ enum ENUM_MENU_ELEMENT
    ///
    /// Переустанавливает файлы настроек.
    ///
-   MENU_INSTALL_FILES
+   MENU_INSTALL_FILES,
+   ///
+   /// Скрывает хеджируемые позиции.
+   ///
+   MENU_HIDE_HEDGE_POSITIONS
 };
 
 ///
@@ -49,6 +53,9 @@ class ElementMenu : public Label
             case MENU_SAVE_REPORT:
                OnMenuSaveReport();
                break;
+            case MENU_HIDE_HEDGE_POSITIONS:
+               OnMenuHideHedge();
+               break;
          }
       }
       ///
@@ -56,93 +63,21 @@ class ElementMenu : public Label
       ///
       void OnMenuAbout()
       {
-         string message = "HedgeTerminal is designed for hedging netto positions in MetaTrader 5 and " + 
+         string message = "HedgeTerminal is designed for hedging net positions in MetaTrader 5 and " + 
                           "simple controls expert advisors." +
-                          " For suggestions and comments, please contact with author at https://login.mql5.com/ru/users/c-4" +
-                          "   " +
-                          "Copyright 2013-2014, Vasiliy Sokolov, St.-Petersburg, Russia.";
-         MessageBox(message, "HedgeTerminal 1.0", MB_ICONASTERISK);
+                          "                                                                " +
+                          "For suggestions and comments, please contact with author at https://login.mql5.com/ru/users/c-4" +
+                          "                                                              " +
+                          "Copyright 2013-2015, Vasiliy Sokolov, St.-Petersburg, Russia.";
+         
+         MessageBox(message, VERSION, MB_ICONASTERISK);
       }
       ///
       /// Сохраняет отчет в виде CSV файла.
       ///
       void OnMenuSaveReport()
       {         
-         string date = TimeToString(TimeCurrent(), TIME_DATE);
-         string fileName = ".\HedgeTerminal\HTReport_" + date + ".csv";
-         //if(file.IsExist(fileName))
-         //   file.Delete(fileName);
-         int handle = FileOpen(fileName, FILE_WRITE, FILE_CSV);
-         //int handle = file.Open(fileName, FILE_WRITE|FILE_CSV);
-         if(handle == -1)
-         {
-            LogWriter("Failed save report. Last error: " + (string)GetLastError(), MESSAGE_TYPE_ERROR);
-            return;
-         }
-         SaveReport(handle);
-         FileClose(handle);
-         LogWriter("The report file " + fileName + " has been successfully created. Check it in .\MQL5\Files\HedgeTerminal directory", MESSAGE_TYPE_INFO);
-      }
-      ///
-      /// Формирует отчет и сохраняет его в предворительно открытом файле 'file'
-      ///
-      void SaveReport(int file)
-      {
-         string d = ";";
-         string header = "Magic;Symbol;EntryID;EntryDate;Type;Volume;EntryPrice;StopLoss;TakeProfit;CurrentPrice;Commission;ProfitInCurrency;EntryComment;ExitComment\n";
-         FileWriteString(file, header);
-         for(int i = 0; i < api.ActivePosTotal(); i++)
-         {
-            Transaction* trans = api.ActivePosAt(i);
-            if(trans.TransactionType() != TRANS_POSITION)
-               continue;
-            Position* pos = trans;
-            string line = "";
-            line += (string)pos.Magic() + d;
-            line += pos.Symbol() + ";";
-            line += (string)pos.EntryOrderId() + d;
-            line += TimeToString(pos.EntryExecutedTime()/1000, TIME_DATE|TIME_MINUTES|TIME_SECONDS) + d;
-            line += pos.TypeAsString() + d;
-            line += pos.VolumeToString(pos.VolumeExecuted()) + d;
-            line += pos.PriceToString(pos.EntryExecutedPrice()) + d;
-            line += pos.PriceToString(pos.StopLossLevel()) + d;
-            line += pos.PriceToString(pos.TakeProfitLevel()) + d;
-            line += pos.PriceToString(pos.CurrentPrice()) + d;
-            line += DoubleToString(pos.Commission(), 2) + d;
-            line += DoubleToString(pos.ProfitInCurrency(), 2) + d;
-            line += pos.EntryComment() + d;
-            line += pos.ExitComment();
-            line += "\n";
-            FileWriteString(file, line, StringLen(line)-1);
-         }
-         header = "\nMagic;Symbol;EntryID;EntryDate;Type;Volume;EntryPrice;ExitPrice;ExitDate;ExitID;StopLoss;TakeProfit;Commision;Profit;EntryComment;ExitComment\n";
-         FileWriteString(file, header);
-         for(int i = 0; i < api.HistoryPosTotal(); i++)
-         {
-            Transaction* trans = api.HistoryPosAt(i);
-            if(trans.TransactionType() != TRANS_POSITION)
-               continue;
-            Position* pos = trans;
-            string line = "";
-            line += (string)pos.Magic() + d;
-            line += pos.Symbol() + ";";
-            line += (string)pos.EntryOrderId() + d;
-            line += TimeToString(pos.EntryExecutedTime()/1000, TIME_DATE|TIME_MINUTES|TIME_SECONDS) + d;
-            line += pos.TypeAsString() + d;
-            line += pos.VolumeToString(pos.VolumeExecuted()) + d;
-            line += pos.PriceToString(pos.EntryExecutedPrice()) + d;
-            line += pos.PriceToString(pos.ExitExecutedPrice()) + d;
-            line += TimeToString(pos.ExitExecutedTime()/1000, TIME_DATE|TIME_MINUTES|TIME_SECONDS) + d;
-            line += (string)pos.ExitOrderId() + d;
-            line += pos.PriceToString(pos.StopLossLevel()) + d;
-            line += pos.PriceToString(pos.TakeProfitLevel()) + d;
-            line += DoubleToString(pos.Commission(), 2) + d;
-            line += DoubleToString(pos.ProfitInCurrency(), 2) + d;
-            line += pos.EntryComment() + d;
-            line += pos.ExitComment();
-            line += "\n";
-            FileWriteString(file, line, StringLen(line)-1);
-         }
+         report.SaveToFile(REPORT_CSV);
       }
       ///
       /// Скрывает родительское меню.
@@ -153,6 +88,25 @@ class ElementMenu : public Label
          EventSend(event);
          delete event;
       }
+      
+      void OnMenuHideHedge()
+      {
+         if(api.ActivePosTotal() == 0)
+         {
+            MessageBox("Active position not find.", VERSION, MB_OK);
+            return;
+         }
+         if(PositionsTotal() != 0)
+         {
+            int total = PositionsTotal();
+            MessageBox("Detect " + (string)total + " active netto-position(s). Close position and try letter", VERSION, MB_OK);
+            return;
+         }
+         int id = MessageBox("Are you sure you want to close a position?", VERSION, MB_OKCANCEL);
+         if(id != IDOK)return;
+         api.HideHedgePositions();
+      }
+      
       ENUM_MENU_ELEMENT element;
 };
 
@@ -177,9 +131,15 @@ class Menu : public Label
          //m.BorderColor(Settings.ColorTheme.GetSystemColor2());
          //childNodes.Add(m);
          //About Hedge Terminal
+         
+         m = new ElementMenu(MENU_HIDE_HEDGE_POSITIONS, "Hide Hedge Positions", GetPointer(this));
+         m.BorderColor(Settings.ColorTheme.GetSystemColor2());
+         childNodes.Add(m);
+         
          m = new ElementMenu(MENU_ABOUT, "About HedgeTerminal", GetPointer(this));
          m.BorderColor(Settings.ColorTheme.GetSystemColor2());
          childNodes.Add(m);
+         
       }
       ///
       /// Возвращает высоту одного элемента меню.

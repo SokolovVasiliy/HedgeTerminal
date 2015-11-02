@@ -216,6 +216,10 @@ class Order : public Transaction
       /// Идентификатор рыночного ордера.
       ///
       uchar id_market(){return 0x80;}
+      ///
+      /// Содержит возраст ордера для демо режима.
+      ///
+      long tiks_demo;
 };
 
 /*PUBLIC MEMBERS*/
@@ -230,6 +234,7 @@ Order::Order() : Transaction(TRANS_ORDER)
 ///
 Order::Order(ulong idOrder):Transaction(TRANS_ORDER)
 {
+   positionId = 0;
    Init(idOrder);
 }
 
@@ -238,6 +243,7 @@ Order::Order(ulong idOrder):Transaction(TRANS_ORDER)
 ///
 Order::Order(Deal* deal) : Transaction(TRANS_ORDER)
 {
+   positionId = 0;
    AddDeal(deal);
 }
 
@@ -246,6 +252,7 @@ Order::Order(Deal* deal) : Transaction(TRANS_ORDER)
 ///
 Order::Order(TradeRequest& request) : Transaction(TRANS_ORDER)
 {
+   positionId = 0;
    SetId(request.order);
    magic = request.magic;
    volumeSetup = request.volume;
@@ -275,6 +282,7 @@ Order::Order(Order *order) : Transaction(TRANS_ORDER)
       ndeal.LinqWithOrder(GetPointer(this));
       AddDeal(ndeal);
    }
+   positionId = order.PositionId();
    comment = order.Comment();
    status = order.Status();
    priceSetup = order.PriceSetup();
@@ -447,6 +455,7 @@ void Order::Refresh(void)
 ///
 void Order::AddDeal(Deal* deal)
 {
+   ulong id = deal.GetId();
    if(deal.Status() == DEAL_BROKERAGE ||
       deal.Status() == DEAL_NULL)
    {
@@ -509,19 +518,13 @@ int Order::DealsTotal()
 ///
 bool Order::IsHistory()
 {
-   /*bool res = HistoryOrderSelect(GetId());
-   if(res)
-   {
-      LoadHistory();
-      ulong setup = HistoryOrderGetInteger(GetId(), ORDER_TIME_SETUP_MSC);
-      datetime tsetup = HistoryOrderGetInteger(GetId(), ORDER_TIME_SETUP);
-      printf("Order find. Time setup: " + setup + " " + tsetup);
-   }*/
+   //if(status == ORDER_HISTORY)
+   //   return true;
    LoadHistory();
    ulong ticket = GetId();
-   //printf("IsHistory(): find order " + (string)res);
-   //printf("is hitory id=" + ticket + " total=" + HistoryOrdersTotal());
-   if(HistoryOrderGetInteger(ticket, ORDER_TIME_SETUP) > 0)
+   //if(timeSetup > 0)
+   //   return true;
+   if(timeSetup > 0 || HistoryOrderGetInteger(ticket, ORDER_TIME_SETUP) > 0)
       return true;
    return false;
 }
@@ -745,7 +748,8 @@ void Order::RecalcValues(void)
       long tSetup = HistoryOrderGetInteger(id, ORDER_TIME_SETUP_MSC);
       if(tSetup != 0)
          timeSetup = tSetup;
-      else timeSetup = (long)HistoryOrderGetInteger(id, ORDER_TIME_SETUP)*1000;
+      else
+         timeSetup = (long)HistoryOrderGetInteger(id, ORDER_TIME_SETUP)*1000;
       comment = HistoryOrderGetString(id, ORDER_COMMENT);
       type = (ENUM_ORDER_TYPE)HistoryOrderGetInteger(id, ORDER_TYPE);
       state = (ENUM_ORDER_STATE)HistoryOrderGetInteger(id, ORDER_STATE);
@@ -754,7 +758,12 @@ void Order::RecalcValues(void)
       if(IsCanceled())
          timeCanceled.Tiks(HistoryOrderGetInteger(id, ORDER_TIME_DONE_MSC));
    }
-   RecalcPosId();
+   #ifdef DEMO
+   if(timeSetup.Tiks() < (long)TimeCurrent()*1000)
+      tiks_demo = TimeCurrent()*1000 - timeSetup.Tiks();
+   #endif
+   if(positionId == 0)
+      RecalcPosId();
 }
 
 ///
@@ -763,12 +772,22 @@ void Order::RecalcValues(void)
 ///
 void Order::RecalcPosId()
 {
-   positionId = 0;
+   if(positionId > 0)return;
+   //positionId = 0;
    ulong unhash = 0;
    bool b1 = crypto.GetBit(magic, 63);
    bool b2 = crypto.GetBit(magic, 62);
    if(!b1)return;
-   unhash = crypto.Decrypt(magic);
+   ulong mg = magic;
+   /*#ifdef DEMO
+   for(uchar i = 63; i > 28; i--)
+   {
+      bool res = crypto.GetBit(tiks_demo, i);
+      bool res1 = crypto.GetBit(magic, i);
+      crypto.SetBit(mg, i, res || res1);
+   }
+   #endif*/
+   unhash = crypto.Decrypt(mg);
    crypto.SetBit(unhash, 63, b1);
    crypto.SetBit(unhash, 62, b2);
    ulong bType = 0xFC00000000000000 & unhash;
@@ -778,8 +797,11 @@ void Order::RecalcPosId()
    // остальное - для идентификатора номера.
    ulong mask = 0x03FFFFFFFFFFFFFF;
    ulong id = mask & unhash;
-   if(FindActivePosById(id) >= 0)
+   int dbg = 5;
+   //if(FindActivePosById(id) >= 0)
       positionId = id;
+   //else
+   //   dbg = 6;
 }
 
 int Order::FindActivePosById(ulong id)
@@ -858,7 +880,8 @@ bool Order::IsTakeProfit(void)
 ///
 bool Order::IsCanceled(void)
 {
-   if(state == ORDER_STATE_CANCELED)
+   if(state == ORDER_STATE_CANCELED ||
+      state == ORDER_STATE_EXPIRED)
       return true;
    return false;
 }

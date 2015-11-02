@@ -1,18 +1,20 @@
-#include "Aliases.mqh"
-#define DEMO_PERIOD 3
-#define VERSION "HedgeTerminal 1.0"
+#ifdef RELEASE
+   #include "Aliases.mqh"
+#endif
+
+
 class PanelSettings;
 #include "Resources\Resources.mqh"
 #ifdef HEDGE_PANEL
    ///
    /// Кнопка старта.
    ///
-   #define IMG_MENU "::button_img.bmp"
-   #resource "button_img.bmp"
+   //#define IMG_MENU "::button_img.bmp"
+   //#resource "button_img.bmp"
    //#resource "Resources\\Fonts\\Arial Rounded MT Bold Bold.ttf"
    //#resource "Resources\\Fonts\\test.fon"
 #endif
-#include "Prototypes.mqh"
+#include <Prototypes.mqh>
 
 
 enum ENUM_COLOR_TYPE
@@ -286,7 +288,7 @@ enum ENUM_BUTTON_STATE
 #include "API\MqlTransactions.mqh"
 #include "Events.mqh"
 #include "API\API.mqh"
-
+#include "API\Report.mqh"
 #ifdef HEDGE_PANEL
    #include "Elements\Node.mqh"
    #include "Elements\Elements.mqh"
@@ -297,3 +299,4 @@ PanelSettings Settings;
 //class CEventExchange;
 CEventExchange EventExchange;
 Crypto crypto;
+Report report;

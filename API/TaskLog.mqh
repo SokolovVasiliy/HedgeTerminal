@@ -1,4 +1,4 @@
-#include "..\Prototypes.mqh"
+#include <Prototypes.mqh>
 #include <Arrays\ArrayInt.mqh>
 ///
 /// Логирование событий для задачи.

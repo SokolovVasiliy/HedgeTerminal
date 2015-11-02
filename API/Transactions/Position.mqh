@@ -1,6 +1,0 @@
-///
-///
-///
-class Position : public Transaction
-{
-};

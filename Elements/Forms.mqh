@@ -7,9 +7,7 @@ class MainForm : public ProtoNode
 {
    public:
       MainForm():ProtoNode(OBJ_RECTANGLE_LABEL, ELEMENT_TYPE_FORM, "HedgePanel", NULL)
-      {
-         
-         
+      {  
          BorderType(BORDER_FLAT);
          BackgroundColor(clrWhiteSmoke);
          
@@ -33,7 +31,11 @@ class MainForm : public ProtoNode
          string str = CharToString(0x5c);
          string str1 = CharToString(0x2f);
          start.Text(str +str + str);
-         start.FontColor(clrOrangeRed);
+         #ifdef DEMO
+            start.FontColor(clrGray);
+         #else
+            start.FontColor(clrOrangeRed);
+         #endif 
          childNodes.Add(start);
          
          //btnMenu = new MenuButton(GetPointer(this));
@@ -60,6 +62,22 @@ class MainForm : public ProtoNode
          asynchStatus.Align(ALIGN_CENTER);
          childNodes.Add(asynchStatus);
          
+         /*tradePanel = new Label("Trade Panel", GetPointer(this));
+         tradePanel.ReadOnly(true);
+         tradePanel.BackgroundColor(clrBlack);
+         tradePanel.BorderColor(clrBlack);
+         tradePanel.FontColor(clrBlack);
+         childNodes.Add(tradePanel);*/
+         
+         #ifdef DEMO
+         demoStatus = new Label("Demo status", GetPointer(this));
+         demoStatus.ReadOnly(true);
+         demoStatus.BackgroundColor(clrRed);
+         demoStatus.BorderColor(clrRed);
+         demoStatus.FontColor(clrWhite);
+         demoStatus.Text("DEMO");
+         childNodes.Add(demoStatus);
+         #endif 
          /*mailStatus = new Label("MailStatus", GetPointer(this));
          mailStatus.ReadOnly(true);
          mailStatus.BackgroundColor(BackgroundColor());
@@ -104,13 +122,23 @@ class MainForm : public ProtoNode
          //mailStatus.Event(command);
          delete command;
          
+         #ifdef DEMO
+         command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), Width()-97, 3, 47, 14);
+         demoStatus.Event(command);
+         delete command;
+         #endif
+         
          /*command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), Width()-88, 1, 25, 18);
          connected.Event(command);
          delete command;*/
          
-         command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 15, 0, 100, 30);
+         command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 38, 0, 100, 30);
          start.Event(command);
          delete command;
+         
+         /*command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 2, 2, 10, 10);
+         tradePanel.Event(command);
+         delete command;*/
          
          //command = new EventNodeCommand(EVENT_FROM_UP, NameID(), Visible(), 15, 0, 100, 30);
          //btnMenu.Event(command);
@@ -140,11 +168,14 @@ class MainForm : public ProtoNode
                bool is_expert = MQLInfoInteger(MQL_TRADE_ALLOWED);
                bool is_conn = TerminalInfoInteger(TERMINAL_CONNECTED);
                is_allowed = is_allowed && is_expert && is_conn;
+               status.Tooltip("Terminal trade allowed: " + (string)(bool)TerminalInfoInteger(TERMINAL_TRADE_ALLOWED) + 
+               "; Expert trade allowed: " + (string)is_expert + "; Connected: " +
+               (string)is_conn);
                if(is_allowed != allowed)
                {
                   allowed = is_allowed;
                   if(!is_allowed)
-                  {
+                  {   
                      status.FontColor(clrRed);
                      status.Text(CharToString(76));
                   }
@@ -227,6 +258,10 @@ class MainForm : public ProtoNode
       ///
       Label* status;
       ///
+      /// Кнопка-заглушка для TradePanel.
+      ///
+      Label* tradePanel;
+      ///
       /// Флаг разрешения торговли советником.
       ///
       bool allowed;
@@ -242,6 +277,10 @@ class MainForm : public ProtoNode
       /// Индикатор асинхронного состояния позиций.
       ///
       Label* asynchStatus;
+      ///
+      /// Демо статус.
+      ///
+      Label* demoStatus;
       ///
       /// Флаг подключения к серверу.
       ///

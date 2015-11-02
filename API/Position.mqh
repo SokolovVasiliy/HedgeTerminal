@@ -10,6 +10,8 @@
 //#include "..\XML\XmlPos.mqh"
 #include "..\XML\XmlPos2.mqh"
 #include "TralStopLoss.mqh"
+#include "MoneyManager.mqh"
+
 
 class Position;
 
@@ -116,7 +118,8 @@ class Position : public Transaction
       Order* ExitOrder(){return closingOrder;}
       Order* StopOrder(){return slOrder;}
       bool Compatible(Position* pos);
-      virtual int Compare(  CObject* node,   int mode=0);
+      bool Compatible(Order* order);
+      virtual int Compare(const CObject* node, const int mode=0)const;
       void OrderChanged(Order* order);
       void Refresh();
       virtual string TypeAsString(void);
@@ -190,8 +193,27 @@ class Position : public Transaction
       /// Возвращает величину общего проскальзывания позиции в пунктах.
       ///
       double Slippage();
-      
+      ///
+      /// Переопределенный метод для получения уровня прибыль для позиции.
+      ///
+      virtual double ProfitInCurrency();
+      ///
+      ///Возвращает размер совокупного накопленного свопа.
+      ///
+      double Swap();
+      ///
+      /// Вовзаращет уровень запомненного стопа.
+      ///
+      ulong HistoryStopId(){return historyStopId;}
+      ///
+      /// Создает для исторической позиции исторически отложенный стоп.
+      ///
+      void CreateHistSLByTicket(ulong ticket);
    private:
+      ///
+      /// Модуль для рассчета финансового результата позиции и прочих финансовых показателей.
+      ///
+      MoneyManager* MM;
       ///
       /// Сохраняет информацию о позиции в XML-узле файла активных позиций.
       ///
@@ -252,6 +274,7 @@ class Position : public Transaction
       void DeleteAllOrders();
       void DeleteOrder(Order* order);
       Position* OrderManager(Order* openOrder, Order* cloingOrder);
+      
       bool CompatibleForInit(Order* order);
       bool CompatibleForClose(Order* order);
       bool CompatibleForStop(Order* order);
@@ -277,6 +300,7 @@ class Position : public Transaction
       void CloseByVirtualOrder(void);
       bool AbilityTrade();
       int GetSecondsDelay(uint retcode);
+      
       ///
       /// Инициирующий позицию ордер.
       ///
@@ -320,6 +344,14 @@ class Position : public Transaction
       ///
       double takeProfit;
       ///
+      /// Уровень стоп-лосса.
+      ///
+      double stopLoss;
+      ///
+      /// Идентификатор последнего удаленного стоп-лосса.
+      ///
+      ulong historyStopId;
+      ///
       /// Содержит XML представление активной позиции.
       ///
       XmlPos2* activeXmlPos;
@@ -331,6 +363,10 @@ class Position : public Transaction
       /// Лог выполнения задания.
       ///
       TaskLog taskLog;
+      ///
+      /// Флаг блокирует рекурсивный вызов задания закрытия по тейк-профиту.
+      ///
+      bool blockedByClosing;
 };
 ///
 /// Деинициализирует позицию.
@@ -342,6 +378,8 @@ Position::~Position()
       delete activeXmlPos;
    if(CheckPointer(TralStopOrder) != POINTER_INVALID)
       delete TralStopOrder;
+   if(CheckPointer(MM) != POINTER_INVALID)
+      delete MM;
 }
 ///
 /// Создает неактивную позицию со статусом POSITION_NULL.
@@ -397,6 +435,8 @@ void Position::Init(void)
    exitComment = "";
    takeProfit = 0.0;
    slLevel = 0.0;
+   blockedByClosing = false;
+   MM = new MoneyManager(GetPointer(this));
 }
 
 bool Position::Compatible(Position *pos)
@@ -480,6 +520,12 @@ InfoIntegration* Position::Integrate(Order* order)
    return info;
 }
 
+bool Position::Compatible(Order *order)
+{
+   if(CompatibleForInit(order) || CompatibleForClose(order) || CompatibleForStop(order))
+      return true;
+   return false;
+}
 ///
 /// Возвращает истину, если ордер может быть добавлен в позицию как открывающий.
 ///
@@ -501,6 +547,9 @@ bool Position::CompatibleForClose(Order *order)
    //Закрыть можно только активную позицию.
    if(status != POSITION_ACTIVE)
       return false;
+   //Направление позиции должно быть противоположено закрывающему ордеру
+   //if(Direction() == order.Direction())
+   //   return false;
    if(order.PositionId() == GetId() &&
       order.Status() == ORDER_HISTORY)
       return true;
@@ -529,6 +578,15 @@ void Position::ChangeStopOrder(Order *order)
    slOrder.LinkWithPosition(GetPointer(this));   
 }
 
+void Position::CreateHistSLByTicket(ulong ticket)
+{
+   if(!callBack.IsInit())return;
+   ENUM_ORDER_STATE state = (ENUM_ORDER_STATE)HistoryOrderGetInteger(ticket, ORDER_STATE);
+   if(state != ORDER_STATE_CANCELED)return;
+   Order* createOrder = new Order(ticket);
+   InfoIntegration* info = Integrate(createOrder);
+   delete info;
+}
 ///
 /// Истина, если ордер совместим со стоп-лоссом.
 ///
@@ -631,7 +689,7 @@ void Position::InitializePosition(Order *inOrder)
 }
 
 ///
-/// Добавляте закрывающий ордер в актинвую позицию.
+/// Добавляте закрывающий ордер в активную позицию.
 ///
 void Position::AddClosingOrder(Order* outOrder, InfoIntegration* info)
 {
@@ -642,6 +700,9 @@ void Position::AddClosingOrder(Order* outOrder, InfoIntegration* info)
       if(CheckPointer(activeXmlPos) != POINTER_INVALID)
          activeXmlPos.SaveState(STATE_DELETE);
       info.HistoryPosition.TakeProfitLevel(TakeProfitLevel(), true);
+      ulong sl = HistoryStopId();
+      if(sl != 0)
+         info.HistoryPosition.CreateHistSLByTicket(sl);
       info.HistoryPosition.CopyTaskLog(GetPointer(taskLog));
    }
    if(outOrder.Status() != ORDER_NULL)
@@ -771,13 +832,13 @@ Position* Position::OrderManager(Order* inOrder, Order* outOrder)
    return histPos;
 }
 
-int Position::Compare(  CObject* node,   int mode=0)
+int Position::Compare(const CObject* node, const int mode=0)const
 {
    switch(mode)
    {
       case SORT_ORDER_ID:
       {
-           Transaction* trans = node;
+         const Transaction* trans = node;
          ulong my_id = GetId();
          ulong trans_id = trans.GetId();
          if(GetId() == trans.GetId())
@@ -839,6 +900,8 @@ void Position::DeleteOrder(Order *order)
 {
    if(CheckPointer(order) != POINTER_INVALID)
    {
+      if(order.IsStopLoss())
+         historyStopId = order.GetId();
       delete order;
       order = NULL;
    }
@@ -874,7 +937,8 @@ void Position::ExitComment(string comment, bool saveState, bool asynchMode=true)
    if(status != POSITION_ACTIVE)return;
    if(StringLen(comment) > 31)
       comment = StringSubstr(comment, 0, 31);
-   if(exitComment == comment)return;
+   if(exitComment == comment && !UsingStopLoss())   
+      return;
    exitComment = comment;
    if(UsingStopLoss() && slOrder.Comment() != comment)
       AddTask(new TaskChangeCommentStopLoss(GetPointer(this), exitComment, asynchMode));
@@ -1031,10 +1095,12 @@ double Position::StopLossLevel(void)
    if(status == POSITION_HISTORY && Math::DoubleEquals(takeProfit, 0.0))
    {
       double sl = Settings.GetLevelVirtualOrder(GetId(), VIRTUAL_STOP_LOSS);
+      bool isNull = Math::DoubleEquals(sl, 0.0);
       if(CheckHistSL(sl))
-         slLevel = sl;
+         return sl;
    }
-   return slLevel;
+   return 0.0;
+   //return stopLoss;
 }
 
 ///
@@ -1045,6 +1111,12 @@ double Position::StopLossLevel(void)
 ENUM_HEDGE_ERR Position::StopLossLevel(double level, bool asynch_mode = true)
 {
    ENUM_HEDGE_ERR err = HEDGE_ERR_NOT_ERROR;
+   /*if(status == POSITION_HISTORY)
+   {
+      if(CheckHistSL(level))
+         stopLoss = level;
+      return err;
+   }*/
    double setPrice = level;
    bool notNull = !Math::DoubleEquals(setPrice, 0.0);
    if(UsingStopLoss() && !notNull)
@@ -1054,7 +1126,7 @@ ENUM_HEDGE_ERR Position::StopLossLevel(double level, bool asynch_mode = true)
    else if(UsingStopLoss())
    {
       if(notNull && !Math::DoubleEquals(setPrice, StopLossLevel()))
-         err = AddTask(new TaskModifyStop(GetPointer(this), setPrice, asynch_mode));
+         err = AddTask(new TaskModifyStop(GetPointer(this), setPrice, asynch_mode));  
    }
    SendEventChangedPos(POSITION_REFRESH);
    return err;
@@ -1085,14 +1157,30 @@ double Position::TakeProfitLevel(void)
 ENUM_HEDGE_ERR Position::TakeProfitLevel(double level, bool saveState)
 {
    ENUM_HEDGE_ERR err = HEDGE_ERR_NOT_ERROR;
+   if(Math::DoubleEquals(level, takeProfit))
+      return(HEDGE_ERR_POS_NO_CHANGES);
    bool check = CheckValidTP(level);
    if(!check)
+   {
       err = HEDGE_ERR_WRONG_PARAMETER;
+      //Сбрасываем уровень xml тейк-профита на текущий, если xml уровень не корректен.
+      LogWriter("Position #" + (string)GetId() +
+      ": bad take-profit level. Take-Profit will be reset on current level ("
+      + PriceToString(takeProfit) + ")", MESSAGE_TYPE_WARNING);
+      SaveXmlActive();
+   }
    if(check && Status() == POSITION_ACTIVE)
    {
       takeProfit = level;
       if(saveState)
          SaveXmlActive();
+   }
+   if(check && Status() == POSITION_HISTORY)
+   {
+      takeProfit = level;
+      if(callBack.IsInit() && !MQLInfoInteger(MQL_TESTER))
+         Settings.SaveXmlHistPos(GetId(), VIRTUAL_TAKE_PROFIT, PriceToString(takeProfit));
+         
    }
    SendEventChangedPos(POSITION_REFRESH);
    return err;
@@ -1138,7 +1226,7 @@ ENUM_DIRECTION_TYPE Position::Direction()
 {
    if(initOrder != NULL)
       return initOrder.Direction();
-   return DIRECTION_NDEF;
+   return DIRECTION_UNDEFINED;
 }
 
 ///
@@ -1296,11 +1384,11 @@ bool Position::IsValidNewVolume(double setVol)
    }
    if(Math::DoubleEquals(setVol, curVol))
       return false;
-   /*if(setVol > curVol)
+   if(setVol > curVol)
    {
       LogWriter("The new volume should be less than the current volume.", MESSAGE_TYPE_INFO);
       return false;
-   }*/
+   }
    return true;
 }
 
@@ -1374,7 +1462,9 @@ void Position::Unmanagment(bool isUnmng)
 ///
 bool Position::Unmanagment()
 {
-   return unmanagment;
+   long mg = (long)Magic();
+   return mg < 0;
+   //return unmanagment;
 }
 ///
 /// Забирает задачу на выполнение и запускает ее.
@@ -1383,7 +1473,10 @@ bool Position::Unmanagment()
 ENUM_HEDGE_ERR Position::AddTask(Task2 *ctask)
 {
    if(CheckPointer(ctask) == POINTER_INVALID)
+   {
+      printf("Add task: bad task.");
       return HEDGE_ERR_TASK_FAILED;
+   }
    if(CheckPointer(task2) != POINTER_INVALID && (task2.Status() == TASK_STATUS_EXECUTING ||
     task2.Status() == TASK_STATUS_WAITING))
    {
@@ -1406,7 +1499,9 @@ ENUM_HEDGE_ERR Position::AddTask(Task2 *ctask)
    taskLog.Clear();
    task2 = ctask;
    task2.Execute();
-   if(CheckPointer(task2) == POINTER_INVALID || task2.Status() == TASK_STATUS_FAILED)
+   /*if(CheckPointer(task2) == POINTER_INVALID || task2.Status() == TASK_STATUS_FAILED)
+      return HEDGE_ERR_TASK_FAILED;*/
+   if(CheckPointer(task2) != POINTER_INVALID && task2.Status() == TASK_STATUS_FAILED)
       return HEDGE_ERR_TASK_FAILED;
    else
       return HEDGE_ERR_NOT_ERROR;
@@ -1509,7 +1604,7 @@ bool Position::CheckValidTP(double tp)
    bool isNull = false;
    if(Math::DoubleEquals(tp, 0.0))
       isNull = true;
-   
+   string sPos = "Position #" + (string)GetId() + ": ";
    if(tp < CurrentPrice() && Direction() == DIRECTION_LONG && !isNull)
    {
       res = false;
@@ -1531,7 +1626,7 @@ bool Position::CheckValidTP(double tp)
       notChanges = true;
    }
    if(!res && !notChanges)
-      LogWriter(info, MESSAGE_TYPE_ERROR);
+      LogWriter(sPos + info, MESSAGE_TYPE_ERROR);
    return res || isNull;
 }
 
@@ -1589,7 +1684,7 @@ void Position::OnRefresh(void)
    if(!IsBlocked())
    {
       CloseByVirtualOrder();
-      TralStopOrder.Trailing();
+      TralStopOrder.Trailing();  //Tral Stop order
    }
    if(CheckPointer(activeXmlPos) == POINTER_INVALID &&
       api.IsInit() && !MQLInfoInteger(MQL_TESTER))
@@ -1607,7 +1702,8 @@ void Position::OnRefresh(void)
 ///
 void Position::CloseByVirtualOrder(void)
 {
-   if(Math::DoubleEquals(takeProfit, 0.0))return;
+   if(Math::DoubleEquals(takeProfit, 0.0) || blockedByClosing)return;
+   blockedByClosing = true;
    if(!AbilityTrade())return;
    if(Direction() == DIRECTION_LONG)
    {
@@ -1623,6 +1719,7 @@ void Position::CloseByVirtualOrder(void)
       if(res)
          AddTask(new TaskClosePosition(GetPointer(this), MAGIC_TYPE_TP, Settings.GetDeviation(), true));
    }
+   blockedByClosing = false;
 }
 
 ///
@@ -1773,6 +1870,35 @@ bool Position::AttributesChanged(double tp, string exComment, datetime time)
    return true;
 }
 
+double Position::ProfitInCurrency(void)
+{
+   //return Transaction::ProfitInCurrency();
+   //double tick = MM.GetTickValue();
+   //if(tick > 1.2 || tick < 0.8)
+   //   printf(";" + Symbol() + ";" + DoubleToString(MM.GetTickValue(), 4));
+   return MM.GetProfitValue();
+}
+
+double Position::Swap(void)
+{
+   if(Status() == POSITION_NULL)
+      return 0.0;
+   double swap = 0.0;
+   for(int i = 0; i < initOrder.DealsTotal(); i++)
+   {
+      Deal* deal = initOrder.DealAt(i);
+      swap += deal.Swap();
+   }
+   if(Status() == POSITION_HISTORY)
+   {
+      for(int i = 0; i < closingOrder.DealsTotal(); i++)
+      {
+         Deal* deal = closingOrder.DealAt(i);
+         swap += deal.Swap();
+      }
+   }
+   return swap;
+}
 /*bool Position::CheckChangesAttributes(double tp,string exComment,datetime time)
 {
    if(exitComment == NULL)

@@ -1,7 +1,11 @@
 //+------------------------------------------------------------------+
-//|                                                   Prototypes.mqh |
-//|                           Copyright 2013, Vasiliy Sokolov (C-4). |
+//|                             Prototypes.mqh (02/12/2014 revision) |
+//|                           Copyright 2014, Vasiliy Sokolov (C-4). |
 //|                              https://login.mql5.com/ru/users/c-4 |
+//|    DESCRIPTION: This file contains prototypes exported functions |
+//|  HedgeTerminalAPI. Copy this file to .\MQL5\Include directory on |
+//|                                            your pc. For example: |
+//|    "C:\Programm Files\MetaTrader 5\MQL5\Include\Prototypes.mqh". |
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2013, Vasiliy Sokolov"
 #property link      "https://login.mql5.com/ru/users/c-4"
@@ -16,7 +20,7 @@ enum ENUM_TARGET_TYPE
    ///
    TARGET_NDEF,
    ///
-   /// 
+   /// Something that means, but I do not remember.
    ///
    TARGET_CREATE_TASK,
    ///
@@ -70,11 +74,20 @@ enum ENUM_MODE_TRADES
 ///
 /// Type of elected order in selected position.
 ///
-enum ENUM_ORDER_SELECTED_TYPE
+enum ENUM_HEDGE_ORDER_SELECTED_TYPE
 {
    ORDER_SELECTED_INIT,
    ORDER_SELECTED_CLOSED,
    ORDER_SELECTED_SL
+};
+
+///
+/// Type of state position.
+///
+enum HEDGE_POSITION_STATE_TYPE
+{
+   POSITION_STATE_ACTIVE,
+   POSITION_STATE_FROZEN
 };
 
 ///
@@ -148,18 +161,18 @@ enum ENUM_TRANS_DIRECTION
 ///
 /// Status of current position.
 ///
-enum ENUM_POS_HEDGE_STATUS
+enum ENUM_HEDGE_POSITION_STATUS
 {
-   POS_HEDGE_ACTIVE,
-   POS_HEDGE_HISTORY
+   HEDGE_POSITION_ACTIVE,
+   HEDGE_POSITION_HISTORY
 };
 ///
 /// Status of current order.
 ///
-enum ENUM_ORDER_HEDGE_STATUS
+enum ENUM_HEDGE_ORDER_STATUS
 {
-   ORDER_HEDGE_PENDING,
-   ORDER_HEDGE_HISTORY
+   HEDGE_ORDER_PENDING,
+   HEDGE_ORDER_HISTORY
 };
 
 ///
@@ -181,6 +194,7 @@ enum ENUM_HEDGE_POSITION_PROP_INTEGER
    HEDGE_POSITION_ENTRY_ORDER_ID,
    HEDGE_POSITION_EXIT_ORDER_ID,
    HEDGE_POSITION_STATUS,
+   HEDGE_POSITION_STATE,
    HEDGE_POSITION_USING_SL,
    HEDGE_POSITION_USING_TP,
    HEDGE_POSITION_TASK_STATUS,
@@ -268,6 +282,10 @@ enum ENUM_HEDGE_DEAL_PROP_DOUBLE
    HEDGE_DEAL_COMMISSION
 };
 
+enum ENUM_HEDGE_PROP_INTEGER
+{
+   HEDGE_PROP_TIMEOUT
+};
 ///
 /// Define type of action in struct HedgeTradeRequest.
 /// This enum is analog ENUM_TRADE_REQUEST_ACTIONS and used
@@ -419,8 +437,7 @@ struct HedgeTradeRequest //HedgeTradeRequest
    }
 };
 
-#import "HedgePanelAPI.ex5"
-//#import ".\API\HedgePanelAPI.ex5"
+#import "..\Experts\Market\hedgeterminalapi.ex5"
    ///
    /// Return last error of Hedge terminal API.
    ///
@@ -471,7 +488,7 @@ struct HedgeTradeRequest //HedgeTradeRequest
    /// Select order in current position by it type. Current position should be selected by TransactionSelect.
    /// \return True - if order was selected, otherwise false.
    ///
-   bool HedgeOrderSelect(ENUM_ORDER_SELECTED_TYPE type);
+   bool HedgeOrderSelect(ENUM_HEDGE_ORDER_SELECTED_TYPE type);
    ///
    /// Select deal by index in current order. Current order should be selected by HedgeOrderSelect.
    /// \return True - if deal was selected, otherwise false.
@@ -517,4 +534,17 @@ struct HedgeTradeRequest //HedgeTradeRequest
    /// \param request - define params which need for closing active hedge position.
    ///
    bool SendTradeRequest(HedgeTradeRequest& request);
+   ///
+   /// Set integer property of HedgeTerminal.
+   /// \param property - Type of property.
+   /// \param value - value of property.
+   /// \return True if property set successfully, otherwise false.
+   ///
+   bool HedgePropertySetInteger(ENUM_HEDGE_PROP_INTEGER property, long value);
+   ///
+   /// Get integer property of HedgeTerminal.
+   /// \param property - Type of property.
+   /// \return value of property.
+   ///
+   long HedgePropertyGetInteger(ENUM_HEDGE_PROP_INTEGER property, long value);
 #import

@@ -20,6 +20,19 @@ class Method : public CObject
          trade.SetExpertMagicNumber(magic);
          return OnExecute();
       }
+      ///
+      /// Возвращает корректированную цену, для инструмента
+      /// Например для фьючерса RTS цена 102333 будет скорректирована до 102330
+      ///
+      double CorrectPrice(double nprice)
+      {
+         int digits = (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS);
+         nprice = NormalizeDouble(nprice, digits);
+         double tsize = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_SIZE);
+         int priceSteps = (int)MathFloor(nprice/tsize);
+         double corrPrice = priceSteps*tsize;
+         return corrPrice;
+      }
    protected:
       Method()
       {
@@ -92,6 +105,8 @@ class MethodTradeByMarket : public Method
       MethodTradeByMarket(string symbol_op, ENUM_DIRECTION_TYPE direction, double volume, ulong deviation, string comment_op, ulong magic_op, bool asynch_mode):
       Method(symbol_op, direction, volume, 0.0, comment_op, magic_op, asynch_mode)
       {
+         m_deviation = deviation;
+         m_exe = (ENUM_SYMBOL_TRADE_EXECUTION)SymbolInfoInteger(symbol, SYMBOL_TRADE_EXEMODE);
          trade.SetDeviationInPoints(deviation);
       }
       ///
@@ -107,23 +122,59 @@ class MethodTradeByMarket : public Method
       }
    private:
       ///
+      /// Предельное отклонение в пунктах
+      ///
+      ulong m_deviation;
+      ///
+      /// Режим исполнения рыночных приказов
+      ///
+      ENUM_SYMBOL_TRADE_EXECUTION m_exe;
+      ///
       /// Выполняет операцию. Истина, если операция была успешно выполнена и ложь в противном случае.
       ///
       virtual bool OnExecute()
       {
-         if(dirType == DIRECTION_NDEF)
+         if(dirType == DIRECTION_UNDEFINED)
          {
             LogWriter("Trade on market: direction not defined.", MESSAGE_TYPE_ERROR);
             return false;
          }
          bool res = false;
-         if(dirType == DIRECTION_LONG)
-            res = trade.Buy(vol, symbol, 0.0, 0.0, 0.0, comment);
+         if(m_exe == SYMBOL_TRADE_EXECUTION_EXCHANGE && m_deviation > 0)
+            res = LimitAsMarket();
          else
-            res = trade.Sell(vol, symbol, 0.0, 0.0, 0.0, comment);
-         //if(!res)
-         //   SendError("Rejected trade on market.");
+         {
+            if(dirType == DIRECTION_LONG)
+               res = trade.Buy(vol, symbol, 0.0, 0.0, 0.0, comment);
+            else
+               res = trade.Sell(vol, symbol, 0.0, 0.0, 0.0, comment);
+         }
          return res;
+      }
+      ///
+      /// Выставляет отложенный ордер, так, что бы он сработал по рыночным ценам, контролируя таким образом максимальное проскальзывание
+      /// Этот режим доступен только для биржевого исполнения, когда лимитный ордер может быть установлен по ценам ХУЖЕ текущих.
+      ///
+      bool LimitAsMarket()
+      {
+         double dev_level = SymbolInfoDouble(symbol, SYMBOL_POINT)*(double)m_deviation;
+         if(dirType == DIRECTION_SHORT)
+         {
+            double best_price = SymbolInfoDouble(symbol, SYMBOL_BID);
+            if(best_price <= 0.0)return false;
+            double price_exit = best_price - dev_level;
+            price_exit = CorrectPrice(price_exit);
+            return trade.SellLimit(vol, price_exit, symbol, 0.0, 0.0, ORDER_TIME_DAY, 0, comment);
+         }
+         else if(dirType == DIRECTION_LONG)
+         {
+            double best_price = SymbolInfoDouble(symbol, SYMBOL_ASK);
+            if(best_price <= 0.0)return false;
+            double price_exit = best_price + dev_level;
+            price_exit = CorrectPrice(price_exit);
+            return trade.BuyLimit(vol, price_exit, symbol, 0.0, 0.0, ORDER_TIME_DAY, 0, comment);
+         }
+         return false;
       }
 };
 
@@ -135,7 +186,7 @@ class MethodSetPendingOrder : public Method
 {
    public:
       MethodSetPendingOrder(string symbol_op, ENUM_ORDER_TYPE typeOrder, double volume, double price_order, string comment_op, ulong magic_op, bool asynch_mode):
-      Method(symbol_op, DIRECTION_NDEF, volume, price_order, comment_op, magic_op, asynch_mode)
+      Method(symbol_op, DIRECTION_UNDEFINED, volume, price_order, comment_op, magic_op, asynch_mode)
       {
          orderType = typeOrder;
       }
@@ -156,6 +207,7 @@ class MethodSetPendingOrder : public Method
       virtual bool OnExecute()
       {
          bool res = false;
+         datetime exp_time = (datetime)SymbolInfoInteger(symbol, SYMBOL_EXPIRATION_TIME);
          switch(orderType)
          {
             case ORDER_TYPE_BUY:
@@ -166,16 +218,29 @@ class MethodSetPendingOrder : public Method
                res = true;
                break;
             case ORDER_TYPE_BUY_STOP:
-               res = trade.BuyStop(vol, price, symbol, 0.0, 0.0, ORDER_TIME_GTC, 0, comment);
+               
+               if(exp_time == 0)
+                  res = trade.BuyStop(vol, price, symbol, 0.0, 0.0, ORDER_TIME_GTC, 0, comment);
+               else
+                  res = trade.BuyStop(vol, price, symbol, 0.0, 0.0, ORDER_TIME_SPECIFIED, exp_time+86400, comment);
                break;
             case ORDER_TYPE_SELL_STOP:
-               res = trade.SellStop(vol, price, symbol, 0.0, 0.0, ORDER_TIME_GTC, 0, comment);
+               if(exp_time == 0)
+                  res = trade.SellStop(vol, price, symbol, 0.0, 0.0, ORDER_TIME_GTC, 0, comment);
+               else
+                  res = trade.SellStop(vol, price, symbol, 0.0, 0.0, ORDER_TIME_SPECIFIED_DAY, exp_time+86400, comment);
                break;
             case ORDER_TYPE_BUY_LIMIT:
-               res = trade.BuyLimit(vol, price, symbol, 0.0, 0.0, ORDER_TIME_GTC, 0, comment);
+               if(exp_time == 0)
+                  res = trade.BuyLimit(vol, price, symbol, 0.0, 0.0, ORDER_TIME_GTC, 0, comment);
+               else
+                  res = trade.BuyLimit(vol, price, symbol, 0.0, 0.0, ORDER_TIME_SPECIFIED, exp_time+86400, comment);
                break;
             case ORDER_TYPE_SELL_LIMIT:
-               res = trade.SellLimit(vol, price, symbol, 0.0, 0.0, ORDER_TIME_GTC, 0, comment);
+               if(exp_time == 0)
+                  res = trade.SellLimit(vol, price, symbol, 0.0, 0.0, ORDER_TIME_GTC, 0, comment);
+               else
+                  res = trade.SellLimit(vol, price, symbol, 0.0, 0.0, ORDER_TIME_SPECIFIED, exp_time+86400, comment);
                break;
          }
          //if(!res)

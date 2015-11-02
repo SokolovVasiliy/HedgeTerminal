@@ -220,9 +220,10 @@ class PanelSettings
          return loader.GetLevelVirtualOrder(id, type);
       }
       
-      void SaveXmlAttr(ulong id, ENUM_VIRTUAL_ORDER_TYPE type, string level)
+      void SaveXmlHistPos(ulong id, ENUM_VIRTUAL_ORDER_TYPE type, string level)
       {
-         loader.SaveXmlAttr(id, type, level);
+         if(!MQLInfoInteger(MQL_TESTER))
+            loader.SaveXmlHistPos(id, type, level);
       }
       ///
       ///  онструктор.
@@ -244,8 +245,18 @@ class PanelSettings
       ///
       /// ¬озвращает предельное отклонение цены в прайсстепах.
       ///
-      ulong GetDeviation(){return loader.GetDeviation();}
-      uint GetRefreshRates(){return loader.GetRefreshRates();}
+      ulong GetDeviation()
+      {
+         if(!MQLInfoInteger(MQL_TESTER))
+            return loader.GetDeviation();
+         return 3;
+      }
+      uint GetRefreshRates()
+      {
+         if(!MQLInfoInteger(MQL_TESTER))
+            return loader.GetRefreshRates();
+         return 200;
+      }
    private:        
       /*static*/ PanelSettings* set;
       ///
@@ -286,4 +297,8 @@ class PanelSettings
       /// —одержит отклонение в пунктах.
       ///
       ulong deviation;
+      ///
+      /// »стина, если библиотека запущена в режиме тестировани€.
+      ///
+      bool isTesting;
 };

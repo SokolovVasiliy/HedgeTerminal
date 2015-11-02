@@ -23,7 +23,7 @@ class XmlHistPos : public CObject
       ///
       /// ¬озвращает идентификатор позиции.
       ///
-      ulong PosId(){return posId;}
+      ulong PosId()const{return posId;}
       ///
       /// »стина, если класс исторической xml позиции инициирован верными данными.
       ///
@@ -37,9 +37,9 @@ class XmlHistPos : public CObject
       ///
       double StopLoss(){return sl_level;}
    private:
-      virtual int Compare(  CObject *node,  int mode=0) 
+      virtual int Compare(const CObject *node, const int mode=0)const
       {
-         XmlHistPos* hPos = node;
+         const XmlHistPos* hPos = node;
          if(posId > hPos.PosId())return 1;
          if(posId < hPos.PosId())return -1;
          return 0;

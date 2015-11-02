@@ -6,6 +6,10 @@
 #include "..\XML\XmlGarbage.mqh"
 #include "..\Resources\Resources.mqh"
 #include "..\Math\Math.mqh"
+#include "LoadingProgressBar.mqh"
+#include "..\Globals.mqh"
+#include <Trade\Trade.mqh>
+
 //#include "H.mqh"
 class PosVol;
 ///
@@ -39,13 +43,8 @@ class HedgeManager
       {
          callBack = GetPointer(this);
          bool isTester = MQLInfoInteger(MQL_TESTER);
-         
-         if(!isTester && Resources.Failed())
-         {
-            LogWriter("Install files to continue.", MESSAGE_TYPE_ERROR);
-            ExpertRemove();
+         if(!isTester && Resources.Failed())   
             return;
-         }
          ActivePos = new CArrayObj();
          HistoryPos = new CArrayObj();
          ActivePos.Sort(SORT_ORDER_ID);
@@ -54,7 +53,7 @@ class HedgeManager
          listPendingOrders.Sort();
          long tick = GetTickCount();
          OnRefresh();
-         int total = ActivePos.Total();
+         int total1 = HistoryPos.Total();
          if(!isTester)
          {
             XmlGarbage* xmlGarbage = new XmlGarbage();
@@ -62,12 +61,15 @@ class HedgeManager
             delete xmlGarbage;
             Resources.WizardInstallExclude(GetPointer(this));
             RemoveExclude();
-            TestAsynch();
+            
             ShowPosition();
          }
+         else
+            Resources.InstallMissingFiles();
          isInit = true;
          PrintPerfomanceParsing(tick);
-         
+         if(!isTester)
+            TestAsynch();
       }
       
       ~HedgeManager()
@@ -99,7 +101,10 @@ class HedgeManager
       ///
       void OnRefresh()
       {
-         HistorySelect(timeBegin, TimeCurrent());
+         datetime tc = TimeCurrent();
+         datetime tn = TimeLocal();
+         datetime t_end = tc > tn ? tc+20 : tn+20;
+         HistorySelect(timeBegin, t_end);
          if(IsInit())
          {
             EventRefresh* refresh = new EventRefresh(EVENT_FROM_UP, "Hedge Terminal");
@@ -131,6 +136,11 @@ class HedgeManager
       /// ложь, если происходит парсинг историческиих позиций.
       ///
       bool IsInit(){return isInit;}
+      
+      ///
+      /// Истина, если если произошел сбой установки ресурсов.
+      ///
+      bool IsFailed(){return Resources.Failed();}
       
       ///
       /// For API: Возвращает количество активных позиций
@@ -182,9 +192,12 @@ class HedgeManager
          ulong posId = order.PositionId();
          if(posId != 0)
          {
-            Order* inOrder = new Order(posId);
-            int iActive = ActivePos.Search(inOrder);
-            delete inOrder;
+            //Order* inOrder = new Order(posId);
+            TransId* trans = new TransId(posId);
+            //int iActive = ActivePos.Search(inOrder);
+            int iActive = ActivePos.Search(trans);
+            //delete inOrder;
+            delete trans;
             if(iActive != -1)
                return ActivePos.At(iActive);
          }
@@ -197,6 +210,38 @@ class HedgeManager
          }
          return NULL;
       }
+      
+      void HideHedgePositions()
+      {
+         if(PositionsTotal() > 0)
+         {
+            printf("Close your netto-positions and try letter.");
+            return;
+         }
+         //Удаялем возможные стоп-лоссы перед скрытием позиции
+         for(int i = ActivePos.Total()-1; i >= 0; i--)
+         {
+            Position* position = ActivePos.At(i);
+            ENUM_HEDGE_ERR err = position.StopLossLevel(0.0, false);
+            if(err != HEDGE_ERR_NOT_ERROR)
+            {
+               printf("Delete SL failed. Hide hedge position aborted.");
+               return;
+            }
+         }
+         Resources.AddExcludeOrders(GetPointer(this));
+         //Скрываем активные позиции из панели
+         #ifdef HEDGE_PANEL
+         for(int i = ActivePos.Total()-1; i >= 0; i--)
+         {
+            Position* position = ActivePos.At(i);
+            position.SendEventChangedPos(POSITION_HIDE);
+         }
+         #endif
+         //Удаляем позиции из списка
+         ActivePos.Clear();
+      }
+      
       ///
       /// Возвращает флаг успешности пройденного теста на асинхронность.
       ///
@@ -224,6 +269,7 @@ class HedgeManager
             Position* pos = ActivePos.At(i);
             pos.Event(event);
          }
+         ChartRedraw();
          delete event;
       }
       ///
@@ -232,13 +278,45 @@ class HedgeManager
       void TrackingHistoryDeals()
       {
          int total = HistoryDealsTotal();
+         
+         //Выводим статус бар
+         double onePercent = total/100.0;
+         int lastPercent = 0;
+         if(!isInit)
+         {
+            loading = new ProgressBar();
+            loading.ShowProgressBar();
+         }
          //Перебираем все доступные трейды и формируем на их основе прототипы будущих позиций типа COrder
          for(; dealsCountNow < HistoryDealsTotal(); dealsCountNow++)
          {  
+            if(!isInit)
+            {
+               int percent = (int)MathRound((dealsCountNow/(double)total)*100.0);
+               if(percent != lastPercent)
+               {
+                  lastPercent = percent;
+                  loading.SetPercentProgress(percent);
+                  //Comment("Complete " + (string)percent + "% (" + (string)dealsCountNow + "/" +
+                  //       (string)total + ")");
+               }
+            }
             ulong ticket = HistoryDealGetTicket(dealsCountNow);
+            int dbg = 5;
+            if(dealsCountNow == HistoryDealsTotal()-1)
+               dbg=3;
             AddNewDeal(ticket);
             graphRebuild = true;
          }
+         
+         //Обнуляем статус бар.
+         if(!isInit)
+         {
+            loading.HideProgressBar();
+            delete loading;
+         }
+         //if(!isInit)
+         //   ChartSetInteger(ChartID(), CHART_COLOR_FOREGROUND, clrWhiteSmoke);
       }
       
       ///
@@ -259,32 +337,7 @@ class HedgeManager
             graphRebuild = true;
          }
       }
-      
-      ///
-      /// Отслеживает поступление новых отложенных активных ордеров.
-      ///
-      void TrackingPendingOrders2()
-      {
-         int total = OrdersTotal();
-         if(ordersPendingNow > total)
-            ordersPendingNow = total;
-         for(; ordersPendingNow < total; ordersPendingNow++)
-         {
-            ulong ticket = OrderGetTicket(ordersPendingNow);
-            
-            if(!OrderSelect(ticket))continue;
-            Order* order = new Order(ticket);
-            bool isIntegrate = SendPendingOrder(order);
-            EventOrderPending* pendingOrder = new EventOrderPending(order);
-            SendTaskEvent(pendingOrder);
-            delete pendingOrder;
-            if(!isIntegrate)
-               delete order;
-            graphRebuild = true;
-         }
-         ordersPendingNow = OrdersTotal();
-      }
-      
+           
       void TrackingPendingOrders()
       {
          for(int i = 0; i < OrdersTotal(); i++)
@@ -303,6 +356,54 @@ class HedgeManager
          }
       }
       
+      void TrackingPendingOrders2()
+      {
+         for(int i = 0; i < OrdersTotal(); i++)
+         {
+            ulong ticket = OrderGetTicket(i);
+            if(!OrderSelect(ticket))
+            {
+               LogWriter("Could not select pending order #" + (string)ticket + ". Reason: " + (string)GetLastError(), MESSAGE_TYPE_ERROR);
+               continue;
+            }
+            Order* order = new Order(ticket);
+            //Обрабатываем только стоп и тейк-профит ордера
+            if(!order.IsStopLoss() && !order.IsTakeProfit())
+            {
+               delete order;
+               continue;
+            }
+            Position* pos = FindActivePosById(order.PositionId());
+            if(pos == NULL)
+            {
+               delete order;
+               m_trade.OrderDelete(ticket);
+               continue;
+            }
+            Order* sl_order = pos.StopOrder();
+            bool isIntegrate = false;
+            if(sl_order == NULL && order.IsStopLoss())
+            {
+               isIntegrate = SendPendingOrder(order);
+               EventOrderPending* pendingOrder = new EventOrderPending(order);
+               SendTaskEvent(pendingOrder);
+               delete pendingOrder;
+               if(!isIntegrate)
+               {
+                  string text = "Failed to integrate order #" + (string)order.GetId() + ". Reason: " + EnumToString(GetHedgeError());
+                  LogWriter(text, MESSAGE_TYPE_ERROR);
+               }
+               graphRebuild = true;
+            }
+            if(!isIntegrate)
+            {
+               delete order;
+               m_trade.OrderDelete(ticket);
+               continue;
+            }
+            
+         }
+      }
       ///
       /// Тестирует активные позиции на асинхронность с позициями терминала.
       /// Устанавливает флаг asynchTest  в истину, если тест пройден, и в ложь
@@ -310,6 +411,8 @@ class HedgeManager
       ///
       void TestAsynch()
       {
+         if(GetMicrosecondCount() < 200000)
+            Sleep(200);
          asynchTest = true;
          int total = ActivePos.Total();
          PosVol symbols[];
@@ -326,12 +429,15 @@ class HedgeManager
                ArrayResize(symbols, ArraySize(symbols)+1);
                index = ArraySize(symbols)-1;
                symbols[index].Name = pos.Symbol();
+               symbols[index].Vol = 0.0;
             }
             symbols[index].Vol += pos.VolumeExecuted()*dir;
          }
          //Сопоставляем объем отсортированных позиций с объемом реальных позиций.
          for(int i = 0; i < ArraySize(symbols); i++)
          {
+            string name = symbols[i].Name;
+            double mvol = NormalizeDouble(symbols[i].Vol, 3);
             if(RealPosFind(symbols[i].Name))
             {
                double vol = PositionGetDouble(POSITION_VOLUME);
@@ -339,23 +445,57 @@ class HedgeManager
                if(pType == POSITION_TYPE_SELL)
                   vol *= (-1); 
                if(!Math::DoubleEquals(symbols[i].Vol, vol))
+               {
+                  string text = "Warning! Total net position HT by "+ name +
+                              " not equal net position in MetaTrader 5 for this symbol ( HT Volume: " + 
+                              DoubleToString(symbols[i].Vol, 2) + " MT5 Voleme: " + DoubleToString(vol, 2) + ")";
+                  printf(text);
                   asynchTest = false;
+               }
             }
-            else if(!Math::DoubleEquals(symbols[i].Vol, 0.0))
+            else if(!Math::DoubleEquals(mvol, 0.0))
+            {
+               string text = "Warning! Total net position HT by "+ name +
+                              " not equal to zero, however, in MetaTrader 5 there is no position for this symbol";
+               printf(text);
                asynchTest = false;
+            }
          }
          //Есть ли реальные позиции, которые не отображены в виртуальных позициях?
          for(int i = 0; i < PositionsTotal(); i++)
          {
             string smb = PositionGetSymbol(i);
+            #ifdef DEMO 
+            if(!CheckDemoSymbol(smb))
+               continue;
+            #endif
             if(SymbolFind(symbols, smb) == -1)
+            {
+               string text = "Warning! In MetaTrader 5 there is a net position by " + smb +
+                              ", but in HT there is no active position on this symbol";
+               printf(text);
                asynchTest = false;
+            }
          }
          if(!asynchTest)
          {
-            MessageBox("Warning! Net positions not equal. Check file 'ExcludeOrders.xml' and fix it.", VERSION);
+            string text = "Warning! Net positions not equal. Check file 'ExcludeOrders.xml' and fix it. MT5 Positions:" +
+            (string)PositionsTotal() + " HT Position : " + (string)ActivePosTotal();
+            printf(text);
          }
       }
+      
+      #ifdef DEMO
+      bool CheckDemoSymbol(string symbol)
+      {
+         string subStr = StringSubstr(symbol, 0, 5);
+         if(subStr != "VTBR-" && symbol != "AUDCAD"
+            && symbol != "NZDCAD")
+            return false;
+         return true;
+      }
+      #endif
+      
       ///
       /// Находит инструмент с именем symbol в списке символов.
       /// \return -1 Если инструмент с таким именем не найден, и индекс
@@ -423,13 +563,10 @@ class HedgeManager
             ticket = HistoryOrderGetTicket(index);
          else
             ticket = FindAddTicket();
-         int dbg = 5;
-         if(ticket == 1009658190)
-            dbg = 4;
          if(ticket == 0)return NULL;
          ticketOrders.InsertSort(ticket);
          ENUM_ORDER_STATE state = (ENUM_ORDER_STATE)HistoryOrderGetInteger(ticket, ORDER_STATE);
-         if(state != ORDER_STATE_CANCELED)return NULL;
+         if(state != ORDER_STATE_CANCELED && state != ORDER_STATE_EXPIRED)return NULL;
          Order* createOrder = new Order(ticket);
          return createOrder;
       }
@@ -569,6 +706,8 @@ class HedgeManager
       void ShowPosition()
       {
          #ifdef HEDGE_PANEL
+         ProgressBar panel_loading;
+         panel_loading.ShowPanelBuilding();
          for(int i = 0; i < ActivePos.Total(); i++)
          {
             Position* pos = ActivePos.At(i);
@@ -582,6 +721,7 @@ class HedgeManager
             pos.SendEventChangedPos(POSITION_SHOW);
          }
          CreateSummary(TABLE_POSHISTORY);
+         panel_loading.HideProgressBar();
          #endif
       }
       ///
@@ -591,14 +731,6 @@ class HedgeManager
       {
          CArrayLong* excludeOrders = Settings.GetExcludeOrders();
          if(excludeOrders == NULL)return;
-         /*for(int i = 0; i < excludeOrders.Total(); i++)
-            printf((string)excludeOrders.At(i));
-         printf(">>>>>>>>>>>>");
-         for(int i = 0; i < ActivePos.Total(); i++)
-         {
-            Position* pos = ActivePos.At(i);
-            printf((string)pos.GetId());
-         }*/
          for(int i = ActivePos.Total()-1; i >= 0; i--)
          {
             Position* pos = ActivePos.At(i);
@@ -625,30 +757,39 @@ class HedgeManager
       ///
       void AddNewDeal(ulong ticket)
       {
-         //printf("Add new ticket: " + (string)ticket);
+         #ifdef DEMO
+         string symbol = HistoryDealGetString(ticket, DEAL_SYMBOL);
+         if(!CheckDemoSymbol(symbol))
+         {
+             if(IsInit())
+             {
+               bool res = MessageBox("HedgeTerminalDemo detect new deal, but the demo version does not support that symbol. " +
+               "Please purchase the full version of the panel. For work in demo mode you can only use AUDCAD, NZDCAD and VTBR-* symbols",
+               "HedgeTerminal Demo");
+             }
+             return;
+         }
+         #endif
+         int dbg = 5;
+         if(ticket == 2682204)
+            dbg = 3;
          Deal* deal = new Deal(ticket);
-         if(deal.Status() == DEAL_BROKERAGE)
+         if(deal.Status() == DEAL_BROKERAGE || deal.Status() == DEAL_NULL)
          {
             delete deal;
             return;
          }
+         else if(deal.Status() == DEAL_BROKERAGE_SWAP)
+         {
+            CreateHistorySwap(deal);
+            return;
+         }
          Order* order = new Order(deal);
-         bool r = TimeCurrent() - order.TimeSetup() > (DEMO_PERIOD+1)*86400;
-         //printf("Order #" + (string)order.GetId() + " " + EnumToString(order.Status()) + " ; Time: " + TimeToString(order.TimeSetup()/1000, TIME_DATE|TIME_MINUTES|TIME_SECONDS));
          if(order.Status() == ORDER_NULL)
          {
-            //printf("Order is null");
             delete order;
             return;
          }
-         
-         #ifdef DEMO
-         if(r)
-         {
-            delete order;
-            return;
-         }
-         #endif
          
          EventOrderExe* event = new EventOrderExe(order);
          SendTaskEvent(event);
@@ -658,7 +799,6 @@ class HedgeManager
             actPos = new Position();
          InfoIntegration* result = actPos.Integrate(order);
          int iActive = ActivePos.Search(actPos);
-         
          if(actPos.Status() == POSITION_NULL)
          {
             if(isInit)
@@ -673,7 +813,7 @@ class HedgeManager
             if(iActive == -1)
             {
                if(isInit)
-                  actPos.SendEventChangedPos(POSITION_SHOW);
+                  actPos.SendEventChangedPos(POSITION_SHOW);               
                ActivePos.InsertSort(actPos);
             }
             else
@@ -703,7 +843,13 @@ class HedgeManager
             IntegrateHistoryPos(result.HistoryPosition);
          delete result;
       }
-      
+      ///
+      /// Создает своп исторической позиции
+      ///
+      void CreateHistorySwap(Deal* deal)
+      {
+         delete deal;
+      }
       ///
       /// Находит историческую позицию в списке активных позиций, чей
       /// id равен posId.
@@ -739,7 +885,20 @@ class HedgeManager
             }
          }
          if(!isMerge)
+         {
+            #ifdef DEMO
+            int total = HistoryPos.Total();
+            for(int i = total-10; i >= 0; i--)
+            {
+               Position* pos = HistoryPos.At(i);
+               pos.SendEventChangedPos(POSITION_HIDE);
+               HistoryPos.Delete(i);
+               delete pos;
+            }
+            #endif
             HistoryPos.InsertSort(histPos);
+            //HistoryPos.Add(histPos);
+         }
          if(isInit && !isMerge)
             histPos.SendEventChangedPos(POSITION_SHOW);         
       }
@@ -812,10 +971,14 @@ class HedgeManager
          int oTotal = HistoryOrdersTotal();
          string seconds = (string)isec + "." + srest;
          int ram = MQLInfoInteger(MQL_MEMORY_USED);
-         string line = "We are begin. Parsing of history deals (" + (string)dTotal +
-         ") and orders (" + (string)oTotal + ") completed for " + seconds + " sec. " + (string)ram + "MB RAM used.";
+         string line = "Start HedgeTerminal. Parsing of history deals (" + (string)dTotal +
+         ") and orders (" + (string)oTotal + ") completed in " + seconds + " sec. " + (string)ram + "MB RAM used.";
          printf(line);
       }
+      ///
+      /// Прогресс бар.
+      ///
+      ProgressBar* loading;
       ///
       /// Список активных позиций.
       ///
@@ -900,6 +1063,10 @@ class HedgeManager
                Vol = 0.0;
             }
       };
+      ///
+      /// Торговая логика.
+      ///
+      CTrade m_trade;
 };
 ///
 /// Интерфейс обратного вызова.

@@ -1,20 +1,20 @@
 //+------------------------------------------------------------------+
 //|                                                HedgePanelAPI.mq5 |
-//|                        Copyright 2013, MetaQuotes Software Corp. |
+//|                   Copyright 2013-2015, MetaQuotes Software Corp. |
 //|                                              http://www.mql5.com |
 //+------------------------------------------------------------------+
 #property library
-#property copyright "Copyright 2013, MetaQuotes Software Corp."
+#property copyright "Copyright 2013-2015, MetaQuotes Software Corp."
 #property link      "http://www.mql5.com"
-#property version   "1.00"
-
+#property version   "1.11"
+#define VERSION "HedgeTerminal 1.11"
+#property icon "..\\img\\HedgeTerminalApi64x64.ico"
 #define HLIBRARY
 #include "..\Globals.mqh"
 #include "TaskLog.mqh"
 
  
 HedgeManager api;
-
 ///
 /// Curent position selected HedgePositionSelect function.
 ///
@@ -33,6 +33,7 @@ Deal* CurrentDeal;
 ///
 bool CheckPosition()
 {
+   api.OnRefresh();
    if(CheckPointer(CurrentPosition) == POINTER_INVALID)
    {
       hedgeErr = HEDGE_ERR_TRANS_NOTSELECTED;
@@ -65,6 +66,17 @@ bool CheckDeal()
    }
    return true;
 }
+
+bool HedgePropertySetInteger(ENUM_HEDGE_PROP_INTEGER property, long value) export
+{
+   return false;
+}
+
+long HedgePropertyGetInteger(ENUM_HEDGE_PROP_INTEGER property)export
+{
+   return 0;
+}
+
 ///
 /// Type of last api error.
 ///
@@ -78,12 +90,20 @@ ENUM_HEDGE_ERR GetHedgeError() export
 }
 
 ///
+/// Reset last error.
+///
+void ResetHedgeError() export
+{
+   hedgeErr = HEDGE_ERR_NOT_ERROR;
+}
+
+///
 /// Closing of selected active position if seleted asynch mode.
 ///
 bool AsynchClose(HedgeTradeRequest& request)
 {
    CurrentPosition.ExitComment(request.exit_comment, false);
-   ENUM_HEDGE_ERR err = CurrentPosition.AddTask(new TaskClosePartPosition(CurrentPosition, request.volume, Settings.GetDeviation(), true));
+   ENUM_HEDGE_ERR err = CurrentPosition.AddTask(new TaskClosePartPosition(CurrentPosition, request.volume, request.deviation, true, request.close_type));
    hedgeErr = err;
    if(hedgeErr == HEDGE_ERR_NOT_ERROR)
       return true;
@@ -100,7 +120,7 @@ bool SynchClose(HedgeTradeRequest& request)
       if(!SynchEmulator(CurrentPosition))
          return false;
    }
-   ENUM_HEDGE_ERR err = CurrentPosition.AddTask(new TaskClosePartPosition(CurrentPosition, request.volume, Settings.GetDeviation(), false));
+   ENUM_HEDGE_ERR err = CurrentPosition.AddTask(new TaskClosePartPosition(CurrentPosition, request.volume, request.deviation, false, request.close_type));
    if(err == HEDGE_ERR_NOT_ERROR)
       return SynchEmulator(CurrentPosition);
    return false;
@@ -146,11 +166,17 @@ bool SynchEmulator(Position* pos)
    return false;
 }
 
+void HedgeTerminalInstall(void)export
+{
+   if(api.IsFailed())return;
+   int total = TransactionsTotal();
+}
+
 ///
 /// Selected order in current position by it type.
 /// \return True - if order was selected, otherwise false.
 ///
-bool HedgeOrderSelect(ENUM_ORDER_SELECTED_TYPE type)export
+bool HedgeOrderSelect(ENUM_HEDGE_ORDER_SELECTED_TYPE type)export
 {
    if(!CheckPosition())
       return false;
@@ -190,6 +216,7 @@ bool HedgeDealSelect(int index) export
 
 ulong HedgePositionGetInteger(ENUM_HEDGE_POSITION_PROP_INTEGER property) export
 {
+   //api.OnRefresh();
    if(!CheckPosition())
       return 0;
    switch(property)
@@ -242,28 +269,22 @@ ulong HedgePositionGetInteger(ENUM_HEDGE_POSITION_PROP_INTEGER property) export
       }
       case HEDGE_POSITION_STATUS:
          if(CurrentPosition.Status() == POSITION_HISTORY)
-            return POS_HEDGE_HISTORY;
-         else return POS_HEDGE_ACTIVE;
+            return HEDGE_POSITION_HISTORY;
+         else
+            return HEDGE_POSITION_ACTIVE;
+      case HEDGE_POSITION_STATE:
+      {
+         if(!CurrentPosition.IsBlocked())
+            return POSITION_STATE_ACTIVE;
+         return POSITION_STATE_FROZEN;
+      }
    }
    return 0;
 }
 
-ENUM_TRANS_DIRECTION GetDirection()
+ENUM_DIRECTION_TYPE GetDirection()
 {
-   ENUM_TRANS_DIRECTION dir = TRANS_NDEF;
-   switch(CurrentPosition.Direction())
-   {
-      case DIRECTION_LONG:
-         dir = TRANS_LONG;
-         break;
-      case DIRECTION_SHORT:
-         dir = TRANS_SHORT;
-         break;
-      case DIRECTION_NDEF:
-         dir = TRANS_NDEF;
-         break;
-   }
-   return dir;
+   return CurrentPosition.Direction();
 }
 
 ENUM_CLOSE_TYPE GetCloseType()
@@ -337,8 +358,8 @@ ulong HedgeOrderGetInteger(ENUM_HEDGE_ORDER_PROP_INTEGER type)export
          return CurrentOrder.GetId();
       case HEDGE_ORDER_STATUS:
          if(CurrentOrder.Status() == ORDER_PENDING)
-            return ORDER_HEDGE_PENDING;
-         return ORDER_HEDGE_HISTORY;
+            return HEDGE_ORDER_PENDING;
+         return HEDGE_ORDER_HISTORY;
       case HEDGE_ORDER_DEALS_TOTAL:
          return CurrentOrder.DealsTotal();
       case HEDGE_ORDER_TIME_SETUP_MSC:
@@ -437,18 +458,18 @@ int TransactionsTotal(ENUM_MODE_TRADES trades = MODE_TRADES)export
    return 0;
 }
 
-ENUM_TRANS_TYPE TransactionType()
+ENUM_TRANS_TYPE TransactionType()export
 {
    if(CheckPointer(CurrentPosition) == POINTER_INVALID)
       return TRANS_NOT_DEFINED;
    return TRANS_HEDGE_POSITION;
 }
 
-bool TransactionSelect(int index, ENUM_MODE_SELECT select = SELECT_BY_POS, ENUM_MODE_TRADES pool=MODE_TRADES)export
+bool TransactionSelect(ulong index, ENUM_MODE_SELECT select = SELECT_BY_POS, ENUM_MODE_TRADES pool=MODE_TRADES)export
 {
    api.OnRefresh();
    if(select == SELECT_BY_POS)
-      return SelectByPos(index, pool);
+      return SelectByPos((int)index, pool);
    else if(select == SELECT_BY_TICKET && pool == MODE_TRADES)
    {
       CurrentPosition = api.FindActivePosById(index);
@@ -457,6 +478,7 @@ bool TransactionSelect(int index, ENUM_MODE_SELECT select = SELECT_BY_POS, ENUM_
          hedgeErr = HEDGE_ERR_TRANS_NOTFIND;
          return false;
       }
+      return true;
    }
    hedgeErr = HEDGE_ERR_WRONG_PARAMETER;
    return false;
@@ -509,15 +531,22 @@ bool SendTradeRequest(HedgeTradeRequest& request)export
 
 bool PositionClose(HedgeTradeRequest& request)
 {
+   
    if(!CheckMarketRequest(request))
+   {
+      Comment("Wrong request");
       return false;
+   }
    if(request.asynch_mode)
    {
-      printf("Warning! Asynchronise mode enable.");
+      //printf("Warning! Asynchronise mode enable.");
       return AsynchClose(request);  
    }
    else
+   {
       return SynchClose(request);
+      //return SynchClose(request);
+   }
 }
 ///
 /// True if request valid, otherwise false.
@@ -561,7 +590,7 @@ bool ModifySLTP(HedgeTradeRequest& request)
    if(CheckPointer(CurrentPosition) == POINTER_INVALID)
    {
       hedgeErr = HEDGE_ERR_TRANS_NOTSELECTED;
-      return res;
+      return false;
    }
    string oldComment = CurrentPosition.ExitComment();
    if(request.exit_comment != NULL && request.exit_comment != "")
@@ -583,14 +612,20 @@ bool ModifySLTP(HedgeTradeRequest& request)
          LogWriter("Set or modify stop order was failed.", MESSAGE_TYPE_ERROR);
          return false;
       }
-      res = true;
+      if(hedgeErr == HEDGE_ERR_NOT_ERROR)
+         res = true;
+      else
+         res = false;
    }
    if(CheckPointer(CurrentPosition) == POINTER_INVALID)
       return true;
    if(!Math::DoubleEquals(request.tp, CurrentPosition.TakeProfitLevel()))
    {
       hedgeErr = CurrentPosition.TakeProfitLevel(request.tp, true);
-      res = true;
+      if(hedgeErr == HEDGE_ERR_NOT_ERROR)
+         res = true;
+      else
+         res = false;
    }
    return res;
 }
