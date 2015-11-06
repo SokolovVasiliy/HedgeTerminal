@@ -104,7 +104,8 @@ class HedgeManager
          datetime tc = TimeCurrent();
          datetime tn = TimeLocal();
          datetime t_end = tc > tn ? tc+20 : tn+20;
-         HistorySelect(timeBegin, t_end);
+         //HistorySelect(0, D'2015.11.05 16:32:20');
+         HistorySelect(0, t_end);
          if(IsInit())
          {
             EventRefresh* refresh = new EventRefresh(EVENT_FROM_UP, "Hedge Terminal");
@@ -264,6 +265,7 @@ class HedgeManager
       {
          if(!isInit)return;
          EventRefresh* event = new EventRefresh(EVENT_FROM_UP, "TERMINAL API");
+         int t = ActivePos.Total();
          for(int i = 0; i < ActivePos.Total(); i++)
          {
             Position* pos = ActivePos.At(i);
@@ -278,7 +280,6 @@ class HedgeManager
       void TrackingHistoryDeals()
       {
          int total = HistoryDealsTotal();
-         
          //Выводим статус бар
          double onePercent = total/100.0;
          int lastPercent = 0;
@@ -297,14 +298,9 @@ class HedgeManager
                {
                   lastPercent = percent;
                   loading.SetPercentProgress(percent);
-                  //Comment("Complete " + (string)percent + "% (" + (string)dealsCountNow + "/" +
-                  //       (string)total + ")");
                }
             }
             ulong ticket = HistoryDealGetTicket(dealsCountNow);
-            int dbg = 5;
-            if(dealsCountNow == HistoryDealsTotal()-1)
-               dbg=3;
             AddNewDeal(ticket);
             graphRebuild = true;
          }
@@ -771,9 +767,12 @@ class HedgeManager
          }
          #endif
          int dbg = 5;
-         if(ticket == 2682204)
+         if(ticket == 3999377)
             dbg = 3;
          Deal* deal = new Deal(ticket);
+         #ifdef __DEBUG__
+         printf();
+         #endif
          if(deal.Status() == DEAL_BROKERAGE || deal.Status() == DEAL_NULL)
          {
             delete deal;
@@ -787,6 +786,7 @@ class HedgeManager
          Order* order = new Order(deal);
          if(order.Status() == ORDER_NULL)
          {
+            printf("Не удалось создать ордер на основе сделки №" + (string)ticket);
             delete order;
             return;
          }
@@ -797,7 +797,9 @@ class HedgeManager
          Position* actPos = FindActivePosByOrder(order);
          if(actPos == NULL)
             actPos = new Position();
+         ulong ssid = actPos.GetId();
          InfoIntegration* result = actPos.Integrate(order);
+         bool resSucess = result.IsSuccess;
          int iActive = ActivePos.Search(actPos);
          if(actPos.Status() == POSITION_NULL)
          {
@@ -1003,10 +1005,6 @@ class HedgeManager
       /// Истина, если требуется пересчитывать ордера.
       ///
       bool recalcModify;
-      ///
-      /// Время, с которого происходит загрузка иситории.
-      ///
-      datetime timeBegin;      
       ///
       /// Истина, если включено отслеживание ордеров.
       ///

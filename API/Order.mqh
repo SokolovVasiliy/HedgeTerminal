@@ -244,6 +244,8 @@ Order::Order(ulong idOrder):Transaction(TRANS_ORDER)
 Order::Order(Deal* deal) : Transaction(TRANS_ORDER)
 {
    positionId = 0;
+   SetId(deal.OrderId());
+   magic = deal.Magic();
    AddDeal(deal);
 }
 
@@ -394,34 +396,30 @@ ENUM_ORDER_STATUS Order::Status(void)
 ///
 ENUM_ORDER_STATUS Order::RefreshStatus()
 {
-   //printf("Check status " + (string)GetId());
+   /* OLD VERSION
    if(IsPending())
    {
       status = ORDER_PENDING;
-      //printf("   ...is pending");
       return status;
    }
    if(IsHistory())
    {
-      //printf("   ...is history");
       if(TimeSetup() == 0)
-      {
          status = ORDER_NULL;
-         //printf("   ...time null");
-      }
       else if(activated && DealsTotal() == 0)
-      {
          status = ORDER_NULL;
-         //printf("   ...deals null");
-      }
       else
          status = ORDER_HISTORY;   
    }
-   else
-   {
-      //printf("   ...else");
+   else  
       status = ORDER_NULL;
-   }
+   return status;*/
+   if(deals.Total() > 0)
+      status = ORDER_HISTORY;
+   else if(IsPending())
+      status = ORDER_PENDING;
+   else
+      status = ORDER_NULL;
    return status;
 }
 
@@ -539,7 +537,11 @@ bool Order::IsPending()
 ///
 bool Order::IsExecuted()
 {
-   return activated || deals.Total();
+   if(deals.Total() > 0)
+      return true;
+   if(activated)
+      return true;
+   return false;
 }
 
 ///
@@ -864,7 +866,8 @@ ulong Order::GetTakeMask(void)
 ///
 bool Order::IsStopLoss(void)
 {
-   return bitType == id_sl();
+   bool isStop = bitType == id_sl();
+   return isStop;
 }
 
 ///

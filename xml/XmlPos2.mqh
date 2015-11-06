@@ -389,11 +389,11 @@ int XmlPos2::TryOpenFile(int flags)
       if(handle != INVALID_HANDLE)
          break;
       //Устанавливаем генератор в уникальное значение для текущего экземпляра.
-      uint chartHandle = (int)ChartGetInteger(0, CHART_WINDOW_HANDLE);
-      srand(chartHandle);
+      //uint chartHandle = (int)ChartGetInteger(0, CHART_WINDOW_HANDLE);
+      //srand(chartHandle);
       //Задержка от 10 до 100 мсек каждую попытку.
-      int msec = 10 + (rand()%90); 
-      Sleep(msec);
+      //int msec = 10 + (rand()%90); 
+      //Sleep(msec);
    }
    return handle;
 }

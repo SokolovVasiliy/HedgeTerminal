@@ -514,6 +514,7 @@ InfoIntegration* Position::Integrate(Order* order)
       info.InfoMessage = "Proposed order #" + (string)order.GetId() +
       "can not be integrated in position #" + (string)GetId() +
       ". Position and order has not compatible types";
+      info.ActivePosition = new Position(order);
    }
    //ExecutingTask();
    NoticeTask();
@@ -548,8 +549,8 @@ bool Position::CompatibleForClose(Order *order)
    if(status != POSITION_ACTIVE)
       return false;
    //Ќаправление позиции должно быть противоположено закрывающему ордеру
-   //if(Direction() == order.Direction())
-   //   return false;
+   if(Direction() == order.Direction())
+      return false;
    if(order.PositionId() == GetId() &&
       order.Status() == ORDER_HISTORY)
       return true;
@@ -562,7 +563,9 @@ bool Position::CompatibleForClose(Order *order)
 bool Position::CompatibleForStop(Order *order)
 {
    // ≈сли ордер не стоп-лосс то он не совместим как стоп.
-   if(order.IsStopLoss() && !order.IsExecuted() && order.PositionId() == GetId())
+   ulong mId = GetId();
+   ulong mOrderPosId = order.PositionId();
+   if(order.IsStopLoss() && !order.IsExecuted() && order.PositionId() == mId)
       return true;
    return false;
 }
@@ -1271,9 +1274,8 @@ void Position::SetBlock(datetime time, bool saveState)
 {
    if(!IsBlocked())
    {
-      //printf("SetBlock #" + (string)GetId());
       blockedTime.SetDateTime(time);
-      datetime myTime = blockedTime.ToDatetime();
+      //datetime myTime = blockedTime.ToDatetime();
       SendEventBlockStatus(true);
       if(saveState)
          SaveXmlActive();

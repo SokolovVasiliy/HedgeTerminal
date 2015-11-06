@@ -118,6 +118,7 @@ void OnChartEvent(const int id,
                   const double &dparam,
                   const string &sparam)
 {
+   ulong msc = 0;
    chartEventCount++;
    //printf(id);
    // оординаты мыши или комбинаци€ нажатых кнопок мыши изменились.
@@ -144,6 +145,7 @@ void OnChartEvent(const int id,
       HedgePanel.Event(command);
       delete command;
    }
+   
    //ќпредел€ем, €вл€етс€ ли событие нажатием на одну из кнопок HP
    if(id == CHARTEVENT_OBJECT_CLICK)
    {
@@ -166,6 +168,7 @@ void OnChartEvent(const int id,
       HedgePanel.Event(endEdit);
       delete endEdit;
    }
+   
    ChartRedraw(MAIN_WINDOW);
 }
 

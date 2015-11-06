@@ -55,9 +55,11 @@ class TreeViewBox : public Label
             Text("+");
          else if(/*isGrafh && */boxTreeType == BOX_TREE_GENERAL && state == BOX_TREE_RESTORE)
             Text("-");
-         else
+         else /*if(boxTreeType == BOX_TREE_SLAVE)*/
          {
-            Font("Wingdings 3");
+            Font("Wingdings");
+            uchar ch[] = {0xE0};
+            Text(CharArrayToString(ch, 0, 1, CP_SYMBOL));
             FontColor(C'70,70,70');
             Text("9");
          }
