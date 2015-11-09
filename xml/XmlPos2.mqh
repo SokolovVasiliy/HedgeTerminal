@@ -382,17 +382,18 @@ int XmlPos2::TryOpenFile(int flags)
 {
    int handle = INVALID_HANDLE;
    //Количество попыток открытия файла.
-   int attempts = 3;
+   int attempts = 30;
    for(int i = 0; i < attempts; i++)
    {
       handle = FileOpen(fileName, flags|Resources.FileCommon());
-      if(handle != INVALID_HANDLE)
-         break;
+      //if(handle != INVALID_HANDLE)
+      //   break;
       //Устанавливаем генератор в уникальное значение для текущего экземпляра.
       //uint chartHandle = (int)ChartGetInteger(0, CHART_WINDOW_HANDLE);
       //srand(chartHandle);
       //Задержка от 10 до 100 мсек каждую попытку.
       //int msec = 10 + (rand()%90); 
+      //int msec = 2;
       //Sleep(msec);
    }
    return handle;

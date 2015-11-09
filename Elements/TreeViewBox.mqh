@@ -47,7 +47,6 @@ class TreeViewBox : public Label
          //}
          SetColorsFromSettings();
          ReadOnly(true);
-         Font("Arial");
          Align(ALIGN_CENTER);
          //По умолчанию список свернут.
          state = BOX_TREE_COLLAPSE;
@@ -58,10 +57,10 @@ class TreeViewBox : public Label
          else /*if(boxTreeType == BOX_TREE_SLAVE)*/
          {
             Font("Wingdings");
-            uchar ch[] = {0xE0};
-            Text(CharArrayToString(ch, 0, 1, CP_SYMBOL));
+            uchar ch[] = {0xC4};
+            Text(CharArrayToString(ch, 0, 1, CP_ACP));
             FontColor(C'70,70,70');
-            Text("9");
+            FontSize(8);
          }
          /*else if(boxTreeType == BOX_TREE_SLAVE)
             Text(CharToString(3));
@@ -137,6 +136,7 @@ class TreeViewBoxBorder : public Label
          needRefresh = true;
          ReadOnly(true);
          treeType = TreeType;
+         Font("Wingdings");
          if(treeType == BOX_TREE_GENERAL)
          {
             //printf("Create bew TWB, Name: " + nameCheck);
@@ -144,10 +144,10 @@ class TreeViewBoxBorder : public Label
             childNodes.Add(brdGeneral);
             //Text(CharToString(5));
          }
-         else if(treeType == BOX_TREE_SLAVE)
-            Text(CharToString(5));
+         /*else if(treeType == BOX_TREE_SLAVE)
+            Text(CharToString(21));
          else
-            Text(CharToString(3));
+            Text(CharToString(22));*/
       }
       void OnEvent(Event* event)
       {

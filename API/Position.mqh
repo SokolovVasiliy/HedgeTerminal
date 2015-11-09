@@ -11,7 +11,8 @@
 #include "..\XML\XmlPos2.mqh"
 #include "TralStopLoss.mqh"
 #include "MoneyManager.mqh"
-
+#include "LocalLoop.mqh"
+//#define __DEBUG__
 
 class Position;
 
@@ -354,7 +355,8 @@ class Position : public Transaction
       ///
       /// Содержит XML представление активной позиции.
       ///
-      XmlPos2* activeXmlPos;
+      //XmlPos2* activeXmlPos;
+      CLocalLoop* activeXmlPos;
       ///
       /// Истина, если текущая позиция была отображена. 
       ///
@@ -501,16 +503,36 @@ InfoIntegration* Position::Integrate(Order* order)
    //Истина, если поступивший ордер успешно интегрирован.
    bool res = false;
    if(CompatibleForStop(order))
+   {
+      #ifdef __DEBUG__
+      if(api.IsInit())
+         printf("Pos.#" + (string)GetId() + "Переданный в позицию ордер №" + (string)orderId + " будет проинтегрирован как отложенный стоп-ордер");
+      #endif
       info.IsSuccess = IntegrateStop(order);
+   }
    else if(CompatibleForInit(order))
    {
+      #ifdef __DEBUG__
+      if(api.IsInit())
+         printf("Pos.#" + (string)GetId() + "Переданный в позицию ордер №" + (string)orderId + " будет проинтегрирован как инициирующий ордер");
+      #endif
       InitializePosition(order);
       info.IsSuccess = true;
    }
    else if(CompatibleForClose(order))
+   {
+      #ifdef __DEBUG__
+      if(api.IsInit())
+         printf("Pos.#" + (string)GetId() + "Переданный в позицию ордер №" + (string)orderId + " будет проинтегрирован как закрывающий ордер");
+      #endif
       AddClosingOrder(order, info);
+   }
    else
    {
+      #ifdef __DEBUG__
+      if(api.IsInit())
+         printf("Pos.#" + (string)GetId() + "Переданный в позицию ордер №" + (string)orderId + " не совместим с позицией");
+      #endif
       info.InfoMessage = "Proposed order #" + (string)order.GetId() +
       "can not be integrated in position #" + (string)GetId() +
       ". Position and order has not compatible types";
@@ -547,13 +569,34 @@ bool Position::CompatibleForClose(Order *order)
 {
    //Закрыть можно только активную позицию.
    if(status != POSITION_ACTIVE)
+   {
+      #ifdef __DEBUG__
+      if(api.IsInit())
+         printf("Текущая позиция" + (string)GetId()+ " не активна. Ее статус " + EnumToString(status) + " Переданный ордер не совместим с ней");
+      #endif
       return false;
+   }
    //Направление позиции должно быть противоположено закрывающему ордеру
    if(Direction() == order.Direction())
+   {
+      #ifdef __DEBUG__
+      if(api.IsInit())
+      {
+         printf("Направление позиции " + EnumToString(Direction()) + " Направление ордера: " + EnumToString(order.Direction()) + ". Не совместимы");
+         string price = DoubleToString(order.PriceSetup(), 2);
+         string time = TimeToString(order.TimeSetup());
+         printf("Другие свойства ордера. Цена установки : " + price + " Время" + time);
+      }
+      #endif
       return false;
+   }
    if(order.PositionId() == GetId() &&
       order.Status() == ORDER_HISTORY)
       return true;
+   #ifdef __DEBUG__
+   if(api.IsInit())
+      printf("ID Позиции " + (string)GetId() + " ID ссылки ордера " + (string)order.PositionId() + " Ссылки не совпадают");
+   #endif
    return false;
 }
 
@@ -701,7 +744,8 @@ void Position::AddClosingOrder(Order* outOrder, InfoIntegration* info)
    if(initOrder.Status() == ORDER_NULL)
    {
       if(CheckPointer(activeXmlPos) != POINTER_INVALID)
-         activeXmlPos.SaveState(STATE_DELETE);
+         //activeXmlPos.SaveState(STATE_DELETE);
+         activeXmlPos.DeleteRecord(GetId());
       info.HistoryPosition.TakeProfitLevel(TakeProfitLevel(), true);
       ulong sl = HistoryStopId();
       if(sl != 0)
@@ -1246,7 +1290,8 @@ bool Position::IsBlocked(void)
       blockedTime.Tiks(0);
       SendEventBlockStatus(false);
       if(activeXmlPos != NULL)
-         activeXmlPos.SaveState();
+         //activeXmlPos.SaveState();
+         activeXmlPos.SaveState(GetId(), 0, TakeProfitLevel());
       return false;
    }
    return true;
@@ -1263,7 +1308,8 @@ void Position::ResetBlocked(bool saveState)
       blockedTime.Tiks(0);
       SendEventBlockStatus(false);
       if(activeXmlPos != NULL && saveState)
-         activeXmlPos.SaveState();
+         //activeXmlPos.SaveState();
+         activeXmlPos.SaveState(GetId(), 0, TakeProfitLevel());
    }
 }
 
@@ -1425,8 +1471,10 @@ void Position::SaveXmlActive(void)
    if(Status() != POSITION_ACTIVE)
       return;
    if(CheckPointer(activeXmlPos) == POINTER_INVALID)
-      activeXmlPos = new XmlPos2(GetPointer(this));
-   activeXmlPos.SaveState(STATE_REFRESH);
+      //activeXmlPos = new XmlPos2(GetPointer(this));
+      activeXmlPos = new CLocalLoop();
+   //activeXmlPos.SaveState(STATE_REFRESH);
+   activeXmlPos.SaveState(GetId(), blockedTime.ToDatetime(), TakeProfitLevel());
 }
 
 void Position::CreateXmlLink()
@@ -1436,7 +1484,8 @@ void Position::CreateXmlLink()
    if(Status() != POSITION_ACTIVE)
       return;
    if(CheckPointer(activeXmlPos) == POINTER_INVALID)
-      activeXmlPos = new XmlPos2(GetPointer(this));
+      //activeXmlPos = new XmlPos2(GetPointer(this));
+      activeXmlPos = new CLocalLoop();
 }
 
 void Position::DeleteXmlActive()
@@ -1446,8 +1495,10 @@ void Position::DeleteXmlActive()
    if(Status() != POSITION_ACTIVE)
       return;
    if(CheckPointer(activeXmlPos) == POINTER_INVALID)
-      activeXmlPos = new XmlPos2(GetPointer(this));
-   activeXmlPos.SaveState(STATE_DELETE);
+      //activeXmlPos = new XmlPos2(GetPointer(this));
+      activeXmlPos = new CLocalLoop();
+   //activeXmlPos.SaveState(STATE_DELETE);
+   activeXmlPos.DeleteRecord(GetId());
 }
 
 
@@ -1690,9 +1741,18 @@ void Position::OnRefresh(void)
    }
    if(CheckPointer(activeXmlPos) == POINTER_INVALID &&
       api.IsInit() && !MQLInfoInteger(MQL_TESTER))
-      activeXmlPos = new XmlPos2(GetPointer(this));
+      //activeXmlPos = new XmlPos2(GetPointer(this));
+      activeXmlPos = new CLocalLoop();
+   datetime bt = 0;
+   double tp = 0.0;
    if(CheckPointer(activeXmlPos) != POINTER_INVALID)
-      activeXmlPos.LoadState();
+   {
+      if(activeXmlPos.LoadState(GetId(), bt, tp))
+      {
+         blockedTime.SetDateTime(bt);
+         TakeProfitLevel(tp, false);
+      }
+   }
    #ifdef HEDGE_PANEL
       positionLine.RefreshPrices();
    #endif

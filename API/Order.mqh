@@ -246,6 +246,10 @@ Order::Order(Deal* deal) : Transaction(TRANS_ORDER)
    positionId = 0;
    SetId(deal.OrderId());
    magic = deal.Magic();
+   if(deal.DealType() == DEAL_TYPE_BUY)
+      type = ORDER_TYPE_BUY;
+   if(deal.DealType() == DEAL_TYPE_SELL)
+      type = ORDER_TYPE_SELL;
    AddDeal(deal);
 }
 

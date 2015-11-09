@@ -9,7 +9,7 @@
 #include "LoadingProgressBar.mqh"
 #include "..\Globals.mqh"
 #include <Trade\Trade.mqh>
-
+//#define __DEBUG__
 //#include "H.mqh"
 class PosVol;
 ///
@@ -291,6 +291,11 @@ class HedgeManager
          //Перебираем все доступные трейды и формируем на их основе прототипы будущих позиций типа COrder
          for(; dealsCountNow < HistoryDealsTotal(); dealsCountNow++)
          {  
+            #ifdef __DEBUG__
+            if(isInit)
+               printf("Счетчик сделок сработал. Старое значение " + (string)dealsCountNow +
+               " Новое значение " + (string)HistoryDealsTotal());
+            #endif 
             if(!isInit)
             {
                int percent = (int)MathRound((dealsCountNow/(double)total)*100.0);
@@ -771,7 +776,8 @@ class HedgeManager
             dbg = 3;
          Deal* deal = new Deal(ticket);
          #ifdef __DEBUG__
-         printf();
+            if(isInit)
+               printf("Создана новая сделка, на основе тикета №" + (string)ticket);
          #endif
          if(deal.Status() == DEAL_BROKERAGE || deal.Status() == DEAL_NULL)
          {
@@ -784,9 +790,14 @@ class HedgeManager
             return;
          }
          Order* order = new Order(deal);
+         #ifdef __DEBUG__
+         if(isInit)
+            printf("Создан новый ордер №" + (string)order.GetId() + ", со статусом " + EnumToString(order.Status()));
+         #endif
          if(order.Status() == ORDER_NULL)
          {
-            printf("Не удалось создать ордер на основе сделки №" + (string)ticket);
+            if(isInit)
+               printf("Ордер №" + (string)order.GetId() + " был удален");
             delete order;
             return;
          }
@@ -796,15 +807,39 @@ class HedgeManager
          delete event;
          Position* actPos = FindActivePosByOrder(order);
          if(actPos == NULL)
+         {
             actPos = new Position();
-         ulong ssid = actPos.GetId();
+            #ifdef __DEBUG__
+            if(isInit)
+               printf("Активной позиции относящейся к одреру №" + (string)order.GetId() + " не найдено. Создана новая позиция");
+            #endif
+         }
+         #ifdef __DEBUG__
+         else if(isInit)
+            printf("Найдена активная позиция №" + (string)actPos.GetId() + ", к которой принадлежит ордер №" + (string)order.GetId());
+         #endif
          InfoIntegration* result = actPos.Integrate(order);
+         #ifdef __DEBUG__
+         if(isInit)
+         {
+            if(result.IsSuccess)
+               printf("Ордер " + " проинтегрирован удачно");
+            else
+               printf("Ордер " + " не проинтегрирован с позицией");
+         }
+         #endif
          bool resSucess = result.IsSuccess;
          int iActive = ActivePos.Search(actPos);
          if(actPos.Status() == POSITION_NULL)
          {
             if(isInit)
+            {
+               #ifdef __DEBUG__
+               if(isInit)
+                  printf("Активная позиция №" + (string)actPos.GetId() + " была удалена");
+               #endif
                actPos.SendEventChangedPos(POSITION_HIDE);
+            }
             if(iActive != -1)
                ActivePos.Delete(iActive);
             else
@@ -815,14 +850,28 @@ class HedgeManager
             if(iActive == -1)
             {
                if(isInit)
-                  actPos.SendEventChangedPos(POSITION_SHOW);               
+               {
+                  actPos.SendEventChangedPos(POSITION_SHOW);
+                  #ifdef __DEBUG__
+                  if(isInit)
+                     printf("Активная позиция №" + (string)actPos.GetId() + " начинает существовать");
+                  #endif
+               }
                ActivePos.InsertSort(actPos);
             }
             else
             { 
+               #ifdef __DEBUG__
+               if(isInit)
+                  printf("Активная позиция №" + (string)actPos.GetId() + " продолжает существовать, но изменилась");
+               #endif
                Position* oldPos = ActivePos.At(iActive);
                if(CheckPointer(oldPos) != CheckPointer(actPos))
                {
+                  #ifdef __DEBUG__
+                  if(isInit)
+                     printf("Непонятная манипуляция с позицией №" + (string)oldPos.GetId());
+                  #endif
                   InfoIntegration* nres = oldPos.Integrate(actPos.EntryOrder());
                   delete actPos;
                   delete nres;
@@ -836,13 +885,23 @@ class HedgeManager
          if(result.ActivePosition != NULL &&
             result.ActivePosition.Status() == POSITION_ACTIVE)
          {
+            #ifdef __DEBUG__
+            if(isInit)
+               printf("В результате интеграции была создана новая позиция по остатку №" + (string)result.ActivePosition.GetId());
+            #endif
             ActivePos.InsertSort(result.ActivePosition);
             if(isInit)
                result.ActivePosition.SendEventChangedPos(POSITION_SHOW);
          }
          if(result.HistoryPosition != NULL &&
             result.HistoryPosition.Status() == POSITION_HISTORY)
+         {
+            #ifdef __DEBUG__
+            if(isInit)
+               printf("В результате интеграции была создана новая историческая позиция №" + (string)result.HistoryPosition.GetId());
+            #endif
             IntegrateHistoryPos(result.HistoryPosition);
+         }
          delete result;
       }
       ///
