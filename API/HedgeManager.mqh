@@ -467,7 +467,7 @@ class HedgeManager
          {
             string smb = PositionGetSymbol(i);
             #ifdef DEMO 
-            if(!CheckDemoSymbol(smb))
+            if(CheckDemoSymbol(smb) == false)
                continue;
             #endif
             if(SymbolFind(symbols, smb) == -1)
@@ -489,11 +489,14 @@ class HedgeManager
       #ifdef DEMO
       bool CheckDemoSymbol(string symbol)
       {
-         string subStr = StringSubstr(symbol, 0, 5);
-         if(subStr != "VTBR-" && symbol != "AUDCAD"
-            && symbol != "NZDCAD")
-            return false;
-         return true;
+         string symbols[] = {"VTBR-", "AUDCAD", "NZDCAD", "AAPL"};
+         bool check = false;
+         for(int i = 0; i < ArraySize(symbols); i++)
+         {
+            if(StringFind(symbol, symbols[i]) != -1)
+               check = true;
+         }
+         return check;
       }
       #endif
       
@@ -760,12 +763,12 @@ class HedgeManager
       {
          #ifdef DEMO
          string symbol = HistoryDealGetString(ticket, DEAL_SYMBOL);
-         if(!CheckDemoSymbol(symbol))
+         if(CheckDemoSymbol(symbol) == false)
          {
              if(IsInit())
              {
                bool res = MessageBox("HedgeTerminalDemo detect new deal, but the demo version does not support that symbol. " +
-               "Please purchase the full version of the panel. For work in demo mode you can only use AUDCAD, NZDCAD and VTBR-* symbols",
+               "Please purchase the full version of the panel. For work in demo mode you can only use AUDCAD, NZDCAD, AAPL* and VTBR-* symbols",
                "HedgeTerminal Demo");
              }
              return;

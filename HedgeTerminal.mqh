@@ -55,7 +55,7 @@ void OnInit(void)
    #ifdef DEMO
    if(!useFirstTime)
    {
-      MessageBox("This demo version. You can test it on a demo account. Will be showed only AUDCAD, NZDCAD and VTBR-* position."+
+      MessageBox("This demo version. You can test it on a demo account. Will be showed only AUDCAD, NZDCAD, AAPL* and VTBR-* position."+
       " Please purchase the full retail version for unlimited using.");
    }
    #endif
