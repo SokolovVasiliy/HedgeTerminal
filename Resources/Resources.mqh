@@ -100,11 +100,55 @@ class CResources
       CResources()
       {
          CommonFlag = FILE_COMMON;
-         path = ".\\HedgeTerminal\\Brokers\\" +
-                AccountInfoString(ACCOUNT_COMPANY) + " - " +
+         path = ".\\HedgeTerminal\\Brokers\\" + AccountCompany() + " - " +
                 (string)AccountInfoInteger(ACCOUNT_LOGIN) + "\\";
          if(!MQLInfoInteger(MQL_TESTER))
             failed = !CheckInstall();
+      }
+      ///
+      /// Возвращает название компании удаляя символы, которые
+      /// не могу использоваться в названии файлов.
+      ///
+      string AccountCompany(void)
+      {
+         string acc = AccountInfoString(ACCOUNT_COMPANY);
+         uchar acc_array[];
+         StringToCharArray(acc, acc_array, 0, WHOLE_ARRAY, CP_ACP);
+         uchar acc_result[];
+         ArrayResize(acc_result, ArraySize(acc_array));
+         int r = 0;
+         for(int i = 0; i < ArraySize(acc_array); i++)
+         {
+            uchar ch = acc_array[i];
+            if(!IsAsciiCharValid(ch))
+               continue;
+            acc_result[r] = ch;
+            r++;
+         }
+         string company = CharArrayToString(acc_result, 0, WHOLE_ARRAY, CP_ACP);
+         return company;
+      }
+      ///
+      /// Истина, если переданный символ может быть частью названия файла. 
+      /// Ложь в противном случае.
+      ///
+      bool IsAsciiCharValid(uchar ch)
+      {
+         if(ch == ' ')
+            return true;
+         if(ch < 48)
+            return false;
+         if(ch > 57 && ch < 65)
+            return false;
+         switch(ch)
+         {
+            case 124: return false;
+            case 126: return false;
+            case 128: return false;
+            case 155: return false;
+            case 156: return false;
+         }
+         return true;
       }
       ///
       /// Возвращает путь к директории текущего брокера.

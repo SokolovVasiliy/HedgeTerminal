@@ -965,7 +965,7 @@ string Position::EntryComment(void)
 }
 
 ///
-/// Возвращает исходящий комментарий позиции.
+///  
 ///
 string Position::ExitComment(void)
 {
@@ -1291,7 +1291,7 @@ bool Position::IsBlocked(void)
       SendEventBlockStatus(false);
       if(activeXmlPos != NULL)
          //activeXmlPos.SaveState();
-         activeXmlPos.SaveState(GetId(), 0, TakeProfitLevel());
+         activeXmlPos.SaveState(GetId(), 0, TakeProfitLevel(), ExitComment());
       return false;
    }
    return true;
@@ -1309,7 +1309,7 @@ void Position::ResetBlocked(bool saveState)
       SendEventBlockStatus(false);
       if(activeXmlPos != NULL && saveState)
          //activeXmlPos.SaveState();
-         activeXmlPos.SaveState(GetId(), 0, TakeProfitLevel());
+         activeXmlPos.SaveState(GetId(), 0, TakeProfitLevel(), ExitComment());
    }
 }
 
@@ -1474,7 +1474,7 @@ void Position::SaveXmlActive(void)
       //activeXmlPos = new XmlPos2(GetPointer(this));
       activeXmlPos = new CLocalLoop();
    //activeXmlPos.SaveState(STATE_REFRESH);
-   activeXmlPos.SaveState(GetId(), blockedTime.ToDatetime(), TakeProfitLevel());
+   activeXmlPos.SaveState(GetId(), blockedTime.ToDatetime(), TakeProfitLevel(), ExitComment());
 }
 
 void Position::CreateXmlLink()
@@ -1747,10 +1747,16 @@ void Position::OnRefresh(void)
    double tp = 0.0;
    if(CheckPointer(activeXmlPos) != POINTER_INVALID)
    {
-      if(activeXmlPos.LoadState(GetId(), bt, tp))
+      string comm = "";
+      if(activeXmlPos.LoadState(GetId(), bt, tp, comm))
       {
          blockedTime.SetDateTime(bt);
          TakeProfitLevel(tp, false);
+         if(ExitComment() != comm)
+         {
+            ExitComment(comm, false);
+            SendEventChangedPos(POSITION_REFRESH);
+         }
       }
    }
    #ifdef HEDGE_PANEL

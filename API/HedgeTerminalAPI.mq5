@@ -6,8 +6,8 @@
 #property library
 #property copyright "Copyright 2013-2015, MetaQuotes Software Corp."
 #property link      "http://www.mql5.com"
-#property version   "1.11"
-#define VERSION "HedgeTerminal 1.11"
+#property version   "1.15"
+#define VERSION "HedgeTerminal 1.15"
 #property icon "..\\img\\HedgeTerminalApi64x64.ico"
 #define HLIBRARY
 #include "..\Globals.mqh"
