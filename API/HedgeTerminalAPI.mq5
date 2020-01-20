@@ -4,10 +4,10 @@
 //|                                              http://www.mql5.com |
 //+------------------------------------------------------------------+
 #property library
-#property copyright "Copyright 2013-2015, MetaQuotes Software Corp."
+#property copyright "Copyright 2013-2016, MetaQuotes Software Corp."
 #property link      "http://www.mql5.com"
-#property version   "1.16"
-#define VERSION "HedgeTerminal 1.16"
+#property version   "1.19"
+#define VERSION "HedgeTerminal 1.19"
 #property icon "..\\img\\HedgeTerminalApi64x64.ico"
 #define HLIBRARY
 #include "..\Globals.mqh"
@@ -114,12 +114,14 @@ bool SynchClose(HedgeTradeRequest& request)
 {
    //Если необходимо изменяем комментарий у стоп-ордера.
    bool res = false;
-   if(CurrentPosition.ExitComment() != request.exit_comment)
+   if(CurrentPosition.StopLossLevel() > 0.0)
    {
-      CurrentPosition.ExitComment(request.exit_comment, true, request.asynch_mode);
+      CurrentPosition.AddTask(new TaskDeleteStopLoss(CurrentPosition, false));
       if(!SynchEmulator(CurrentPosition))
          return false;
    }
+   if(StringLen(request.exit_comment) > 0)
+      CurrentPosition.ExitComment(request.exit_comment, false, false);
    ENUM_HEDGE_ERR err = CurrentPosition.AddTask(new TaskClosePartPosition(CurrentPosition, request.volume, request.deviation, false, request.close_type));
    if(err == HEDGE_ERR_NOT_ERROR)
       return SynchEmulator(CurrentPosition);
@@ -142,6 +144,7 @@ bool SynchEmulator(Position* pos)
    //Асинхорнный режим отключен? - Выполняем задачу дальше.
    for(int i = 0; i < 20; i++)
    {
+      //printf("Загрываю позицию №" + (string)pos.GetId() + " Попытка №" + (string)i);
       api.OnRefresh();
       if(CheckPointer(task) == POINTER_INVALID)      
          return true;

@@ -125,7 +125,7 @@ class CResources
             acc_result[r] = ch;
             r++;
          }
-         string company = CharArrayToString(acc_result, 0, WHOLE_ARRAY, CP_ACP);
+         string company = CharArrayToString(acc_result, 0, r, CP_ACP);
          return company;
       }
       ///
@@ -134,7 +134,7 @@ class CResources
       ///
       bool IsAsciiCharValid(uchar ch)
       {
-         if(ch == ' ')
+         if(ch == ' ' || ch == '.')
             return true;
          if(ch < 48)
             return false;

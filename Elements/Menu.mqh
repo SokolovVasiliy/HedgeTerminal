@@ -68,7 +68,7 @@ class ElementMenu : public Label
                           "                                                                " +
                           "For suggestions and comments, please contact with author at https://login.mql5.com/ru/users/c-4" +
                           "                                                              " +
-                          "Copyright 2013-2015, Vasiliy Sokolov, St.-Petersburg, Russia.";
+                          "Copyright 2013-2016, Vasiliy Sokolov, St.-Petersburg, Russia.";
          
          MessageBox(message, VERSION, MB_ICONASTERISK);
       }

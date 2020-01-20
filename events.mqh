@@ -405,7 +405,7 @@ class EventVisible : public Event
 ///
 /// Событие EVENT_NODE_RESIZE
 ///
-class EventResize : Event
+class EventResize : public Event
 {
    public:
       long NewWidth(){return myWidth;}
@@ -427,7 +427,7 @@ class EventResize : Event
 ///
 /// Событие EVENT_NODE_MOVE
 ///
-class EventMove : Event
+class EventMove : public Event
 {
    public:
       long XDist(){return xDist;}
@@ -483,7 +483,7 @@ class EventInit : Event
 ///
 /// Событие "Деинициализация программы".
 ///
-class EventDeinit : Event
+class EventDeinit : public Event
 {
    public:
       virtual Event* Clone()

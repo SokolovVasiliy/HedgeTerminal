@@ -371,7 +371,7 @@ class TargetSetPendingOrder : public Target
       MethodSetPendingOrder* pendingOrder;
 };
 
-class TargetModifyPendingOrder : Target
+class TargetModifyPendingOrder : public Target
 {
    public:
       TargetModifyPendingOrder(ulong orderId, double newPrice, bool asynchMode) : Target(TARGET_MODIFY_PENDING_ORDER)
@@ -485,7 +485,7 @@ class TargetModifyPendingOrder : Target
 ///
 /// Совершает рыночные сделки.
 ///
-class TargetTradeByMarket : Target
+class TargetTradeByMarket : public Target
 {
    public:
       TargetTradeByMarket(string symbol, ENUM_DIRECTION_TYPE dir, double vol, ulong deviation, string comment, ulong magic, bool asynchMode) :

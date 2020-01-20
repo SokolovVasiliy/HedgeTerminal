@@ -24,8 +24,8 @@ class MainForm : public ProtoNode
          tabs.AddTab("History", openPos);
          
          allowed = false;
-         
          start = new StartButton(GetPointer(this));
+         
          start.Font("Webdings");
          start.FontSize(10);
          string str = CharToString(0x5c);

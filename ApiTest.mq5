@@ -6,13 +6,9 @@
 #property copyright "Copyright 2013, MetaQuotes Software Corp."
 #property link      "http://www.mql5.com"
 #property version   "1.00"
-string VERSION = "HT";
-#define API_INTRO
-#ifdef API_INTRO
-   #include ".\API\HedgeTerminalAPI.mq5"
-#else
-   #include <Prototypes.mqh>
-#endif
+#include "Globals.mqh"
+#include "Elements\Forms.mqh"
+
 //+------------------------------------------------------------------+
 //| Script program start function                                    |
 //+------------------------------------------------------------------+

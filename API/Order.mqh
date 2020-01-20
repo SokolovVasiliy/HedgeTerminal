@@ -785,14 +785,6 @@ void Order::RecalcPosId()
    bool b2 = crypto.GetBit(magic, 62);
    if(!b1)return;
    ulong mg = magic;
-   /*#ifdef DEMO
-   for(uchar i = 63; i > 28; i--)
-   {
-      bool res = crypto.GetBit(tiks_demo, i);
-      bool res1 = crypto.GetBit(magic, i);
-      crypto.SetBit(mg, i, res || res1);
-   }
-   #endif*/
    unhash = crypto.Decrypt(mg);
    crypto.SetBit(unhash, 63, b1);
    crypto.SetBit(unhash, 62, b2);
@@ -804,10 +796,7 @@ void Order::RecalcPosId()
    ulong mask = 0x03FFFFFFFFFFFFFF;
    ulong id = mask & unhash;
    int dbg = 5;
-   //if(FindActivePosById(id) >= 0)
-      positionId = id;
-   //else
-   //   dbg = 6;
+   positionId = id;
 }
 
 int Order::FindActivePosById(ulong id)

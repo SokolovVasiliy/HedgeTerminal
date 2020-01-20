@@ -194,22 +194,25 @@ double MoneyManager::GetProfitValue(void)
 
 double MoneyManager::GetProfitValueForex(void)
 {
-   
-   int dbg = 5;
-   double pips = pos.ProfitInPips();
+   //>>>>>>>>>>>>>>>>>>>>>> Simple forex calculation >>>>>>>>>>>>>>>>>>>>>>>
+   double t_size = SymbolInfoDouble(pos.Symbol(), SYMBOL_TRADE_TICK_SIZE);
+   double t_cost = SymbolInfoDouble(pos.Symbol(), SYMBOL_TRADE_TICK_VALUE);
+   double volume = pos.VolumeExecuted();
+   if(t_size == 0.0)t_size = 1.0;
+   double price_step = pos.ProfitInPips() / t_size;
+   double profit = price_step * t_cost * volume;
+   return profit;
+   //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+   /*double pips = pos.ProfitInPips();
    double point = SymbolInfoDouble(pos.Symbol(), SYMBOL_POINT);
    if(point == 0.0)return 0.0;
    double contractSize = SymbolInfoDouble(pos.Symbol(), SYMBOL_TRADE_CONTRACT_SIZE);
-   if(pos.Symbol() == "USDJPY")
-      dbg = 5;
    double tValue = GetTickValue();
    double vol = pos.VolumeExecuted();
    double currency = 0.0;
    calcMode = calcMode = (ENUM_SYMBOL_CALC_MODE)SymbolInfoInteger(pos.Symbol(), SYMBOL_TRADE_CALC_MODE);
    currency = tValue * (pips/point) * pos.VolumeExecuted();
-   if(pos.GetId() == 1010163654)
-      dbg = 5;
-   return currency;
+   return currency;*/
 }
 
 double MoneyManager::GetProfitValueForts(void)

@@ -505,7 +505,7 @@ InfoIntegration* Position::Integrate(Order* order)
    if(CompatibleForStop(order))
    {
       #ifdef __DEBUG__
-      if(api.IsInit())
+      if(CheckPointer(api) != POINTER_INVALID && api.IsInit())
          printf("Pos.#" + (string)GetId() + "Переданный в позицию ордер №" + (string)orderId + " будет проинтегрирован как отложенный стоп-ордер");
       #endif
       info.IsSuccess = IntegrateStop(order);
@@ -513,7 +513,7 @@ InfoIntegration* Position::Integrate(Order* order)
    else if(CompatibleForInit(order))
    {
       #ifdef __DEBUG__
-      if(api.IsInit())
+      if(CheckPointer(api) != POINTER_INVALID && api.IsInit())
          printf("Pos.#" + (string)GetId() + "Переданный в позицию ордер №" + (string)orderId + " будет проинтегрирован как инициирующий ордер");
       #endif
       InitializePosition(order);
@@ -522,7 +522,7 @@ InfoIntegration* Position::Integrate(Order* order)
    else if(CompatibleForClose(order))
    {
       #ifdef __DEBUG__
-      if(api.IsInit())
+      if(CheckPointer(api) != POINTER_INVALID && api.IsInit())
          printf("Pos.#" + (string)GetId() + "Переданный в позицию ордер №" + (string)orderId + " будет проинтегрирован как закрывающий ордер");
       #endif
       AddClosingOrder(order, info);
@@ -530,7 +530,7 @@ InfoIntegration* Position::Integrate(Order* order)
    else
    {
       #ifdef __DEBUG__
-      if(api.IsInit())
+      if(CheckPointer(api) != POINTER_INVALID && api.IsInit())
          printf("Pos.#" + (string)GetId() + "Переданный в позицию ордер №" + (string)orderId + " не совместим с позицией");
       #endif
       info.InfoMessage = "Proposed order #" + (string)order.GetId() +
@@ -571,7 +571,7 @@ bool Position::CompatibleForClose(Order *order)
    if(status != POSITION_ACTIVE)
    {
       #ifdef __DEBUG__
-      if(api.IsInit())
+      if(CheckPointer(api) != POINTER_INVALID && api.IsInit())
          printf("Текущая позиция" + (string)GetId()+ " не активна. Ее статус " + EnumToString(status) + " Переданный ордер не совместим с ней");
       #endif
       return false;
@@ -580,7 +580,7 @@ bool Position::CompatibleForClose(Order *order)
    if(Direction() == order.Direction())
    {
       #ifdef __DEBUG__
-      if(api.IsInit())
+      if(CheckPointer(api) != POINTER_INVALID && api.IsInit())
       {
          printf("Направление позиции " + EnumToString(Direction()) + " Направление ордера: " + EnumToString(order.Direction()) + ". Не совместимы");
          string price = DoubleToString(order.PriceSetup(), 2);
@@ -594,7 +594,7 @@ bool Position::CompatibleForClose(Order *order)
       order.Status() == ORDER_HISTORY)
       return true;
    #ifdef __DEBUG__
-   if(api.IsInit())
+   if(CheckPointer(api) != POINTER_INVALID && api.IsInit())
       printf("ID Позиции " + (string)GetId() + " ID ссылки ордера " + (string)order.PositionId() + " Ссылки не совпадают");
    #endif
    return false;
@@ -1205,7 +1205,10 @@ ENUM_HEDGE_ERR Position::TakeProfitLevel(double level, bool saveState)
 {
    ENUM_HEDGE_ERR err = HEDGE_ERR_NOT_ERROR;
    if(Math::DoubleEquals(level, takeProfit))
+   {
+      SendEventChangedPos(POSITION_REFRESH);
       return(HEDGE_ERR_POS_NO_CHANGES);
+   }
    bool check = CheckValidTP(level);
    if(!check)
    {

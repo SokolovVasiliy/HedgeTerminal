@@ -72,6 +72,8 @@ void CLocalLoop::SaveState(ulong pos_id, datetime blocktime, double tp, string c
    GlobalVariableSet(POS_NAME, dbl.dbl);
    if(tp > 0.0)
       GlobalVariableSet(TP_NAME, tp);
+   else if(tp == 0.0)
+      GlobalVariableDel(TP_NAME);
 }
 //+------------------------------------------------------------------+
 //| Удаляет запись об активной позиции из глобальных переменных      |

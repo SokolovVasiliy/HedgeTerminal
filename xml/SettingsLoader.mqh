@@ -133,6 +133,7 @@ class XmlLoader
       void LoadHistOrders(void);
       void TryParseAliase(CXmlElement* xmlItem);
       void TryParseExclude(CXmlElement* xmlItem);
+      CXmlDocument* FastInitByXML(string file_name, int file_common);
 };
 
 ///
@@ -199,23 +200,44 @@ CArrayLong* XmlLoader::GetExcludeOrders()
    CArrayLong* ex = GetPointer(excludeOrders);
    if(MQLInfoInteger(MQL_TESTER))
       return ex;
-   CXmlDocument doc;
-   string err;
-   
    string path = Resources.GetFileNameByType(RES_EXCLUDE_ORDERS);
    if(!FileIsExist(path, FILE_COMMON))
       return ex;
-   if(!doc.CreateFromFile(path, err))
-   {
-      printf(err);
-      return ex;
-   }
+   CXmlDocument* doc = FastInitByXML(path, FILE_COMMON);
    for(int i = 0; i < doc.FDocumentElement.GetChildCount(); i++)
    {
       CXmlElement* xmlItem = doc.FDocumentElement.GetChild(i);
       TryParseExclude(xmlItem);
    }
+   delete doc;
    return ex;
+}
+///
+/// Быстро загражает XML файл, каждая строка которого должна представлять узел
+///
+CXmlDocument* XmlLoader::FastInitByXML(string xml_file, int file_common = FILE_COMMON)
+{
+   int h = FileOpen(xml_file, FILE_READ|file_common);
+   if(h == INVALID_HANDLE)
+      return NULL;
+   uchar array[];
+   string lines[];
+   FileReadArray(h, array);
+   FileClose(h);
+   string text = CharArrayToString(array);
+   StringSplit(text, '\n', lines);
+   CXmlDocument* xdoc = new CXmlDocument();
+   int total = ArraySize(lines)-1;
+   for(int i = 1; i < total; i++)
+   {
+      CXmlElement* xfactory = new CXmlElement();
+      CXmlElement* element = new CXmlElement();
+      xfactory.InitByXmlText(lines[i], element);
+      xdoc.FDocumentElement.ChildAdd(element);
+      delete xfactory;
+      delete element;
+   }
+   return xdoc;
 }
 
 void XmlLoader::SaveXmlHistPos(ulong id, ENUM_VIRTUAL_ORDER_TYPE type, string level)
