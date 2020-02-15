@@ -9,7 +9,9 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2013, Vasiliy Sokolov"
 #property link      "https://login.mql5.com/ru/users/c-4"
-
+#ifndef __HT__
+#define __HT__
+#endif 
 ///
 /// Targets ID.
 ///
@@ -84,12 +86,19 @@ enum ENUM_HEDGE_ORDER_SELECTED_TYPE
 ///
 /// Type of state position.
 ///
-enum HEDGE_POSITION_STATE_TYPE
+enum ENUM_HEDGE_POSITION_STATE
 {
    POSITION_STATE_ACTIVE,
    POSITION_STATE_FROZEN
 };
-
+///
+/// Status of current position.
+///
+enum ENUM_HEDGE_POSITION_STATUS
+{
+   HEDGE_POSITION_ACTIVE,
+   HEDGE_POSITION_HISTORY
+};
 ///
 /// Status of last task.
 ///
@@ -143,7 +152,26 @@ enum ENUM_TRANS_TYPE
 ///
 /// Direction of transaction.
 ///
-enum ENUM_TRANS_DIRECTION
+enum ENUM_DIRECTION_TYPE
+{
+   ///
+   /// Short transaction. Init Sell, Sell Limit, Sell Stop and Sell Stop Limit orders.
+   ///
+   DIRECTION_SHORT = -1,
+   ///
+   /// Direction of transaction not defined. For example brokerage deal is undefined direction.
+   ///
+   DIRECTION_UNDEFINED,
+   ///
+   /// Long transaction. Init Buy, Buy Limit, Buy Stop and Buy Stop Limit orders.
+   ///
+   DIRECTION_LONG
+};
+
+///
+/// Direction of transaction.
+///
+/*enum ENUM_TRANS_DIRECTION
 {
    ///
    /// Direction transaction not defined.
@@ -157,15 +185,8 @@ enum ENUM_TRANS_DIRECTION
    /// Direction transaction is short.
    ///
    TRANS_SHORT
-};
-///
-/// Status of current position.
-///
-enum ENUM_HEDGE_POSITION_STATUS
-{
-   HEDGE_POSITION_ACTIVE,
-   HEDGE_POSITION_HISTORY
-};
+};*/
+
 ///
 /// Status of current order.
 ///
@@ -430,6 +451,7 @@ struct HedgeTradeRequest //HedgeTradeRequest
    ///
    HedgeTradeRequest()
    {
+      action = REQUEST_CLOSE_POSITION;
       asynch_mode = false;
       volume = 0.0;
       sl = 0.0;
@@ -437,7 +459,7 @@ struct HedgeTradeRequest //HedgeTradeRequest
    }
 };
 
-#import "..\Experts\Market\hedgeterminalapi.ex5"
+#import "..\\Scripts\\Market\\hedgeterminalapi.ex5"
    ///
    /// Return last error of Hedge terminal API.
    ///
@@ -478,7 +500,7 @@ struct HedgeTradeRequest //HedgeTradeRequest
    /// MODE_TRADES(default) - transaction selected from trading pool(opened positions and pending orders).
    /// MODE_HISTORY - transaction selected from history pool (closing positions, cancel orders, deals, swaps and etc.)
    ///
-   bool TransactionSelect(int index, ENUM_MODE_SELECT select = SELECT_BY_POS, ENUM_MODE_TRADES pool=MODE_TRADES);
+   bool TransactionSelect(ulong index, ENUM_MODE_SELECT select = SELECT_BY_POS, ENUM_MODE_TRADES pool=MODE_TRADES);
    ///
    /// Returns type of selected transaction. Before using this function, transaction must be selected by TransactionSelect.
    /// \return Type of selected transaction. 
@@ -548,3 +570,12 @@ struct HedgeTradeRequest //HedgeTradeRequest
    ///
    long HedgePropertyGetInteger(ENUM_HEDGE_PROP_INTEGER property, long value);
 #import
+
+/*
+                                 WILDCARD MACROSS
+*/
+#define FOREACH_POSITION for(int i = TransactionsTotal()-1; i >= 0; i--)
+
+#define IF_LONG if(HedgePositionGetInteger(HEDGE_POSITION_DIRECTION) == DIRECTION_LONG)
+#define IF_SHORT if(HedgePositionGetInteger(HEDGE_POSITION_DIRECTION) == DIRECTION_SHORT)
+#define IF_FROZEN if(HedgePositionGetInteger(HEDGE_POSITION_STATE) == POSITION_STATE_FROZEN)

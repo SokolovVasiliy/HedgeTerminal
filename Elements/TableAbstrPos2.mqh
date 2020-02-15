@@ -1269,6 +1269,8 @@ class Summary : public AbstractLine
          for(; histTrans < total; histTrans++)
          {
             Transaction* trans = callBack.HistoryPosAt(histTrans);
+            if(trans == NULL)
+               continue;
             balance += trans.ProfitInCurrency();
             commission += trans.Commission();
             if(trans.TransactionType() == TRANS_POSITION)
